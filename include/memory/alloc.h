@@ -2,7 +2,6 @@
 
 #include "attributes.h"
 #include "intdefs.h"
-#include "mimalloc.h"
 
 typedef enum AllocationResult : isize {
   /// The Allocator VTable Method is not implemented in the implementing/super Allocator!

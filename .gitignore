@@ -64,3 +64,4 @@ subprojects/*
 
 download/
 
+# compile_commands.json
