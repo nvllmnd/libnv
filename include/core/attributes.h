@@ -9,6 +9,12 @@
 
 #include "hedley.h"
 
+#if SYSTEM_WINDOWS
+#define SYSTEM_POSIX 0
+#else
+#define SYSTEM_POSIX 1
+#endif
+
 #if defined(__clang__) && __clang__
 
 // HEDLEY_PRAGMA(clang diagnostic push);
@@ -222,6 +228,9 @@
   [[nodiscard(                                                                                                       \
       "Returned value is either a pointer or contains a pointer! Ignoring value would cause memory leak! Caller is " \
       "expected to call appropriate free function on returned value")]]
+
+#define HANDLE_ERROR \
+  [[nodiscard("Function called returns an Error value that must be handled to avoid UB/Null ptr errors!")]]
 
 // NOTE: I had to rip out the hedley.h defines for LIKELY and UNLIKELY (and i just brought along PREDICT and
 // UNPREDICTABLE cus why not lol) so that i can put () around the compiler extension, so i can write my if statements

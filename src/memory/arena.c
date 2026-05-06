@@ -4,12 +4,10 @@
 #include <string.h>
 
 #include "attributes.h"
-#include "core/constants.h"
 #include "core_types.h"
 #include "log.h"
 #include "memory/alloc.h"
-#include "mimalloc-override.h"
-#include "mimalloc.h"
+#include "memory/virt.h"
 
 struct Block {
   struct Block* prev;
@@ -19,10 +17,10 @@ struct Block {
 };
 typedef struct Block Block;
 
-static inline Block* palloc_block_new(mi_heap_t* self, Block* current, isize size) {
+static inline Block* palloc_block_new(VirtMem* self, Block* current, isize size) {
   const isize capacity = sizeof(Block) + size;
 
-  Block* block = mi_heap_zalloc_aligned(self, capacity, alignof(Block));
+  Block* block = vmem_allocate(self, mlayout_bytes(capacity));
 
   if (UNLIKELY(is_null(block))) {
     ELOG_DBG(
@@ -39,7 +37,14 @@ static inline Block* palloc_block_new(mi_heap_t* self, Block* current, isize siz
 }
 
 struct ArenaHeap {
-  mi_heap_t* parent;
+  /// indicates if this arena was created with an exclusive reference to its VirtMem field (ArenaHeap was created by
+  /// calling arena_heap_new, as opposed to arena_heap_in_vmem)
+  /// this allows us to better reuse memory, as if this was created by an outside VirtMem, use is most likely not
+  /// interesting in clearing/resetting. If they do this is still fine, clearing/resetting zeros memory before setting
+  /// chained block pointers to nullptr, so everything still works, though an exclusive ownership is most efficent use
+  /// of space and time.
+  bool is_exclusive;
+  VirtMem* parent;
 
   ArenaHeapStats stats;
 
@@ -51,11 +56,14 @@ struct ArenaHeap {
 
   i64 mem_used;
   i64 mem_cap;
+
   u8 mem[];
 };
 
 METHOD
-static inline void* ah_try_inner_allocate(ArenaHeap* self, isize size, isize align) {
+static inline void* ah_try_inner_allocate(ArenaHeap* self, MemLayout layout) {
+  const isize size = layout.size;
+  const isize align = layout.align;
   const isize end = self->mem_used + size;
   if (end < self->mem_cap) {
     u8* start = &self->mem[self->mem_used];
@@ -123,15 +131,17 @@ static inline void* ah_block_allocate(ArenaHeap* self, isize size, isize align) 
 }
 
 METHOD
-static inline void* ah_allocate(ArenaHeap* self, isize size, isize align) {
+static inline void* ah_allocate(ArenaHeap* self, MemLayout layout) {
   // try to allocate from ArenaHeap's inner memory buffer first
   // this function returns a nullptr if its out of memory
   // or it is unable to fit this allocation
-  void* ptr = ah_try_inner_allocate(self, size, align);
+  void* ptr = ah_try_inner_allocate(self, layout);
   if (is_not_null(ptr)) {
     return ptr;
   }
 
+  const isize size = layout.size;
+  const isize align = layout.align;
   if (is_null(self->root) || !ah_alloc_in_block_ok(self, size, align)) {
     const isize block_size = size * 2;
     self->root = palloc_block_new(self->parent, self->root, block_size);
@@ -140,35 +150,40 @@ static inline void* ah_allocate(ArenaHeap* self, isize size, isize align) {
   return ah_block_allocate(self, size, align);
 }
 
-static void* arena_heap_vtalloc_impl(void* ctx, isize size, isize align) {
+static void* arena_heap_vtalloc_impl(void* ctx, MemLayout layout) {
   ArenaHeap* self = pcast(ArenaHeap, ctx);
-  return arena_heap_alloc(self, size, align);
+  return arena_heap_alloc(self, layout);
 }
 
-static void* arena_heap_vtzalloc_impl(void* ctx, isize size, isize align) {
+static void* arena_heap_vtzalloc_impl(void* ctx, MemLayout layout) {
   ArenaHeap* self = pcast(ArenaHeap, ctx);
-  return arena_heap_zalloc(self, size, align);
+  return arena_heap_zalloc(self, layout);
 }
 
-static inline ArenaHeap* ah_new_ex(VirtMem vm, isize capacity) {
-  mi_heap_t* parent = nullptr;
-  if (is_not_null(vm)) {
-    parent = vmem_heap_new(vm);
-  } else {
-    parent = mi_heap_new();
+
+static inline ArenaHeap* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
+
+  if (is_null(vm)) {
+
+    exclusive = true;
+
+    if (vmem_init(&vm, vmem_mb) != OK) {
+      LOG_DBG(
+          "Call to vmem_init failed! Could not allocate virtual memory when attempting to create a new [ArenaHeap]!");
+      return nullptr;
+    }
+
   }
 
-  assert(parent != mi_heap_main());
-
   const isize size = sizeof(ArenaHeap) + capacity;
-  ArenaHeap* self = mi_heap_zalloc_aligned(parent, size, alignof(ArenaHeap));
+  ArenaHeap* self = vmem_allocate(vm, mlayout_bytes(size));
 
   if UNLIKELY (is_null(self)) {
     assert(false);
     return nullptr;
   }
 
-  *self = make(ArenaHeap, .parent = parent, .stats = make(ArenaHeapStats, .total_used = 0, .total_allocated = capacity),
+  *self = make(ArenaHeap, .is_exclusive = exclusive, .parent = vm, .stats = make(ArenaHeapStats, .total_used = 0, .total_allocated = capacity),
                .root = nullptr, .mem_used = 0, .mem_cap = capacity);
 
   return self;
@@ -176,37 +191,57 @@ static inline ArenaHeap* ah_new_ex(VirtMem vm, isize capacity) {
 
 static const AllocVTable HEAP_VTABLE =
     alloc_vtable_new(.allocate = arena_heap_vtalloc_impl, .zallocate = arena_heap_vtzalloc_impl,
-                     .expand_in_place = NO_IMPL_EXPAND, .free = NO_IMPL_FREE, .reallocate = NO_IMPL_REALLOCATE);
+                      .free = NO_IMPL_FREE, .reallocate = NO_IMPL_REALLOCATE);
 
-ArenaHeap* arena_heap_new(isize capacity) { return ah_new_ex(nullptr, capacity); }
+ArenaHeap* arena_heap_new(isize vmem_size_in_mb, isize init_capacity) { return ah_new_ex(nullptr,vmem_size_in_mb, init_capacity, true); }
 
-ArenaHeap* arena_heap_in_vmem(VirtMem vm, isize capacity) { return ah_new_ex(vm, capacity); }
+ArenaHeap* arena_heap_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {
+  assert(vm);
+  return ah_new_ex(vm, 0 /*not used since vm is non-null */, capacity, exclusive);
+}
 
-void* arena_heap_alloc(ArenaHeap* self, isize size, isize align) { return ah_allocate(self, size, align); }
+void* arena_heap_alloc(ArenaHeap* self, MemLayout layout) { return ah_allocate(self, layout); }
 
-void* arena_heap_zalloc(ArenaHeap* self, isize size, isize align) {
-  u8* mem = arena_heap_alloc(self, size, align);
+void* arena_heap_zalloc(ArenaHeap* self, MemLayout layout) {
+  u8* mem = arena_heap_alloc(self, layout);
   if UNLIKELY (is_null(mem)) {
     return nullptr;
   }
-  memset(mem, 0, size);
+  memset(mem, 0, layout.size);
   return mem;
 }
 
 void arena_heap_clear(ArenaHeap* self) {
+
+  // fast path
+  if (self->is_exclusive) {
+    vmem_clear(self->parent);
+    self->mem_used = 0;
+    self->root = nullptr;
+    return;
+  }
+  
   Block* current = self->root;
 
   while (current && current->prev) {
     Block* tmp = current;
     current = current->prev;
-    mi_free(tmp);
+    // the backing VirtMem that this ArenaHeap allocates out of does not currently support
+    // freeing beyond zeroing out memory, so we do that here,
+    memset(tmp, 0, sizeof(Block) + tmp->capacity);
   }
   self->root = nullptr;
 }
 
-void arena_heap_destroy(ArenaHeap* self) {
-  mi_heap_t* heap = self->parent;
-  mi_heap_destroy(heap);
+bool arena_heap_destroy(ArenaHeap* self) {
+  if (self->is_exclusive) {
+    // cleans up everything
+    vmem_destroy(self->parent);
+    return true;
+  } 
+
+  arena_heap_clear(self);
+  return false;
 }
 
 const AllocVTable* arena_heap_alloc_vtable(void) { return &HEAP_VTABLE; }
@@ -215,8 +250,6 @@ Allocator arena_heap_allocator(ArenaHeap* self) { return make(Allocator, .ctx = 
 
 ArenaHeapStats arena_heap_stats(ArenaHeap* self) { return self->stats; }
 
-OsArena os_arena_new(i32 size_mb, isize init_commit) {
-  VirtMem vm = vmem_new(size_mb);
-  ArenaHeap* ah = ah_new_ex(vm, init_commit);
-  return make(OsArena, .base = ah, .vm = vm);
-}
+
+
+

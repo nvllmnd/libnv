@@ -118,6 +118,10 @@ HEDLEY_NO_RETURN
 FORMAT_FUNC(1, 2)
 void log_fatal(const char* fmt, ...);
 
+#define EXIT_FATAL(msg) (log_fatal( \
+"%s:%d :: FatalError in function: %s\n=> %s",\
+__FILE__, __LINE__, __func__, msg))
+
 typedef enum RuntimePanic : i32 {
   Panic__OutOfMemory = -(0x404379),
   Panic__NullPointerUnexpected,
@@ -130,3 +134,6 @@ typedef enum RuntimePanic : i32 {
 
 HEDLEY_NO_RETURN
 void panic_abort(RuntimePanic err);
+
+
+

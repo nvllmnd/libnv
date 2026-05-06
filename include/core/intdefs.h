@@ -22,17 +22,25 @@ typedef usize index_t;
 typedef isize poffset_t;
 typedef uintptr_t u64ptr;
 
+typedef uintptr_t addr;
+
 typedef float f32;
 typedef double f64;
 typedef _Float128 f128;
 typedef long double ldouble;
 
-typedef typeof(void*) voidptr;
+typedef typeof(void *) voidptr;
 
+/// type alias to help clarify functions that return errors.
+/// also for setting the undlying type of an enum to : error.
+/// Unless returned value is an enum, usually a value of 0 means that
+/// no error has occured. positive values could also indicate success, but check
+/// each funcitons documentation specifics. Negative numbers usually correlate
+/// to some error code, assuming that numbers >= 0 are not errors
+typedef i32 error;
 
 #define bint(N) _BitInt(N)
 #define ubint(N) unsigned bint(N)
-
 
 static constexpr const i8 I8_MAX = INT8_MAX;
 static constexpr const i8 I8_MIN = INT8_MIN;
@@ -51,4 +59,3 @@ static constexpr const isize ISIZE_MIN = PTRDIFF_MIN;
 static constexpr const isize ISIZE_MAX = PTRDIFF_MAX;
 
 static constexpr const usize USIZE_MAX = SIZE_MAX;
-

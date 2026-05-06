@@ -1,6 +1,7 @@
 #pragma once
 
 #include "attributes.h"
+#include "core_types.h"
 #include "intdefs.h"
 
 typedef enum AllocationResult : isize {
@@ -31,6 +32,32 @@ typedef enum AllocationResult : isize {
   AllocationOk,
 } AllocationResult;
 
+/// Memory Layout, used for determining size and alignment of Allocator allocations
+struct MemLayout {
+  /// Size of requested allocation in bytes. must be a multiple of alignment
+  i32 size;
+  /// Alignment of requested allocation. must be a multiple of 2
+  i32 align;
+};
+typedef struct MemLayout MemLayout;
+
+#define mlayout_static(s, a)                          \
+  ({                                                  \
+    constexpr const __typeof(s) _s = (s);             \
+    constexpr const __typeof(a) _a = (a);             \
+    static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
+    make(MemLayout, .size = _s, .align = _a);       \
+  })
+
+#define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
+#define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T[N])))
+
+CONST_FUNC
+static inline MemLayout mlayout_bytes(isize nbytes) {
+  return make(MemLayout, .size = nbytes, .align = alignof(u8[nbytes]));
+}
+// #define mlayout_bytes()
+
 #define NO_IMPL_METHOD_RESULT ((void*)AllocatorVTableMethodNotImplemented)
 
 /// Returns the Error state of the pointer returned by an [Allocator] interface struct
@@ -55,17 +82,17 @@ static inline bool alloc_is_ok(void* ptr) { return alloc_result(ptr) >= Allocati
 ///
 /// void* self  - Pointer to self (may be null if Allocator has no state!)
 ///              Typically you will cast this to your derived Allocator type in this method implementation
-/// isize size  - Size of allocation requested in bytes
-/// isize align - Alignment of allocation requested. Must be a power of 2!
-typedef void* (*const VTableAllocate)(void* self, isize size, isize align);
+/// MemLayout layout - layout of requested allocation. see [MemLayout]
+///
+typedef void* (*const VTableAllocate)(void* self, MemLayout layout);
 /// Function pointer typedef for [Allocator] [AllocVTable] reallocate method
 ///
 /// void* self     - Pointer to self (may be null if Allocator has no state!)
 ///                  Typically you will cast this to your derived Allocator type in this method implementation
 /// void* ptr      - Pointer to begging of block of memory to be reallocated
 /// isize new_size - Size of requested reallocation in bytes
-/// isize align - Alignment of allocation requested. Must be a power of 2! 
-typedef void* (*const VTableReallocate)(void* self, void* ptr, isize new_size, isize align);
+/// isize align - Alignment of allocation requested. Must be a power of 2!
+typedef void* (*const VTableReallocate)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] zallocate method
 /// This is the same as [VTableAllocate], but ensures allocated memory is zeroed
@@ -74,17 +101,7 @@ typedef void* (*const VTableReallocate)(void* self, void* ptr, isize new_size, i
 ///               Typically you will cast this to your derived Allocator type in this method implementation
 /// usize size  - Size of allocation requested in bytes
 /// isize align - Alignment of allocation requested. Must be a power of 2!
-typedef void* (*const VTableZallocate)(void* self, isize size, isize align);
-
-/// Function pointer typedef for [Allocator] [AllocVTable] expand method
-/// This is the same as [VTableReallocate], but does nothing  if
-/// memory cannot be expanded in place to new_size
-///
-/// void* self     - Pointer to self (may be null if Allocator has no state!)
-///                  Typically you will cast this to your derived Allocator type in this method implementation
-/// void* ptr      - Pointer to begging of block of memory to be expanded in place
-/// usize new_size - Size of requested reallocation in bytes
-typedef void* (*const VTableExpand)(void* self, void* ptr, isize new_size);
+typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] free method.
 ///
@@ -102,28 +119,25 @@ struct AllocVTable {
   VTableReallocate reallocate;
   /// See [VTableZallocate]
   VTableZallocate zallocate;
-  /// See [VTableExpand]
-  VTableExpand expand_in_place;
   /// See [VTableFree]
   VTableFree free;
 };
 typedef struct AllocVTable AllocVTable;
 
-CONST_FUNC
-const AllocVTable* global_allocator_vtable(void);
+// CONST_FUNC
+// const AllocVTable* global_allocator_vtable(void);
 
 #define alloc_vtable_new(...) ((AllocVTable){__VA_ARGS__})
 
-void* vtable_alloc_no_impl(void*, isize, isize);
-void* vtable_realloc_no_impl(void*, void*, isize, isize);
-void* vtable_zalloc_no_impl(void*, isize, isize);
-void* vtable_expand_no_impl(void*, void*, isize);
+void* vtable_alloc_no_impl(void*, MemLayout);
+void* vtable_realloc_no_impl(void*, void*, MemLayout, MemLayout);
+void* vtable_zalloc_no_impl(void*, MemLayout);
+void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout);
 void vtable_free_no_impl(void*, void*);
 
 #define NO_IMPL_ALLOCATE (&vtable_alloc_no_impl)
 #define NO_IMPL_REALLOCATE (&vtable_realloc_no_impl)
 #define NO_IMPL_ZALLOCATE (&vtable_zalloc_no_impl)
-#define NO_IMPL_EXPAND (&vtable_expand_no_impl)
 #define NO_IMPL_FREE (&vtable_free_no_impl)
 
 /// C-Style Allocator Interface
@@ -134,74 +148,29 @@ struct Allocator {
 };
 typedef struct Allocator Allocator;
 
-
-CONST_FUNC
+// CONST_FUNC
 /// Gets a [Allocator] interface struct for the
-/// global allocator [mi_malloc]/[mi_free] and friends
-Allocator global_allocator(void);
+// Allocator global_allocator(void);
 
 /// Invokes a given [Allocator] interface struct's inner vtable to call [allocate]!
 /// Do note that if given [Allocator] interface struct's do not always implement all function on the [AllocVTable]
 /// vtable. as such, if any particular Allocator Vtable call returns ((void*)-1)
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_allocate(Allocator self, isize size, isize align) {
-  return self.vtable->allocate(self.ctx, size, align);
+static inline void* allocator_allocate(Allocator self, MemLayout layout) {
+  return self.vtable->allocate(self.ctx, layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_reallocate(Allocator self, void* ptr, isize new_size, isize align) {
-  return self.vtable->reallocate(self.ctx, ptr, new_size, align);
+static inline void* allocator_reallocate(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  return self.vtable->reallocate(self.ctx, ptr, old_layout, new_layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_zallocate(Allocator self, isize size, isize align) {
-  return self.vtable->zallocate(self.ctx, size, align);
-}
-
-[[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_expand(Allocator self, void* ptr, isize new_size) {
-  return self.vtable->expand_in_place(self.ctx, ptr, new_size);
+static inline void* allocator_zallocate(Allocator self, MemLayout layout) {
+  return self.vtable->zallocate(self.ctx, layout);
 }
 
 static inline void allocator_free(Allocator self, void* ptr) { self.vtable->free(self.ctx, ptr); }
-
-/// Wrapper struct around a pointer to a [mi_heap_t]
-struct HeapAllocator {
-  struct mi_heap_s* heap;
-};
-typedef struct HeapAllocator HeapAllocator;
-
-/// Creates a new [HeapAllocator] by calling [mi_heap_new]
-HeapAllocator heap_allocator_new(void);
-
-/// forwards call  to [mi_heap_malloc]
-void* heap_allocator_malloc(HeapAllocator self, isize size, isize align);
-/// forwards call to [mi_heap_realloc]
-void* heap_allocator_realloc(HeapAllocator self, void* ptr, isize new_size, isize align);
-/// forwards call to [mi_heap_zalloc]
-void* heap_allocator_zalloc(HeapAllocator self, isize size, isize align);
-/// forwards call to [mi_expand]
-void* heap_allocator_expand(HeapAllocator self, void* ptr, isize new_size);
-/// forwwards call to [mi_free]
-void heap_allocator_free(HeapAllocator self, void* ptr);
-
-/// Returns a const pointer to [HeapAllocator]'s vtable ([AllocVTable])
-PURE_FUNC
-const AllocVTable* heap_allocator_vtable(void);
-
-/// Converts a [HeapAllocator] into the [Allocator] struct interface
-METHOD
-static inline Allocator heap_allocator(HeapAllocator* self) {
-  return (Allocator){.ctx = ((void*)self), .vtable = heap_allocator_vtable()};
-}
-
-/// forwards call to [mi_heap_delete]
-METHOD
-void heap_allocator_delete(HeapAllocator* self);
-/// forwards call to [mi_heap_destroy]
-/// Caution as this can cause program crashes if you are not careful
-METHOD
-void heap_allocator_destroy(HeapAllocator* self);
 
 /// A simple Arena Allocator
 ///
@@ -256,14 +225,14 @@ PURE_FUNC
 static inline bool arena_is_ok(const Arena* self) { return self && self->mem && self->capacity > 0; }
 
 METHOD
-void* arena_allocate(Arena* self, isize size, isize align);
+void* arena_allocate(Arena* self, MemLayout layout);
 
 /// Same as [arena_allocate], but ensure memory is zeroed.
-/// [Arena] initially use [mi_calloc] to allocate the memory buffer, so
+/// [Arena] initially use ?? allocate the memory buffer, so
 /// memory is zeroed already initially, but if [arena_clear] was called instead of [arena_clear_zeroed],
 /// then there is a possiblity that memory might not be zeroed
 METHOD
-void* arena_zallocate(Arena* self, isize size, isize align);
+void* arena_zallocate(Arena* self, MemLayout layout);
 
 CONST_FUNC
 const AllocVTable* arena_alloc_vtable(void);
@@ -287,17 +256,3 @@ void arena_clear(Arena* self);
 
 METHOD
 void arena_clear_zeroed(Arena* self);
-
-
-typedef void* mi_arena_id_t;
-typedef mi_arena_id_t VirtMem;
-
-
-VirtMem vmem_new(i32 size_mb);
-
-struct mi_heap_s* vmem_heap_new(VirtMem self);
-
-isize vmem_size(VirtMem self);
-
-
-

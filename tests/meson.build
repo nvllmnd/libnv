@@ -10,6 +10,7 @@ strings_test = executable(
   c_pch: '../pch/nv_pch.h',
   dependencies : dependencies,
   install : true,  
+  c_args: cargs,
 )
 
 test('strings', strings_test)
@@ -24,6 +25,7 @@ format_io_test = executable(
   c_pch: '../pch/nv_pch.h',
   dependencies : dependencies,
   install : true,  
+  c_args: cargs,
 )
 
 test('format_io', format_io_test)
@@ -38,6 +40,7 @@ allocators_test = executable(
   c_pch: '../pch/nv_pch.h',
   dependencies : dependencies,
   install : true,  
+  c_args: cargs,
 )
 
 test('allocators', allocators_test)

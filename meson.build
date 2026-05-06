@@ -17,10 +17,26 @@ add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
 
 
 
-
-
-
 hedley_dep = dependency('hedley')
+
+
+
+cargs = []
+
+
+
+if host_machine.system() == 'windows' or host_machine.system() == 'cygwin'
+  cargs += '-DSYSTEM_WINDOWS=1'
+elif host_machine.system() == 'darwin'
+  cargs += '-DSYSTEM_APPLEOS=1'
+elif host_machine.system() == 'emscripten'
+  cargs += '-DSYSTEM_EMSCRIPTEN=1'
+elif host_machine.system() == 'android'
+  cargs += '-DSYSTEM_ANDROID=1'
+else 
+ cargs += '-DSYSTEM_LINUX=1'
+endif
+
 
 
 
@@ -43,6 +59,7 @@ core_lib = static_library(
   install: true,
   pic: true,
   c_pch: 'pch/nv_pch.h',
+  c_args: cargs,
 )
 
 core_dep = declare_dependency(
@@ -52,10 +69,16 @@ core_dep = declare_dependency(
 
 dependencies += core_dep
 
-mimalloc_proj = subproject('mimalloc')
-mimalloc_dep = mimalloc_proj.get_variable('mi_dep')
+# if get_option('mimalloc-override').enabled()
+#   mimalloc_proj = subproject('mimalloc')
+#   mimalloc_dep = mimalloc_proj.get_variable('mi_dep')
+  
+#   dependencies += mimalloc_dep
+#   cargs += '-DUSE_MIMALLOC'
+# endif
 
-dependencies += mimalloc_dep
+
+
 
 memory_lib = static_library(
   'nv_memory',
@@ -63,13 +86,15 @@ memory_lib = static_library(
     'src/memory/cstr.c',
     'src/memory/alloc.c',
     'src/memory/arena.c',
-    'src/memory/gpa.c',
+    'src/memory/virt.c',
+    'src/memory/block_alloc.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
   install: true,
   pic: true,
   c_pch: 'pch/nv_pch.h',
+  c_args: cargs,
 )
 
 memory_dep = declare_dependency(
@@ -88,9 +113,10 @@ lib = library(
   c_pch: 'pch/nv_pch.h',
   dependencies : dependencies,
   install : true,
+  c_args: cargs,
 )
 
 
 subdir('tests')
 
-# test('basic', exe)
+
