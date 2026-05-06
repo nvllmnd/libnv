@@ -21,6 +21,7 @@ typedef enum MemError : error {
 
   MemError__FailedMemMap = -1,
   MemError__FailedMemUnmap = -2,
+  MemError__VirtMemOutOfMemory = -500,
     /// Not enough space/cannot allocate memory (POSIX.1-2001).
   MemError__OOM = -ENOMEM,
   MemError__ValTooLargeFoDataType = -EOVERFLOW,

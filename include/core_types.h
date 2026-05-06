@@ -302,3 +302,12 @@ static inline ApiError try_align_ptr(const void** ptr_out, isize align) {
      this macro can only be called inside functions with the same      \
      return type as the surrounding function. */                       \
   (tryerr_or_cb((expr), (cb), __VA_ARGS__))
+
+
+
+#define tptr_new(p, enable) (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
+#define tptr_ptr(p) ((__typeof((p)))((addr)(p) & ~1UL))
+#define tptr_tag(p) (((addr)(p)) & 1)
+
+
+

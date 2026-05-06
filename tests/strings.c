@@ -69,6 +69,25 @@ void move_memory_helpers(void) {
   
 }
 
+void tagged_pointers(void) {
+  typedef struct Point {
+    double x; double y;
+  } Point;
+
+  const Point val = make(Point, 1000., 0.5265236);
+
+  const Point* original = &val; 
+
+  const Point* tptr = tptr_new(original, true);
+  const Point* untagged = tptr_ptr(tptr);
+  TEST_ASSERT_EQUAL(untagged, original);
+
+  const bool tag = tptr_tag(tptr);
+
+  TEST_ASSERT_TRUE(tag);
+  
+}
+
 
 void string_compare(void) {
   static constexpr const char STR[] = "this is a test string!";
@@ -92,6 +111,7 @@ i32 main(void) {
 
   RUN_TEST(string_compare);
   RUN_TEST(move_memory_helpers);
+  RUN_TEST(tagged_pointers);
 
   return UNITY_END();
 }
