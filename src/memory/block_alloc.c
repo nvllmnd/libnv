@@ -13,7 +13,6 @@
 
 /// A Block of memory used and chained together by [BlockAllocator].
 struct Block {
-  bool is_avail;
   /// index of where this block resides in the free list array, only used for blocks that are free (is_avail == true),
   /// otherwise this value is a negative number
   i32 fl_id;
@@ -25,6 +24,8 @@ struct Block {
   u8 storage[];
 };
 alias(Block);
+
+#define bl_begin(b) (&((b)->storage[0]))
 
 #if defined(BA_FL_SIZE)
 
@@ -41,19 +42,19 @@ static constexpr const isize BA_FREE_LIST_SIZE = 1024;
   i64 gen;
   /// Index of element to overwrite in FreeList if FreeList is too full to add another free block.
   /// We just take the element nearest to the end of FreeList, as i figure those elements have the highest chance of
-  /// being the oldest in the list, plus it really doesnt matter THAT much which free block gets overwritten, speedy allocation and deallocation is more desired
+  /// being the oldest in the list, plus it really doesnt matter THAT much which free block gets overwritten, speedy
+  /// allocation and deallocation is more desired
   i32 overwrite_index;
   i32 len;
   Block* list[BA_FREE_LIST_SIZE];
 };
 alias(FreeList);
 
-
 PURE_FUNC
 METHOD
 [[maybe_unused]]
 static inline isize bl_size(const Block* self) {
-  return self->end - self->storage;
+  return self->end - bl_begin(self);
 }
 
 PURE_FUNC
@@ -63,17 +64,7 @@ static inline isize bl_full_size(const Block* self) { return sizeof(Block) + bl_
 /// Adds given Block to FreeList.
 /// Returns true if block was successfully added to FreeList, otherwise false
 METHOD
-static bool fl_push(FreeList* self, Block* val);
-
-[[maybe_unused]]
-/// Same as [fl_push], but ensures userdata section of pushed block is zeroed
-METHOD static inline bool fl_push_zeroed(FreeList* self, Block* val) {
-  if (fl_push(self, val)) {
-    memset(val->storage, 0, bl_size(val));
-    return true;
-  }
-  return false;
-}
+static void fl_push(FreeList* self, Block* val);
 
 METHOD
 static void fl_delete(FreeList* self, Block* val);
@@ -107,9 +98,8 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
     tryerr(vmem_init(&backing, BA_BACKING_VIRTMEM_SIZE_MB));
   }
 
-  static constexpr const isize SIZE = sizeof(BlockAllocator);
-
-  BlockAllocator* self = vmem_allocate(backing, mlayout_bytes(SIZE));
+  const MemLayout layout = mlayout_new(BlockAllocator);
+  BlockAllocator* self = vmem_allocate(backing, layout);
   if UNLIKELY (is_null(self)) {
     LOG_DBG(
         "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %li "
@@ -122,6 +112,7 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   self->vm = backing;
   self->head = nullptr;
   self->tail = nullptr;
+  self->free_list = make(FreeList, .gen = 0, .overwrite_index = 0, .len = 0, .list = {});
 
   *out = self;
 
@@ -142,25 +133,30 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   assert(layout.size > 0 && IS_POWER_OF_2(layout.align));
 
   {
-    Block* next_free =
-        ba_next_free_block(self, layout.size + sizeof(void*));  // + 4/8 bytes in case alignment needs to be adusted
+    Block* next_free = ba_next_free_block(self, layout.size);
+
     if (next_free) {
-      return next_free->storage;
+      assert(ptr_is_aligned(next_free, alignof(Block)));
+      u8* s = bl_begin(next_free);  //&next_free->storage[0];
+      assert(asblock(s) == next_free);
+      Block* back = asblock(s);
+      assert(back);
+      return s;
     }
   }
-  const isize alloc_size = sizeof(Block) + layout.size;
-  Block* next = vmem_allocate(self->vm, mlayout_bytes(alloc_size));
+  const MemLayout block_layout = mlayout_fma(Block, layout.size);
+  Block* next = vmem_allocate(self->vm, block_layout);
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
         "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-        "available memory and cannot accomidate an allocation of size %li bytes!",
-        __func__, vmem_available(self->vm), alloc_size);
+        "available memory and cannot accomidate an allocation of size %d bytes!",
+        __func__, vmem_available(self->vm), block_layout.size);
 
     return nullptr;
   }
-  next->is_avail = false;
+  *next = make_zeroed(Block);
   next->next = nullptr;
-  next->end = next->storage + layout.size;
+  next->end = &next->storage[layout.size - 1];
   if UNLIKELY (is_null(self->head)) {
     self->head = next;
   }
@@ -168,23 +164,23 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
     self->tail->next = next;
   }
   self->tail = next;
-  return next->storage;
+  return bl_begin(next);  //&next->storage[0];
 }
 
 void* ba_zallocate(BlockAllocator* self, MemLayout layout) {
   assert(self);
   assert(layout.size > 0 && IS_POWER_OF_2(layout.align));
 
-  void* ptr = ba_allocate(self,  layout);
-  if (is_null(ptr)) {
-    LOG_DBG("%s[%s::%s]:%d => Inner call to ba_allocate returned nullptr!", __FILE__, STRINGIFY(BlockAllocator), __func__,  __LINE__);
+  void* ptr = ba_allocate(self, layout);
+  if UNLIKELY (is_null(ptr)) {
+    LOG_DBG("%s[%s::%s]:%d => Inner call to ba_allocate returned nullptr!", __FILE__, STRINGIFY(BlockAllocator),
+            __func__, __LINE__);
     return nullptr;
   }
 
   memset(ptr, 0, layout.size);
-  
+
   return ptr;
-  
 }
 
 void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
@@ -213,19 +209,22 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
   }
 
   if (new_layout.size < old_layout.size) {
-    bptr->end = bptr->storage + new_layout.size;
-    return bptr->storage;
+    bptr->end = &bptr->storage[new_layout.size - 1];
+    return bl_begin(bptr);
   }
 
   if (new_layout.size > old_layout.size) {
-    u8* new_end = bptr->storage + new_layout.size;
+    u8* new_end = &bptr->storage[new_layout.size - 1];
     // we can grow in place!
     if UNLIKELY (new_end <= bptr->end) {
       bptr->end = new_end;
-      return bptr->storage;
+
+      return bl_begin(bptr);
     }
 
-    Block* next = vmem_allocate(self->vm, new_layout);
+    const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
+
+    Block* next = vmem_allocate(self->vm, block_layout);
     if UNLIKELY (is_null(next)) {
       LOG_DBG(
           "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
@@ -236,7 +235,7 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
 
     memcpy(next, bptr, bl_full_size(bptr));
     ba_free(self, bptr);
-    return next->storage;
+    return bl_begin(next);  //&next->storage[0];
   }
 
   // should never reach this point. as we have check if new.size == old.size, new.size < old.size and finally new.size <
@@ -253,16 +252,28 @@ void ba_free(BlockAllocator* self, void* ptr) {
     return;
   }
   assert(vmem_contains(self->vm, ptr));
-  Block* bl = &pcast(Block, ptr)[-1];
 
-  assert(fl_push(&self->free_list, bl));
-  // if (!fl_push(&self->free_list, bl)) {
-  //   self->free_list.list[self->free_list.oldest_index] = bl;
+  u8* p = ptr;
+  u8* ps = p - sizeof(Block);
+  Block* b = pcast(Block, ps);
 
-  // }
+
+  fl_push(&self->free_list, b);
 }
 
-MemError ba_destroy(BlockAllocator* self);
+MemError ba_destroy(BlockAllocator* self) {
+  // TODO: Might want to add the ability to zero out memory used by this BlockAllocator entirely if
+  // it does not exclusively own its backing VirtMem. For now im just going to zero out the BlockAllocator header to
+  // prevent it from being used to allocate after this function returns
+  if (self->exclusive) {
+    tryerr(vmem_destroy(self->vm));
+    return OK;
+  }
+
+  memset(self, 0, sizeof(BlockAllocator));
+
+  return OK;
+}
 
 const AllocVTable* ba_vtable(void);
 
@@ -275,7 +286,7 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
 
   for (i32 i = 0; i < fl->len; i++) {
     Block* b = fl->list[i];
-    if (b->is_avail && bl_size(b) >= size) {
+    if (bl_size(b) >= size) {
       fl_delete(fl, b);
       return b;
     }
@@ -284,62 +295,25 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
   return nullptr;
 }
 
-// static inline void fl_rescan_oldest(FreeList* self) {
-//   if (self->len == 1) {
-//     self->oldest_genid = self->gen++;
-//     self->oldest_index = 0;
-//     return;
-//   }
-//   i32 oldest_index = -1;
-//   i32 oldest_genid = INT32_MAX;
-//   for (i32 i = 0; i < self->len; i++) {
-//     const Block* b = self->list[i];
-//     const i32 gid = b->genid;
-//     // if this gen is less than the previous genid, we forsure have our oldest element
-//     // TODO: Need to check that this branch is actually possible to be taken, not sure if its possible to come across
-//     a
-//     // gid that is older than oldest_genid like this
-//     if (gid < self->oldest_genid) {
-//       oldest_index = i;
-//       oldest_genid = gid;
-//       break;
-//       // self->oldest_index = i;
-//       // self->oldest_genid = gid;
-//     }
-//     // otherwise we keep scanning through the entirety of freelist to find oldest
-//     if (gid < oldest_genid) {
-//       oldest_index = i;
-//       oldest_genid = gid;
-//     }
-//   }
-
-//   assert(oldest_index >= 0);
-//   assert(oldest_genid != INT32_MAX);
-
-//   self->oldest_genid = oldest_genid;
-//   self->oldest_index = oldest_index;
-// }
-
-bool fl_push(FreeList* self, Block* val) {
+void fl_push(FreeList* self, Block* val) {
   assert(self);
   assert(val);
 
-  val->is_avail = true;
-
   if LIKELY (self->len < BA_FREE_LIST_SIZE) {
     const isize index = self->len;
+
     // store index inside Block header for O(1) frees
     val->fl_id = index;
     // Mark this block as available since it has been freed
     self->list[index] = val;
     self->len += 1;
-    return true;
   } else {
     // If we are out of space to add a new Block poitner to free list,
     // then we overwrite the oldest element in free list
     const isize index = self->overwrite_index;
 
     val->fl_id = index;
+
 
     // overwrite oldest element
     self->list[index] = val;
@@ -352,7 +326,6 @@ bool fl_push(FreeList* self, Block* val) {
       self->overwrite_index = back_index - 1;
     }
   }
-  return false;
 }
 
 void fl_delete(FreeList* self, Block* val) {
@@ -363,7 +336,6 @@ void fl_delete(FreeList* self, Block* val) {
   assert(index >= 0 && index < BA_FREE_LIST_SIZE);
 
   /// Mark this block as no longer available (freed)
-  val->is_avail = false;
   /// We no longer need this value, so mark it as negative number
   /// to signal this block is not in free list
   val->fl_id = -1;
@@ -378,7 +350,6 @@ void fl_delete(FreeList* self, Block* val) {
     // to spend cpu cycles scanning for the oldest element, its really not that important, speedy allocations are more
     // desired.
     self->overwrite_index = self->len - 1;
-    // fl_rescan_oldest(self);
   }
 }
 

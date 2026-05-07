@@ -66,8 +66,8 @@ MemError vmem_init(VirtMem** self, isize size_in_mb) {
   }
 
   ptr->size = size;
-  ptr->top = ptr->storage;
-  ptr->end = ptr->storage + ptr->size;
+  ptr->top = &ptr->storage[0];
+  ptr->end = &ptr->storage[ptr->size - 1];
   *self = ptr;
 
   return MemError__Ok;
@@ -91,6 +91,10 @@ void* vmem_allocate(VirtMem* self, MemLayout layout) {
   // sanity check
   assert(ptr <= self->end);
 
+  self->top = ptr + layout.size;
+
+  assert(self->top <= self->end);
+
   return ptr;
 }
 
@@ -105,7 +109,6 @@ void* vmem_zallocate(VirtMem* self, MemLayout layout) {
 
 MemError vmem_destroy(VirtMem* self) {
   assert(self);
-
 
   const isize size = self->size;
 
@@ -137,7 +140,7 @@ MemError vmem_destroy(VirtMem* self) {
 
 void vmem_clear(VirtMem* self) {
   assert(self);
-  self->top = self->storage;
+  self->top = &self->storage[0];
 }
 
 error vmem_zero_range(VirtMem* self, isize index) {
@@ -150,7 +153,7 @@ error vmem_zero_range(VirtMem* self, isize index) {
     return ApiError__ValueOutOfRange;
   }
 
-  memset(self->storage, 0, index);
+  memset(&self->storage[0], 0, index);
   return MemError__Ok;
 }
 
@@ -166,7 +169,7 @@ isize vmem_full_size(const VirtMem* self) {
 
 isize vmem_used_bytes(const VirtMem* self) {
   assert(self);
-  return self->top - self->storage;
+  return self->top - &self->storage[0];
 }
 
 isize vmem_available(const VirtMem* self) {
@@ -206,8 +209,11 @@ Allocator vmem_allocator(VirtMem* self) { return make(Allocator, .ctx = self, .v
 
 bool vmem_contains(const VirtMem* self, const void* p) {
   assert(self);
+  assert(self->end);
+  assert(p);
+  assert(self->storage);
 
   const u8* ptr = p;
 
-  return ptr >= self->storage && ptr <= self->end;
+  return ptr >= &self->storage[0] && ptr <= self->end;
 }

@@ -8,17 +8,16 @@
 #include "log.h"
 #include "memory/alloc.h"
 #include "memory/arena.h"
+#include "memory/block_alloc.h"
 #include "memory/virt.h"
 #include "unity.h"
 
-void setUp(void) {
-}
+void setUp(void) {}
 
 void tearDown(void) {}
 
-
 struct Stuff {
-  char buf[255];
+  char buf[4096];
 
   struct Point {
     f32 x;
@@ -30,18 +29,15 @@ struct Stuff {
 alias(Stuff);
 
 void arena_heap_exclusive(void) {
+  ArenaHeap* ah = arena_heap_new(4, MEGABYTES(2));
+  TEST_ASSERT_NOT_NULL(ah);
 
- ArenaHeap* ah = arena_heap_new(4, MEGABYTES(2));  
- TEST_ASSERT_NOT_NULL(ah);
+  Stuff* s = arena_heap_zalloc(ah, mlayout_new(Stuff));
+  TEST_ASSERT_NOT_NULL(s);
 
- 
- Stuff* s = arena_heap_zalloc(ah, mlayout_new(Stuff));
- TEST_ASSERT_NOT_NULL(s);
+  *s = make(Stuff, .buf = {}, .points = {}, .counter = 5);
 
- *s = make(Stuff, .buf = {}, .points = {}, .counter = 5);
-
- arena_heap_destroy(ah);
-
+  arena_heap_destroy(ah);
 }
 
 void arena_heap_from_vmem(void) {
@@ -63,8 +59,6 @@ void arena_heap_from_vmem(void) {
     strncpy(b1, "ayooo", sizeof("ayooo"));
 
     TEST_ASSERT_EQUAL_STRING(b1, "ayooo");
-
-
   }
 
   const ArenaHeapStats stats = arena_heap_stats(ah);
@@ -73,7 +67,25 @@ void arena_heap_from_vmem(void) {
   arena_heap_destroy(ah);
 }
 
+void block_allocator_works(void) {
+  BlockAllocator* ba = ba_owned_new(4);
+  TEST_ASSERT_NOT_NULL(ba);
 
+  Stuff* ss[50] = {};
+
+  for (i32 i = 0; i < 50; i++) {
+    Stuff* s = ba_allocate(ba, mlayout_new(Stuff));
+    TEST_ASSERT_NOT_NULL(s);
+    *s = make(Stuff, .buf = {}, .points = {}, .counter =  69);
+    ss[i] = s;
+  }
+
+  for (i32 i = 0; i < 50; i++) {
+    ba_free(ba, ss[i]);
+  }
+
+  ba_destroy(ba);
+}
 
 /// we can put a global allocator in an [Allocator]
 /// struct and everything works just fine
@@ -98,6 +110,7 @@ i32 main(void) {
 
   RUN_TEST(arena_heap_exclusive);
   RUN_TEST(arena_heap_from_vmem);
+  RUN_TEST(block_allocator_works);
 
   return UNITY_END();
 }
