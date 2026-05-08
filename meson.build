@@ -121,6 +121,8 @@ nv_dep = declare_dependency(
   link_with: nv_lib
 )
 
+meson.override_dependency('libnv', nv_dep)
+
 subdir('tests')
 
 
