@@ -12,7 +12,7 @@ project(
   ],
 )
 
-if is_subproject()
+if meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
 endif
