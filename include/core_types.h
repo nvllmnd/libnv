@@ -6,7 +6,13 @@
 
 #include "attributes.h"
 #include "intdefs.h"
-#include "mimalloc.h"
+#include "memory/error.h"
+
+#define CONCAT_(a, b) a##b
+#define CONCAT(a, b) CONCAT_(a, b)
+
+#define CONCAT3_(a, b, c) a##b##c
+#define CONCAT3(a, b, c) CONCAT3_(a, b, c)
 
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
@@ -112,20 +118,22 @@
   /* checks if given pointer (p) is not equal to null */ \
   (!(is_null((p))))
 
-#define is_ptr_ok(p)                                                                                                   \
-  /* check if given pointer (p) is good. (converts to a non-negative, non-zero integer) */                             \
-  /* shorthand for [alloc_result] for checking pointers returned by [Allocator] interface struct [AllocVTable] methods \
-   */                                                                                                                  \
+#define is_ptr_ok(p)                                                           \
+  /* check if given pointer (p) is good. (converts to a non-negative, non-zero \
+   * integer) */                                                               \
+  /* shorthand for [alloc_result] for checking pointers returned by            \
+   * [Allocator] interface struct [AllocVTable] methods                        \
+   */                                                                          \
   (((isize)(p)) > 0)
 
-#define fclamp(x, _min, _max)                                          \
+#define clamp(x, _min, _max)                                           \
   /* clamps a value values (x) to be between (min) and (max) */        \
   /* i.e.: 'clamp(-1, 0, 5) == 0;', or 'clamp(650, 0, 100) == 100;' */ \
   (max((_min), min((x), (_max))))
 
 // NOTE: I kind of like these 2 macros in a guilty pleasure kind of way lmao...
-//  i might one day use them, but idk its kinda ugg and seems too distant to C for
-//  it to make any sense to other developers coming across it while reading
+//  i might one day use them, but idk its kinda ugg and seems too distant to C
+//  for it to make any sense to other developers coming across it while reading
 //  this codebase
 //  #define deref(p) (*(p))
 //  #define ref &
@@ -133,13 +141,16 @@
 
 #define UNUSED(v) ((void)v)
 
-#define make(T, ...) /* Conveinence macro for creating new structs on stack. its possible to pass a value instead of a \
-                        type as the first parameter to this macro. the type of the resulting struct will be the type   \
-                        of value given. Note that this does not do anything with the value, and does not create a copy \
-                        of the value passed in (if any)*/                                                              \
+#define make(T, ...) /* Conveinence macro for creating new structs on stack. its possible \
+                        to pass a value instead of a type as the first parameter to this  \
+                        macro. the type of the resulting struct will be the type of value \
+                        given. Note that this does not do anything with the value, and    \
+                        does not create a copy of the value passed in (if any)*/          \
   ((__typeof__(T)){__VA_ARGS__})
 
-#define make_zeroed(T) /* Same as [make] macro, but initializes given type T's fields to all be set to 0. */ (make(T))
+#define make_zeroed(T) /* Same as [make] macro, but initializes given type T's \
+                          fields to all be set to 0. */                        \
+  (make(T))
 
 PARAMS_NONNULL(1)
 static inline void* move(void** from) {
@@ -182,19 +193,28 @@ static inline isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWE
   return 0;
 }
 
-// static inline void* align_ptr(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
+// static inline void* align_ptr(const void* ptr, isize align)
+// WHERE(IS_POWER_OF_2(align)) {
 //   const isize offset = ptr_align_offset(ptr, align);
 //   const isize adjust = (offset == 0 ? 0 : align - offset);
 //   const u64ptr p = cast(u64ptr, ptr);
 //   return pcast(void, p + adjust);
 // }
 
+/// Checks if a given pointer is aligned to given alignment.
+/// @param (align) MUST BE A POWER OF 2. If it is not this funciton returns
+/// false
 static inline bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
   const auto addr = cast(uintptr_t, ptr);
   const uintptr_t mask = align - 1;
   return (addr & mask) == 0;
 }
 
+/// Aligns pointer up to given alignment, or returns the same pointer if it
+/// already is aligned
+/// @param (align) MUST BE A POWER OF 2.  If it is not, then this function
+/// returns the exact same pointer, doing no calulations and possiby causing
+/// confusion if given pointer is misaligned
 static inline const void* align_ptr(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
   if (ptr_is_aligned(ptr, align)) {
     return ptr;
@@ -205,16 +225,89 @@ static inline const void* align_ptr(const void* ptr, isize align) WHERE(IS_POWER
 
   const uintptr_t aligned = (addr + mask) & (~mask);
 
-  return cast(void*, aligned);
+  return pcast(void, aligned);
 }
-
 #define align_ptr(p, align) ((__typeof__(p))align_ptr(p, align))
 
-#define alias(T) typedef struct T T
+/// Same as [align_ptr], but returns an error if any errors may occur
+static inline ApiError try_align_ptr(const void** ptr_out, isize align) {
+  if (!IS_POWER_OF_2(align)) {
+    return ApiError__ParameterValueNotPowerOf2;
+  }
+  if (is_null(ptr_out)) {
+    return ApiError__NullParameter;
+  }
 
-// Thanks mimalloc! :D
-// .. and align within the allocation
-// const uintptr_t align_mask = alignment - 1;  // for any x, `(x & align_mask) == (x % alignment)`
-// const uintptr_t poffset = ((uintptr_t)p + offset) & align_mask;
-// const uintptr_t adjust  = (poffset == 0 ? 0 : alignment - poffset);
-// void* aligned_p = (void*)((uintptr_t)p + adjust);
+  const void* ptr = *ptr_out;
+
+  const uintptr_t addr = cast(uintptr_t, ptr);
+  const uintptr_t mask = align - 1;
+
+  const uintptr_t aligned = (addr + mask) & (~mask);
+
+  *ptr_out = cast(void*, aligned);
+  return OK;
+}
+
+#define alias(T) /* conveinence macro for defining structs to avoid having to \
+                    write out the struct name 3 times*/                       \
+  typedef struct T T
+
+#define tryerr(expr)                                                         \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (expr);                                               \
+    if (_err != 0) {                                                         \
+      return _err;                                                           \
+    }                                                                        \
+  } while (0)
+
+// #define tryerr_or(expr, orelse) do {\
+//     const error _err = (expr); \
+//     if (_er != 0) { (orelse); }\
+// } while(0)
+
+#define tryerr_or(expr, orelse)                                               \
+  /* Same as [tryerr] macro, but instead of returning error value in the case \
+   * it is not equal to 0, a given expression is ran. you can use this macro  \
+   * anywhere in the case you want to handle an error dynamicaly inside a     \
+   * function that does not return [error](int)*/                             \
+  do {                                                                        \
+    const error _err = (expr);                                                \
+    if (_err != 0) {                                                          \
+      (orelse);                                                               \
+    }                                                                         \
+  } while (0)
+
+#define tryerr_or_cb(expr, cb, ...)                                            \
+  /* Same as [tryerr_or], but instead of running a given expression in the     \
+   * case where error is not equal to 0, a given callback function is called.  \
+   * Callback function can have any signature, as long as it has at least a    \
+   * parameter of type [error](int) as its first parameter. extra parameters   \
+   * to this macro are forwarded to error handling callback function. For a    \
+   * version of this macro that returns from the surrounding function with the \
+   * return value of given callback, see: [tryerr_or_ret]*/                    \
+  do {                                                                         \
+    const error _err = (expr);                                                 \
+    if (_err != 0) {                                                           \
+      (cb)(_err, __VA_ARGS__);                                                 \
+    }                                                                          \
+  } while (0)
+
+#define tryerr_or_ret(expr, cb, ...)                                   \
+  /* Same as [tryerr_or_cb], but returns from the surrounding function \
+     with the value returned by given callback function. Due to this,  \
+     this macro can only be called inside functions with the same      \
+     return type as the surrounding function. */                       \
+  (tryerr_or_cb((expr), (cb), __VA_ARGS__))
+
+
+
+#define tptr_new(p, enable) (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
+#define tptr_ptr(p) ((__typeof((p)))((addr)(p) & ~1UL))
+#define tptr_tag(p) (((addr)(p)) & 1)
+
+
+

@@ -4,71 +4,63 @@
 #include "core_types.h"
 #include "intdefs.h"
 #include "memory/alloc.h"
-typedef struct ArenaHeap ArenaHeap;
 
-struct ArenaHeapStats {
+typedef struct Arena Arena;
+
+struct ArenaStats {
   i64 total_used;
   i64 total_allocated;
 };
 
-typedef struct ArenaHeapStats ArenaHeapStats;
+typedef struct ArenaStats ArenaStats;
+typedef struct VirtMem VirtMem;
 
-
-
+/// Creates a new ArenaHeap with @param (isize init_capacity) of initial allocated space into a newly
+/// allocated virtual memory page of size @param (isize vmem_size_in_mb)
+/// Returned ArenaHeap exclusively owns its backing VirtMem, and will be released after a matching call to [arena_heap_destroy] or [arena_heap_cleanup]
 RETURNS_RESOURCE
-ArenaHeap* arena_heap_new(isize capacity);
+Arena* arena_new(isize vmem_size_in_mb, isize init_capacity);
 
+/// Creates a new ArenaHeap with @param (isize capacity) initial allocated space into given @param (VirtMem* vm).
+/// If @param (bool exclusive) is true, the returned ArenaHeap will be deallocated/released after a matching call to [arena_heap_destroy] or [arena_heap_cleanup]
 RETURNS_RESOURCE
-ArenaHeap* arena_heap_in_vmem(VirtMem vm, isize capacity);
+PARAMS_NONNULL(1)
+Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive);
 
 METHOD
-void* arena_heap_alloc(ArenaHeap* self, isize size, isize align);
+void* arena_alloc(Arena* self, MemLayout layout);
 
 METHOD
-void* arena_heap_zalloc(ArenaHeap* self, isize size, isize align);
+void* arena_zalloc(Arena* self, MemLayout layout);
 
 METHOD
-void arena_heap_clear(ArenaHeap* self);
+void arena_clear(Arena* self);
 
-/// Starts from the last Block (or the first block allocated as root, not including the memory block in ArenaHeap root)
-/// and frees/releases the memory used by that block back to the system. Tries to release up to @param (nblocks).
-/// if @param (nblocks) <= 0, then all blocks used by this [ArenaHeap] are freed, and the memory in [ArenaHeap] root is
-/// zeroed
+/// Destroys given ArenaHeap. If this ArenaHeap owns its VirtMem field exclusively, this function decommits/releases
+/// that virtual memory block, otherwise calls arena_heap_clear
 ///
-/// If you want to keep all blocks currently allocated, but would like to reset/clear all memory and reset all blocks
-/// used counters, see [arena_heap_clear]
-// METHOD
-// void arena_heap_release(ArenaHeap* self, isize nblocks);
-
-/// Destroys given ArenaHeap entirely, freeing all memory used by it
-/// As such, the pointer is invalid after this funciton returns and should be discarded
+/// For a version of this function that only tries to release backing virtual memory and does nothing in the case this
+/// ArenaHeap does not exclusively own its backing VirtMem, see [arena_heap_cleanup]
+///
+/// returns true if memory has been decommitted (in case this ArenaHeap exclusively owns its VirtMem), otherwise false
 METHOD
-void arena_heap_destroy(ArenaHeap* self);
+bool arena_destroy(Arena* self);
 
+/// Same as [arena_heap_destroy], but does nothing in the case this ArenaHeap does not exclusively own its backing VirtMem
+METHOD
+void arena_cleanup(Arena* self);
+
+/// Returns allocation statistics gathered by use of this ArenaHeap. 
 PURE_FUNC
 METHOD
-ArenaHeapStats arena_heap_stats(ArenaHeap* self);
+ArenaStats arena_stats(Arena* self);
 
+/// Returns the static constant Allocation vtable associated with any ArenaHeap
 CONST_FUNC
 RETURNS_NON_NULL
-const AllocVTable* arena_heap_alloc_vtable(void);
+const AllocVTable* arena_alloc_vtable(void);
 
+/// Returns the Allocator interface struct associated with given ArenaHeap
 METHOD
-Allocator arena_heap_allocator(ArenaHeap* self);
+Allocator arena_allocator(Arena* self);
 
-
-struct OsArena {
-  struct ArenaHeap* base;
-  VirtMem vm;
-};
-alias(OsArena);
-
-RETURNS_RESOURCE
-OsArena os_arena_new(i32 size_mb, isize init_commit);
-
-#define os_arena_alloc(self, size, align) (arena_heap_alloc((self).base), size, align)
-#define os_arena_zalloc(self, size, align) (arena_heap_zalloc((self).base, size, align))
-#define os_arena_clear(self) (arena_heap_clear((self).base))
-#define os_arena_destroy(self) (arena_heap_destroy((self).base))
-#define os_arena_stats(self) (arena_heap_stats((self).base))
-#define os_arena_allocator(self) (arena_heap_allocator((self).base))

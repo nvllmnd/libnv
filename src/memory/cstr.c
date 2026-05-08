@@ -2,11 +2,11 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "attributes.h"
 #include "core_types.h"
-#include "mimalloc.h"
 
 static void init_small_cstr(cstr* self, const char* string, usize len) {
   assert(len <= SMALL_BUF_SIZE);
@@ -18,7 +18,7 @@ static void init_small_cstr(cstr* self, const char* string, usize len) {
 static u8* alloc_prefix_memory(usize size) {
   const usize alloc_size = size + sizeof(i32) + 1;
 
-  u8* s = mi_calloc(sizeof(u8), alloc_size);
+  u8* s = calloc(sizeof(u8), alloc_size);
   assert(nullptr != s);
 
   return s;
@@ -107,7 +107,7 @@ void cstr_free(cstr* self) {
     i32* prefix_end = pcast(i32, self->heap);
     i32* prefix = prefix_end - 1;
     void* data = pcast(void, prefix);
-    mi_free(data);
+    free(data);
 
     self->heap = nullptr;
     // *self = (cstr){};
@@ -184,7 +184,7 @@ void cstr_append_string(cstr* self, const char* s, usize slen) {
 
   if (self->is_large) {
     const usize size = next_size + sizeof(i32) + 1;
-    u8* mem = mi_recalloc(pcast(void, self->heap), size, 1);
+    u8* mem = realloc(pcast(void, self->heap), size);
     assert(nullptr != mem);
 
     i32* prefix = pcast(i32, mem);
