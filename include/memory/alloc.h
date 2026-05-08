@@ -162,8 +162,6 @@ static inline void* allocator_allocate(Allocator self, MemLayout layout) {
   return self.vtable->allocate(self.ctx, layout);
 }
 
-#define allocator_alloc_array(self, T, N) (allocator_allocate((self), sizeof(T) * N, alignof(T)))
-
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_reallocate(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
   return self.vtable->reallocate(self.ctx, ptr, old_layout, new_layout);
