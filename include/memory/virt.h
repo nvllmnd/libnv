@@ -145,3 +145,12 @@ const AllocVTable* vmem_vtable(void);
 
 Allocator vmem_allocator(VirtMem* self);
 
+
+
+/// A Heap of Virtual Memory. This is a block style allocator, capable of freeing memory and coalescing adjacent freed blocks
+typedef struct Heap Heap;
+
+
+
+
+

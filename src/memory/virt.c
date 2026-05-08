@@ -21,7 +21,7 @@
 struct VirtMem {
 #if SYSTEM_WINDOWS
   /// NOTE: This will not compile for windows currently as of 04/05/2026.
-  ///       I cant be tiffed. Micro$oft Windoze is bloatware anway :)
+  ///       I cant be tiffed. Micro$hit Windoze is bloatware anway :)
   /// number of bytes available for allocation
   MemSize committed;
 #endif

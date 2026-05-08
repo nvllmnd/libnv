@@ -25,6 +25,11 @@ struct Block {
 };
 alias(Block);
 
+/// Min allocation size for requested allocations. The rational for this is that allocations smaller than the size of each block's header is wasteful,
+/// so we either can enforce callers to only request allocations larger than sizeof(Block), or we simple round up to 24 for allocation requests smaller than that,
+/// then at least those blocks can be later reused by more allocations (smaller allocations have a less chance of being reused after free.)
+static constexpr const isize BA_MIN_ALLOC_SIZE = sizeof(Block);
+
 #define bl_begin(b) (&((b)->storage[0]))
 
 #if defined(BA_FL_SIZE)
@@ -39,20 +44,20 @@ static constexpr const isize BA_FREE_LIST_SIZE = 1024;
 #endif
 
     struct FreeList {
-  i64 gen;
   /// Index of element to overwrite in FreeList if FreeList is too full to add another free block.
   /// We just take the element nearest to the end of FreeList, as i figure those elements have the highest chance of
   /// being the oldest in the list, plus it really doesnt matter THAT much which free block gets overwritten, speedy
   /// allocation and deallocation is more desired
   i32 overwrite_index;
   i32 len;
+  // TODO: We can implement this as a flat red/black tree (or a non-sorted linked list), sorted by size (or age, whichever is most efficient) to
+  // help reduce the time searching through free list
   Block* list[BA_FREE_LIST_SIZE];
 };
 alias(FreeList);
 
 PURE_FUNC
 METHOD
-[[maybe_unused]]
 static inline isize bl_size(const Block* self) {
   return self->end - bl_begin(self);
 }
@@ -80,7 +85,6 @@ struct BlockAllocator {
 };
 alias(BlockAllocator);
 METHOD
-[[maybe_unused]]
 static Block* ba_next_free_block(BlockAllocator* self, isize size);
 
 BlockAllocator* ba_owned_new(isize vm_mb) {
@@ -112,7 +116,7 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   self->vm = backing;
   self->head = nullptr;
   self->tail = nullptr;
-  self->free_list = make(FreeList, .gen = 0, .overwrite_index = 0, .len = 0, .list = {});
+  self->free_list = make(FreeList,  .overwrite_index = 0, .len = 0, .list = {});
 
   *out = self;
 
@@ -131,6 +135,8 @@ BlockAllocator* ba_new(VirtMem* backing, bool exclusive) {
 void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   assert(self);
   assert(layout.size > 0 && IS_POWER_OF_2(layout.align));
+
+  layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
 
   {
     Block* next_free = ba_next_free_block(self, layout.size);
@@ -335,7 +341,8 @@ void fl_delete(FreeList* self, Block* val) {
   const isize index = val->fl_id;
   assert(index >= 0 && index < BA_FREE_LIST_SIZE);
 
-  /// Mark this block as no longer available (freed)
+
+  /// Mark this block as no longer available (freed);
   /// We no longer need this value, so mark it as negative number
   /// to signal this block is not in free list
   val->fl_id = -1;

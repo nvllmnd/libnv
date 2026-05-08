@@ -180,23 +180,13 @@ static inline void allocator_free(Allocator self, void* ptr) { self.vtable->free
 /// it owns, as that would cause a nightmare where pointers allocated up to that point
 /// are going to be invalidated after arena resize.
 ///
-/// TODO: Implement a roped arena, where each arena has a prev field
-/// of its own type (a linked list of Arenas, where the top-most arena is the root of the
-/// chain, going back, each arena block has a pointer to the previous (full) Arena.) This way
-/// we append new blocks of memory when we run out, we allocate a new block, set the current root to the next
-/// arena block previous field, then set the new arena block as the new root. boom. We are able
-/// to grow in size and pointers dont get invalidated. This is at the cost of fragmenting memory a little bit,
-/// but we can get even crazier with it, and allow for the roped/chained Arena to take a parent allocator to
-/// allocate out of. That way theoretically, you could have a master allocator that allocates out of a huge block
-/// of static memory, and then have several roped/chained arena allocate our of that every time they need more space,
-/// and there you have a growable, non-pointer-invalidating, Arena that is contiguous in memory. But all thats for
-/// another day i have some other things to write
-struct Arena {
+struct FixedBuffAlloc {
   u8* mem;
   isize capacity;
   isize used;
 };
-typedef struct Arena Arena;
+typedef struct FixedBuffAlloc FixedBuffAlloc;
+
 
 /// Creates a new [Arena] struct.
 /// If this function fails to allocate with the global allocator,
@@ -206,14 +196,14 @@ typedef struct Arena Arena;
 /// You can use [arena_is_ok] function to check that the returned [Arena] instance
 /// is valid and ready to be used.
 [[nodiscard("Must check returned Arena is not zeroed, in which case it must be freed before going out of scope")]]
-Arena arena_new(isize capacity);
+FixedBuffAlloc fba_new(isize capacity);
 
 /// Creates a new [Arena], using given @param (alloc) to allocate
 /// the initial memory for it. Use [arena_destroy_in] after done with this arena, NOT [arena_destroy], which uses the
 /// global allcoator, which may be different from the allocator used to create the Allocator
 
 [[nodiscard("Must check returned Arena is not zeroed, in which case it must be freed before going out of scope")]]
-Arena arena_new_in(isize capacity, Allocator alloc);
+FixedBuffAlloc fba_new_in(isize capacity, Allocator alloc);
 
 /// Checks that a newly created/initialized Arena non-null/non-zeroed
 /// and has a valid pointer to memory and a valid capacity
@@ -224,37 +214,31 @@ Arena arena_new_in(isize capacity, Allocator alloc);
 /// ready to be used
 ///
 PURE_FUNC
-static inline bool arena_is_ok(const Arena* self) { return self && self->mem && self->capacity > 0; }
+static inline bool fba_is_ok(const FixedBuffAlloc* self) { return self && self->mem && self->capacity > 0; }
 
 METHOD
-void* arena_allocate(Arena* self, MemLayout layout);
+void* fba_allocate(FixedBuffAlloc* self, MemLayout layout);
 
 /// Same as [arena_allocate], but ensure memory is zeroed.
 /// [Arena] initially use ?? allocate the memory buffer, so
 /// memory is zeroed already initially, but if [arena_clear] was called instead of [arena_clear_zeroed],
 /// then there is a possiblity that memory might not be zeroed
 METHOD
-void* arena_zallocate(Arena* self, MemLayout layout);
+void* fba_zallocate(FixedBuffAlloc* self, MemLayout layout);
 
-CONST_FUNC
-const AllocVTable* arena_alloc_vtable(void);
 
-PURE_FUNC
-METHOD
-static inline Allocator arena_allocator(Arena* self) {
-  return (Allocator){.ctx = (void*)self, .vtable = arena_alloc_vtable()};
-}
+
 
 /// Cleans up memory used by this [Arena]
 METHOD
-void arena_destroy(Arena* self);
+void fba_destroy(FixedBuffAlloc* self);
 
 /// cleans up memory used by [Arena]. Must use the same [Allocator] that was used to create this [Arena]!
 METHOD
-void arena_destroy_in(Arena* self, Allocator alloc);
+void fba_destroy_in(FixedBuffAlloc* self, Allocator alloc);
 
 METHOD
-void arena_clear(Arena* self);
+void fba_clear(FixedBuffAlloc* self);
 
 METHOD
-void arena_clear_zeroed(Arena* self);
+void fba_clear_zeroed(FixedBuffAlloc* self);

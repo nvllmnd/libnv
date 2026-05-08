@@ -36,7 +36,7 @@ static inline Block* palloc_block_new(VirtMem* self, Block* current, isize size)
   return block;
 }
 
-struct ArenaHeap {
+struct Arena {
   /// indicates if this arena was created with an exclusive reference to its VirtMem field (ArenaHeap was created by
   /// calling arena_heap_new, as opposed to arena_heap_in_vmem)
   /// this allows us to better reuse memory, as if this was created by an outside VirtMem, use is most likely not
@@ -46,7 +46,7 @@ struct ArenaHeap {
   bool is_exclusive;
   VirtMem* parent;
 
-  ArenaHeapStats stats;
+  ArenaStats stats;
 
   struct Block* root;
 
@@ -61,7 +61,7 @@ struct ArenaHeap {
 };
 
 METHOD
-static inline void* ah_try_inner_allocate(ArenaHeap* self, MemLayout layout) {
+static inline void* ah_try_inner_allocate(Arena* self, MemLayout layout) {
   const isize size = layout.size;
   const isize align = layout.align;
   const isize end = self->mem_used + size;
@@ -85,7 +85,7 @@ static inline void* ah_try_inner_allocate(ArenaHeap* self, MemLayout layout) {
 
 METHOD
 PURE_FUNC
-static inline bool ah_alloc_in_block_ok(ArenaHeap* self, isize size, isize align) {
+static inline bool ah_alloc_in_block_ok(Arena* self, isize size, isize align) {
   const Block* root = self->root;
   if LIKELY (self->root) {
     const isize size_end = self->root->used + size;
@@ -114,7 +114,7 @@ static inline bool ah_alloc_in_block_ok(ArenaHeap* self, isize size, isize align
 /// not verify that the requested allocation will fit in this block, so be sure / to check that this block can fit an
 /// allocation of @param (size) in bytes
 METHOD
-static inline void* ah_block_allocate(ArenaHeap* self, isize size, isize align) {
+static inline void* ah_block_allocate(Arena* self, isize size, isize align) {
   if UNLIKELY (is_null(self->root)) {
     assert(false);
     return nullptr;
@@ -131,7 +131,7 @@ static inline void* ah_block_allocate(ArenaHeap* self, isize size, isize align) 
 }
 
 METHOD
-static inline void* ah_allocate(ArenaHeap* self, MemLayout layout) {
+static inline void* ah_allocate(Arena* self, MemLayout layout) {
   // try to allocate from ArenaHeap's inner memory buffer first
   // this function returns a nullptr if its out of memory
   // or it is unable to fit this allocation
@@ -151,17 +151,17 @@ static inline void* ah_allocate(ArenaHeap* self, MemLayout layout) {
 }
 
 static void* arena_heap_vtalloc_impl(void* ctx, MemLayout layout) {
-  ArenaHeap* self = pcast(ArenaHeap, ctx);
-  return arena_heap_alloc(self, layout);
+  Arena* self = pcast(Arena, ctx);
+  return arena_alloc(self, layout);
 }
 
 static void* arena_heap_vtzalloc_impl(void* ctx, MemLayout layout) {
-  ArenaHeap* self = pcast(ArenaHeap, ctx);
-  return arena_heap_zalloc(self, layout);
+  Arena* self = pcast(Arena, ctx);
+  return arena_zalloc(self, layout);
 }
 
 
-static inline ArenaHeap* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
+static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
 
   if (is_null(vm)) {
 
@@ -175,15 +175,15 @@ static inline ArenaHeap* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, b
 
   }
 
-  const isize size = sizeof(ArenaHeap) + capacity;
-  ArenaHeap* self = vmem_allocate(vm, mlayout_bytes(size));
+  const isize size = sizeof(Arena) + capacity;
+  Arena* self = vmem_allocate(vm, mlayout_bytes(size));
 
   if UNLIKELY (is_null(self)) {
     assert(false);
     return nullptr;
   }
 
-  *self = make(ArenaHeap, .is_exclusive = exclusive, .parent = vm, .stats = make(ArenaHeapStats, .total_used = 0, .total_allocated = capacity),
+  *self = make(Arena, .is_exclusive = exclusive, .parent = vm, .stats = make(ArenaStats, .total_used = 0, .total_allocated = capacity),
                .root = nullptr, .mem_used = 0, .mem_cap = capacity);
 
   return self;
@@ -193,17 +193,17 @@ static const AllocVTable HEAP_VTABLE =
     alloc_vtable_new(.allocate = arena_heap_vtalloc_impl, .zallocate = arena_heap_vtzalloc_impl,
                       .free = NO_IMPL_FREE, .reallocate = NO_IMPL_REALLOCATE);
 
-ArenaHeap* arena_heap_new(isize vmem_size_in_mb, isize init_capacity) { return ah_new_ex(nullptr,vmem_size_in_mb, init_capacity, true); }
+Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) { return ah_new_ex(nullptr,vmem_size_in_mb, init_capacity, true); }
 
-ArenaHeap* arena_heap_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {
+Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {
   assert(vm);
   return ah_new_ex(vm, 0 /*not used since vm is non-null */, capacity, exclusive);
 }
 
-void* arena_heap_alloc(ArenaHeap* self, MemLayout layout) { return ah_allocate(self, layout); }
+void* arena_alloc(Arena* self, MemLayout layout) { return ah_allocate(self, layout); }
 
-void* arena_heap_zalloc(ArenaHeap* self, MemLayout layout) {
-  u8* mem = arena_heap_alloc(self, layout);
+void* arena_zalloc(Arena* self, MemLayout layout) {
+  u8* mem = arena_alloc(self, layout);
   if UNLIKELY (is_null(mem)) {
     return nullptr;
   }
@@ -211,7 +211,7 @@ void* arena_heap_zalloc(ArenaHeap* self, MemLayout layout) {
   return mem;
 }
 
-void arena_heap_clear(ArenaHeap* self) {
+void arena_clear(Arena* self) {
 
   // fast path
   if (self->is_exclusive) {
@@ -233,22 +233,22 @@ void arena_heap_clear(ArenaHeap* self) {
   self->root = nullptr;
 }
 
-bool arena_heap_destroy(ArenaHeap* self) {
+bool arena_destroy(Arena* self) {
   if (self->is_exclusive) {
     // cleans up everything
     vmem_destroy(self->parent);
     return true;
   } 
 
-  arena_heap_clear(self);
+  arena_clear(self);
   return false;
 }
 
-const AllocVTable* arena_heap_alloc_vtable(void) { return &HEAP_VTABLE; }
+const AllocVTable* arena_alloc_vtable(void) { return &HEAP_VTABLE; }
 
-Allocator arena_heap_allocator(ArenaHeap* self) { return make(Allocator, .ctx = self, .vtable = &HEAP_VTABLE); }
+Allocator arena_allocator(Arena* self) { return make(Allocator, .ctx = self, .vtable = &HEAP_VTABLE); }
 
-ArenaHeapStats arena_heap_stats(ArenaHeap* self) { return self->stats; }
+ArenaStats arena_stats(Arena* self) { return self->stats; }
 
 
 
