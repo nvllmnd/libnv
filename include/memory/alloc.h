@@ -3,6 +3,8 @@
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
+#include "memory/cstr.h"
+#include "memory/layout.h"
 
 typedef enum AllocationResult : isize {
   /// The Allocator VTable Method is not implemented in the implementing/super Allocator!
@@ -32,32 +34,7 @@ typedef enum AllocationResult : isize {
   AllocationOk,
 } AllocationResult;
 
-/// Memory Layout, used for determining size and alignment of Allocator allocations
-struct MemLayout {
-  /// Size of requested allocation in bytes. must be a multiple of alignment
-  i32 size;
-  /// Alignment of requested allocation. must be a multiple of 2
-  i32 align;
-};
-typedef struct MemLayout MemLayout;
 
-#define mlayout_static(s, a)                          \
-  ({                                                  \
-    constexpr const __typeof(s) _s = (s);             \
-    constexpr const __typeof(a) _a = (a);             \
-    static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
-    make(MemLayout, .size = _s, .align = _a);       \
-  })
-
-#define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
-#define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T[N])))
-
-#define mlayout_fma(THeader, flex_member_size) (make(MemLayout, .size = sizeof(THeader) + (flex_member_size), .align = alignof(Block)))
-
-CONST_FUNC
-static inline MemLayout mlayout_bytes(isize nbytes) {
-  return make(MemLayout, .size = nbytes, .align = alignof(u8[nbytes]));
-}
 // #define mlayout_bytes()
 
 #define NO_IMPL_METHOD_RESULT ((void*)AllocatorVTableMethodNotImplemented)
@@ -242,3 +219,10 @@ void fba_clear(FixedBuffAlloc* self);
 
 METHOD
 void fba_clear_zeroed(FixedBuffAlloc* self);
+
+
+// struct Bytes {
+  
+// };
+// typedef struct Bytes Bytes;
+

@@ -2,10 +2,14 @@
 
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
 
+#include "attributes.h"
 #include "core/log.h"
 #include "memory/alloc.h"
+#include "memory/cstr.h"
 #include "memory/error.h"
+#include "memory/layout.h"
 
 #if SYSTEM_POSIX
 #include <errno.h>
@@ -35,6 +39,16 @@ struct VirtMem {
 
   u8 storage[];
 };
+
+
+
+i32 os_page_size(void) {
+  static i32 size = -1;  
+  if (size < 0) {
+    size = sysconf(_SC_PAGESIZE);
+  }
+  return size;
+}
 
 MemError vmem_init(VirtMem** self, isize size_in_mb) {
   assert(self);
@@ -67,7 +81,7 @@ MemError vmem_init(VirtMem** self, isize size_in_mb) {
 
   ptr->size = size;
   ptr->top = &ptr->storage[0];
-  ptr->end = &ptr->storage[ptr->size - 1];
+  ptr->end = ptr->top + size;
   *self = ptr;
 
   return MemError__Ok;
@@ -211,9 +225,9 @@ bool vmem_contains(const VirtMem* self, const void* p) {
   assert(self);
   assert(self->end);
   assert(p);
-  assert(self->storage);
 
   const u8* ptr = p;
 
   return ptr >= &self->storage[0] && ptr <= self->end;
 }
+

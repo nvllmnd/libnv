@@ -87,7 +87,6 @@ MemError vmem_destroy(VirtMem* self);
 //   _err;\
 // })
 
-
 /// resets allocation used counter back to zero, does not free or release any
 /// memory, however any pointers allocated by this [VirtMem] should be
 /// considered invalid after calling this function
@@ -107,18 +106,15 @@ error vmem_zero_range(VirtMem* self, isize index);
 METHOD
 void vmem_clear_zeroed(VirtMem* self);
 
-
 /// Returns the size in bytes of the size of virtual memory allocated (not including the header size)
 PURE_FUNC
 METHOD
 isize vmem_size(const VirtMem* self);
 
-
 /// Same as [vmem_size] but returns the full size of allocation (including the header size)
 PURE_FUNC
 METHOD
 isize vmem_full_size(const VirtMem* self);
-
 
 /// Returns the number of bytes currently in use
 PURE_FUNC
@@ -130,27 +126,83 @@ PURE_FUNC
 METHOD
 isize vmem_available(const VirtMem* self);
 
-
 /// Checks if given poitner is a pointer that was allocated from this VirtMem
 /// returns true if given pointer lies within the range of virtual memory, owned by [VirtMem]
 PURE_FUNC
 METHOD
 bool vmem_contains(const VirtMem* self, const void* ptr);
 
-
 CONST_FUNC
 RETURNS_NON_NULL
 const AllocVTable* vmem_vtable(void);
 
-
 Allocator vmem_allocator(VirtMem* self);
 
 
+CONST_FUNC
+i32 os_page_size(void);
 
-/// A Heap of Virtual Memory. This is a block style allocator, capable of freeing memory and coalescing adjacent freed blocks
+/// A Heap of Virtual Memory. This is a block style allocator, capable of freeing memory and coalescing adjacent freed
+/// blocks
+/// TODO: Actually implement this. lol
 typedef struct Heap Heap;
 
 
+static constexpr const i32 VBUFFER_MIN_SIZE = KILOBYTES(4);
 
+/// A large buffer of bytes (4KB+), residing in system virtual memory.
+/// This differs from a [VirtMem] in that this type is not an 'allocator' type,
+/// this is intended to be used to build strings, arrays, complex datastructures/memory that must
+/// be contiguous in memory, before copying that data out of this buffer and into somewhere else, clear this buffer, repeat!
+///
+/// Since this buffer resides in virtual memory, callers are expectd to keep this buffer alive for a while, and if you think you wont ever need more than [VBUFFER_MIN_SIZE] bytes,
+/// then you should probably use a static array 
+typedef struct VBuffer VBuffer;
+
+// typedef u8 TempBuffer[VBUFFER_MIN_SIZE];
+
+
+#define Bytes(N) struct { u8 inner[N]; }
+
+typedef Bytes(KILOBYTES(1)) TempBuffSmall;
+typedef Bytes(KILOBYTES(2)) TempBuffMid;
+typedef Bytes(KILOBYTES(3)) TempBuffTall;
+typedef Bytes(KILOBYTES(4)) TempBuffLarge;
+
+struct TempBuffer {
+  u8* inner;
+};
+
+static constexpr const i32 X = sizeof(TempBuffSmall);
+
+// struct TempBuffer {
+//   u8 inner[VBUFFER_MIN_SIZE];
+// };
+// typedef struct TempBuffer TempBuffer;
+
+
+
+VBuffer* vbuff_new(i32 cap_in_kb);
+
+// typedef enum SBufferType {
+//   SBuffer__Inner,
+//   /// non-owned
+//   SBuffer__Foreign,
+//   SBuffer__VirtualMem
+
+// } SBufferType;
+
+// struct ScratchBuff {
+//   SBufferType type;
+
+//   u8* top;
+
+//   union {
+//     u8 inner[SBUFFER_INNER_SIZE];
+//     struct { u8* start; u8* end; } foreign;
+//     VirtMem* mem;
+//   };
+
+// };
 
 

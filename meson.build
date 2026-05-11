@@ -12,7 +12,7 @@ project(
   ],
 )
 
-if is_subproject()
+if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
 endif
@@ -52,7 +52,7 @@ inc = include_directories(
 core_lib = static_library(
   'nv_core',
   files(
-    'src/core/log.c'
+    'src/core/log.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
