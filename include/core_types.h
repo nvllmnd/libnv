@@ -14,17 +14,16 @@
 #define CONCAT3_(a, b, c) a##b##c
 #define CONCAT3(a, b, c) CONCAT3_(a, b, c)
 
+
+
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
   __typeof__(T[N])
 
 #define ptr(T)                                                 \
   /* conveinence for declaring pointer types. bye, bye '*'! */ \
-  __typeof__(__typeof_unqual__(T)*)
+  __typeof__(T)*
 
-#define const_ptr(T)                                                           \
-  /* same as [ptr] macro, is more clear that this pointer is a constant one */ \
-  __typeof__(const __typeof_unqual__(T)*)
 
 #define type_eq(a, b)                                                         \
   /* compares an expression (a) with given type (b) to see if their types are \
@@ -311,3 +310,4 @@ static inline ApiError try_align_ptr(const void** ptr_out, isize align) {
 
 
 
+#define prefix_offset(ptr, T) (&((pcast(T, (ptr)))[-1]))
