@@ -45,3 +45,15 @@ allocators_test = executable(
 
 test('allocators', allocators_test)
 
+buff_vecs_test = executable(
+  'tests_buffs_and_vecs',
+  files('../tests/buff_vecs.c'),
+  include_directories: inc,
+  c_pch: '../pch/nv_pch.h',
+  dependencies : dependencies,
+  install : true,  
+  c_args: cargs,
+)
+
+test('buff_vecs', buff_vecs_test)
+

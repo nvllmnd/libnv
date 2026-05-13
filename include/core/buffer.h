@@ -108,13 +108,15 @@ const u8* buff_cend(const Buff* self);
 
 #define vec_append(self, T) ((Vec(T))buff_append((self), mlayout_new(T)))
 
-#define vec_push(self, val)                                                 \
-  ({                                                                        \
-    static_assert(sizeof(__typeof(*(self))) == sizeof(__typeof(val)));      \
-    __typeof((self)) elem = vec_append((self), mlayout_new(__typeof(val))); \
-    if (elem) {                                                             \
-      memncpy(elem, &(val), sizeof(__typeof((val))));                       \
-    }                                                                       \
+#define vec_push(_self, _val)                                              \
+  ({                                                                       \
+    static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_val)));     \
+    const auto _v = (_val);                                                \
+    Buff* _s = (Buff*)(_self);                                             \
+    __typeof_unqual(_v)* _elem = buff_append(_s, mlayout_new(typeof(_v))); \
+    if (_elem) {                                                           \
+      memcpy(_elem, &_v, sizeof(_v));                                      \
+    }                                                                      \
   })
 
 #define vec_len(self) ((buff_len(pcast(u8, (self)))) / sizeof(__typeof(*(self))))

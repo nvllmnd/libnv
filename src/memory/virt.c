@@ -193,6 +193,8 @@ isize vmem_available(const VirtMem* self) {
 
 void vmem_clear_zeroed(VirtMem* self) { vmem_zero_range(self, vmem_size(self)); }
 
+static void vmem_vtable_free(void*, void*) {}
+
 static void* vmem_vtable_alloc(void* self, MemLayout layout) { return vmem_allocate(self, layout); }
 
 static void* vmem_vtable_zalloc(void* self, MemLayout layout) { return vmem_zallocate(self, layout); }
@@ -215,7 +217,7 @@ static void* vmem_vtable_realloc(void* self, void* ptr, MemLayout old, MemLayout
 const AllocVTable* vmem_vtable(void) {
   static constexpr const AllocVTable VT =
       make(AllocVTable, .allocate = vmem_vtable_alloc, .reallocate = vmem_vtable_realloc,
-           .zallocate = vmem_vtable_zalloc, .free = NO_IMPL_FREE);
+           .zallocate = vmem_vtable_zalloc, .free = vmem_vtable_free);
   return &VT;
 }
 

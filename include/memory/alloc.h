@@ -99,6 +99,12 @@ typedef enum AllocVTableMask : u8 {
   VT__Zallocate = 1 << 2,
   VT__Expand = 1 << 3,
   VT__Free = 1 << 4,
+
+  VT__Required = VT__Allocate | VT__Free,
+  VT__AllocZallocFree = VT__Required | VT__Zallocate,
+  VT__AllocReallocExpandFree = VT__Required | VT__Reallocate | VT__Expand,
+  VT__AllocReallocZallocFree = VT__AllocZallocFree | VT__Reallocate,
+  VT__All = VT__Allocate | VT__Reallocate | VT__Zallocate | VT__Expand | VT__Free,
 } HEDLEY_FLAGS AllocVTableMask; 
 
 

@@ -29,18 +29,6 @@ struct Stuff {
 };
 alias(Stuff);
 
-void scratch_buffer_works(void) {
-  ScratchBuff sb = {};
-  sbuff_init_small(&sb);
-
-  TEST_ASSERT_NOT_NULL((sbuff_append_str(&sb, "test ")).begin);
-  TEST_ASSERT_NOT_NULL(sbuff_append_str(&sb, "append!").begin);
-
-  const sslice str = sbuff_as_string(&sb);
-
-  TEST_ASSERT_TRUE(sslice_eq(str, sslice_static_new("test append!")));
-  
-}
 
 void arena_heap_exclusive(void) {
   Arena* ah = arena_new(4, MEGABYTES(2));
@@ -196,7 +184,6 @@ i32 main(void) {
   RUN_TEST(arena_heap_from_vmem);
   RUN_TEST(block_allocator_works);
   RUN_TEST(block_allocator_relcaims_memory);
-  RUN_TEST(scratch_buffer_works);
 
   return UNITY_END();
 }
