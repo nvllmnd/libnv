@@ -19,11 +19,8 @@ typedef FixedBuffAlloc FBA;
 // static void* global_vtable_zalloc(void*, MemLayout layout) {
 // }
 
-
 // static void global_vtable_free(void*, void* ptr) {
 // }
-
-
 
 // static const AllocVTable GLOBAL_ALLOC_VTABLE =
 //     alloc_vtable_new(.allocate = global_vtable_alloc, .reallocate = global_vtable_realloc,
@@ -84,18 +81,17 @@ void* fba_allocate(FBA* self, MemLayout layout) { return arena_vtable_alloc(pcas
 
 void* fba_zallocate(FBA* self, MemLayout layout) { return arena_vtable_zalloc(pcast(FBA, self), layout); }
 
-void* vtable_alloc_no_impl(void*, MemLayout){ return NO_IMPL_METHOD_RESULT; }
-void* vtable_realloc_no_impl(void*, void*, MemLayout, MemLayout) { return NO_IMPL_METHOD_RESULT; }
-void* vtable_zalloc_no_impl(void*, MemLayout){ return NO_IMPL_METHOD_RESULT; }
-void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout){ return NO_IMPL_METHOD_RESULT; }
-void vtable_free_no_impl(void*, void*) {}
+// void* vtable_alloc_no_impl(void*, MemLayout){ return NO_IMPL_METHOD_RESULT; }
+void* vtable_realloc_no_impl(void*, void*, MemLayout, MemLayout) { return nullptr; }
+void* vtable_zalloc_no_impl(void*, MemLayout) { return nullptr; }
+void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout) { return nullptr; }
+// void vtable_free_no_impl(void*, void*) {}
 
-
-
+void arena_vtable_free(void*, void*) {}
 
 static const AllocVTable ARENA_ALLOC_VTABLE =
     alloc_vtable_new(.allocate = arena_vtable_alloc, .reallocate = NO_IMPL_REALLOCATE, .zallocate = arena_vtable_zalloc,
-                      .free = NO_IMPL_FREE);
+                     .free = arena_vtable_free, .mask = VT__Allocate | VT__Zallocate | VT__Free);
 
 const AllocVTable* fba_alloc_vtable(void) { return &ARENA_ALLOC_VTABLE; }
 
@@ -115,14 +111,9 @@ void fba_destroy_in(FBA* self, Allocator alloc) {
   }
 }
 
-void fba_clear(FBA* self) {
-  self->used = 0;
-}
+void fba_clear(FBA* self) { self->used = 0; }
 
 void fba_clear_zeroed(FBA* self) {
   fba_clear(self);
   memset(self->mem, 0, self->capacity);
 }
-
-
-

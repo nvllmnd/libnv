@@ -187,11 +187,15 @@ static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool 
                .root = nullptr, .mem_used = 0, .mem_cap = capacity);
 
   return self;
+
+
 }
+
+void arena_heap_vtfree_impl(void*, void*) {}
 
 static const AllocVTable HEAP_VTABLE =
     alloc_vtable_new(.allocate = arena_heap_vtalloc_impl, .zallocate = arena_heap_vtzalloc_impl,
-                      .free = NO_IMPL_FREE, .reallocate = NO_IMPL_REALLOCATE);
+                      .free =arena_heap_vtfree_impl, .reallocate = NO_IMPL_REALLOCATE, .mask = VT__Allocate | VT__Zallocate | VT__Free);
 
 Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) { return ah_new_ex(nullptr,vmem_size_in_mb, init_capacity, true); }
 

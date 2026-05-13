@@ -108,3 +108,16 @@ u8* buff_end(Buff* self);
 METHOD
 PURE_FUNC
 const u8* buff_cend(const Buff* self);
+
+
+
+#define Vec(T) ptr(T)
+
+
+#define vec_new(T, alloc) ((Vec(T))buff_new(sizeof(T), (alloc)))
+
+#define vec_push(self, T, alloc) ((Vec(T))buff_append((self), mlayout_new(T), (alloc)))
+
+#define vec_len(self) ((buff_len(pcast(u8, (self)))) / sizeof(__typeof(*(self))))
+#define vec_capacity(self) ((buff_capacity(pcast(u8,(self)))) / (sizeof(__typeof(*(self)))))
+#define vec_

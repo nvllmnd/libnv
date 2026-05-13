@@ -311,3 +311,13 @@ static inline ApiError try_align_ptr(const void** ptr_out, isize align) {
 
 
 #define prefix_offset(ptr, T) (&((pcast(T, (ptr)))[-1]))
+
+
+#define bitset(set, flag) ((set) |= (flag))
+
+#define bitclear(set, flag) ((set) &= ~(flag))
+#define bittoggle(set, flag) ((set) ^= (flag))
+#define bithas(set, flag) (cast(bool, (set) & (flag)))
+
+#define bithasall(set, flags) (((set) & (flags)) == (flags))
+#define bithasany(set, flags) ((set) & (flags))

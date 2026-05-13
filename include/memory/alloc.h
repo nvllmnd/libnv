@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
@@ -37,7 +38,6 @@ typedef enum AllocationResult : isize {
 
 // #define mlayout_bytes()
 
-#define NO_IMPL_METHOD_RESULT ((void*)AllocatorVTableMethodNotImplemented)
 
 /// Returns the Error state of the pointer returned by an [Allocator] interface struct
 static inline AllocationResult alloc_result(void* ptr) { return (AllocationResult)ptr; }
@@ -89,6 +89,57 @@ typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
 /// void* ptr  - Pointer to block of memory to be freed by this allocator
 typedef void (*const VTableFree)(void* self, void* ptr);
 
+
+typedef void* (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
+
+
+typedef enum AllocVTableMask : u8 {
+  VT__Allocate = 1,
+  VT__Reallocate = 1 << 1,
+  VT__Zallocate = 1 << 2,
+  VT__Expand = 1 << 3,
+  VT__Free = 1 << 4,
+} HEDLEY_FLAGS AllocVTableMask; 
+
+
+CONST_FUNC
+static inline bool vtmask_has_alloc(AllocVTableMask mask) {
+  return bithas(mask, VT__Allocate);
+}
+
+
+
+CONST_FUNC
+static inline bool vtmask_has_realloc(AllocVTableMask mask) {
+  return bithas(mask, VT__Reallocate);
+}
+
+
+CONST_FUNC
+static inline bool vtmask_has_zalloc(AllocVTableMask mask) {
+  return bithas(mask, VT__Zallocate);
+}
+
+
+CONST_FUNC
+static inline bool vtmask_has_expand(AllocVTableMask mask) {
+  return bithas(mask, VT__Expand);
+}
+
+
+CONST_FUNC
+static inline bool vtmask_has_free(AllocVTableMask mask) {
+  return bithas(mask, VT__Free);
+}
+
+/// Tests that a mask has the the needed allocation methods implemented (only allocate and free are mandatory)
+CONST_FUNC
+static inline bool vtmask_is_ok(AllocVTableMask mask) {
+  return bithasall(mask, VT__Allocate | VT__Free);
+}
+
+
+
 /// [Allocator] VTable struct that contains function pointers
 /// to Allocator implementations
 struct AllocVTable {
@@ -100,6 +151,13 @@ struct AllocVTable {
   VTableZallocate zallocate;
   /// See [VTableFree]
   VTableFree free;
+
+  VTableExpand expand;
+
+  /// VTable Mask, Allocators can set bits related to the allocation methods that they support, to avoid having to
+  /// make  a funciton call. This also is more clear to the caller which functions they can use.
+  AllocVTableMask mask;
+  
 };
 typedef struct AllocVTable AllocVTable;
 
@@ -108,16 +166,16 @@ typedef struct AllocVTable AllocVTable;
 
 #define alloc_vtable_new(...) ((AllocVTable){__VA_ARGS__})
 
-void* vtable_alloc_no_impl(void*, MemLayout);
+// void* vtable_alloc_no_impl(void*, MemLayout);
 void* vtable_realloc_no_impl(void*, void*, MemLayout, MemLayout);
 void* vtable_zalloc_no_impl(void*, MemLayout);
 void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout);
-void vtable_free_no_impl(void*, void*);
+// void vtable_free_no_impl(void*, void*);
 
-#define NO_IMPL_ALLOCATE (&vtable_alloc_no_impl)
+// #define NO_IMPL_ALLOCATE (&vtable_alloc_no_impl)
 #define NO_IMPL_REALLOCATE (&vtable_realloc_no_impl)
 #define NO_IMPL_ZALLOCATE (&vtable_zalloc_no_impl)
-#define NO_IMPL_FREE (&vtable_free_no_impl)
+// #define NO_IMPL_FREE (&vtable_free_no_impl)
 
 /// C-Style Allocator Interface
 /// Inspired by Zig <3
@@ -136,20 +194,32 @@ typedef struct Allocator Allocator;
 /// vtable. as such, if any particular Allocator Vtable call returns ((void*)-1)
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_allocate(Allocator self, MemLayout layout) {
+  assert(vtmask_has_alloc(self.vtable->mask && self.vtable->allocate));
   return self.vtable->allocate(self.ctx, layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_reallocate(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  assert(vtmask_has_realloc(self.vtable->mask && self.vtable->reallocate));
   return self.vtable->reallocate(self.ctx, ptr, old_layout, new_layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_zallocate(Allocator self, MemLayout layout) {
+  assert(vtmask_has_zalloc(self.vtable->mask && self.vtable->zallocate));
   return self.vtable->zallocate(self.ctx, layout);
 }
 
-static inline void allocator_free(Allocator self, void* ptr) { self.vtable->free(self.ctx, ptr); }
+[[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
+static inline void* allocator_expand(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  assert(vtmask_has_expand(self.vtable->mask) && self.vtable->expand);
+  return self.vtable->expand(self.ctx, ptr, old_layout, new_layout);
+}
+
+static inline void allocator_free(Allocator self, void* ptr) {
+  assert(vtmask_has_free(self.vtable->mask && self.vtable->free));
+  self.vtable->free(self.ctx, ptr);
+}
 
 /// A simple Arena Allocator
 ///
