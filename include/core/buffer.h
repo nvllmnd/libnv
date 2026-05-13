@@ -10,9 +10,6 @@
 /// it is, make sure its a no-op allocator)
 typedef u8 Buff;
 
-
-
-
 CONST_FUNC
 i32 buff_min_size(void);
 
@@ -82,19 +79,16 @@ void buff_clear_zeroed(Buff* self);
 METHOD
 void buff_destroy(Buff* self, Allocator alloc);
 
-
-
 /// Returns true if this Buff has enough capacity to fit a @param (MemLayout layout), otherwise false.
 METHOD
 PURE_FUNC
 bool buff_has_space_for(const Buff* self, MemLayout layout);
 
-
 /// Returns true if this Buffer needs to be resized to fit a @param (Memlayout layout)
 METHOD
 PURE_FUNC
 static inline bool buff_needs_resize_for(const Buff* self, MemLayout layout) {
-  return !buff_has_space_for(self,  layout);
+  return !buff_has_space_for(self, layout);
 }
 
 METHOD
@@ -104,20 +98,48 @@ i32 buff_available(const Buff* self);
 METHOD
 u8* buff_end(Buff* self);
 
-
 METHOD
 PURE_FUNC
 const u8* buff_cend(const Buff* self);
 
-
-
 #define Vec(T) ptr(T)
-
 
 #define vec_new(T, alloc) ((Vec(T))buff_new(sizeof(T), (alloc)))
 
-#define vec_push(self, T, alloc) ((Vec(T))buff_append((self), mlayout_new(T), (alloc)))
+#define vec_append(self, T) ((Vec(T))buff_append((self), mlayout_new(T)))
+
+#define vec_push(self, val)                                                 \
+  ({                                                                        \
+    static_assert(sizeof(__typeof(*(self))) == sizeof(__typeof(val)));      \
+    __typeof((self)) elem = vec_append((self), mlayout_new(__typeof(val))); \
+    if (elem) {                                                             \
+      memncpy(elem, &(val), sizeof(__typeof((val))));                       \
+    }                                                                       \
+  })
 
 #define vec_len(self) ((buff_len(pcast(u8, (self)))) / sizeof(__typeof(*(self))))
-#define vec_capacity(self) ((buff_capacity(pcast(u8,(self)))) / (sizeof(__typeof(*(self)))))
-#define vec_
+#define vec_capacity(self) ((buff_capacity(pcast(u8, (self)))) / (sizeof(__typeof(*(self)))))
+#define vec_cend(self) ((const __typeof(self))(buff_cend(pcast(const Buff, (self)))))
+#define vec_end(self) ((__typeof(self))(buff_end(pcast(Buff, (self)))))
+
+#define vec_available(self) (buff_available(pcast(const Buff, (self))) / sizeof(__typeof(*(self))))
+
+#define vec_needs_resize_for(self, T) (buff_needs_space_for(pcast(const Buff, (self)), mlayout_new(T)))
+
+#define vec_has_space_for(self, T) (buff_has_space_for(pcast(const Buff, (self)), mlayout_new(T)))
+
+#define vec_destroy(self, alloc) (buff_destroy(pcast(Buff, (self)), (alloc)))
+
+#define vec_clear_zeroed(self) (buff_clear_zeroed(pcast(Buff, (self))))
+
+#define vec_clear(self) (buff_clear(pcast(Buff, (self))))
+
+#define vec_into(self, out, out_len) (buff_into(pcast(Buff, (self)), (out), (out_len) * sizeof(__typeof(*(self)))))
+#define vec_resize(self, new_capacity, alloc) \
+  (buff_resize(pcast(Buff, (self)), (new_capacity) * sizeof(__typeof(*(self))), (alloc)))
+
+#define vec_from_mem(start, end) (buff_from_mem(pcast(u8, (start)), pcast(u8, (end)))
+#define vec_is_full(self) (buff_is_full(pcast(const Buff, (self))))
+
+#define vec_is_empty(self) (buff_is_empty(pcast(const Buff, (self))))
+#define vec_min_size buff_min_size
