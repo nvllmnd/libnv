@@ -13,9 +13,6 @@
 
 /// A Block of memory used and chained together by [BlockAllocator].
 struct Block {
-  /// index of where this block resides in the free list array, only used for blocks that are free (is_avail == true),
-  /// otherwise this value is a negative number
-  i32 fl_id;
   struct Block* next;
 
   ///  points to the end of this block in memory
@@ -25,42 +22,54 @@ struct Block {
 };
 alias(Block);
 
-/// Min allocation size for requested allocations. The rational for this is that allocations smaller than the size of each block's header is wasteful,
-/// so we either can enforce callers to only request allocations larger than sizeof(Block), or we simple round up to 24 for allocation requests smaller than that,
-/// then at least those blocks can be later reused by more allocations (smaller allocations have a less chance of being reused after free.)
+/// Min allocation size for requested allocations. The rational for this is that allocations smaller than the size of
+/// each block's header is wasteful, so we either can enforce callers to only request allocations larger than
+/// sizeof(Block), or we simple round up to 24 for allocation requests smaller than that, then at least those blocks can
+/// be later reused by more allocations (smaller allocations have a less chance of being reused after free.)
 static constexpr const isize BA_MIN_ALLOC_SIZE = sizeof(Block);
 
 #define bl_begin(b) (&((b)->storage[0]))
 
-#if defined(BA_FL_SIZE)
+static constexpr const i32 SIZE_CLASS_LIST_LEN = 255;
 
-#if BA_FL_SIZE >= 16
-static constexpr const isize BA_FREE_LIST_SIZE = BA_FL_SIZE
-#else
-#error "Preprocessor macro define: BA_FL_SIZE must be >= 16"
-#endif
-#else
-static constexpr const isize BA_FREE_LIST_SIZE = 1024;
-#endif
-
-    struct FreeList {
-  /// Index of element to overwrite in FreeList if FreeList is too full to add another free block.
-  /// We just take the element nearest to the end of FreeList, as i figure those elements have the highest chance of
-  /// being the oldest in the list, plus it really doesnt matter THAT much which free block gets overwritten, speedy
-  /// allocation and deallocation is more desired
-  i32 overwrite_index;
+struct SizeClass {
+  /// Size in bytes of this size class. Blocks of size <= to this size class are put into this size classes' free list
+  /// ring buffer
+  i32 class_size;
+  /// Length of Ring Buffer Free List.
   i32 len;
-  // TODO: We can implement this as a flat red/black tree (or a non-sorted linked list), sorted by size (or age, whichever is most efficient) to
-  // help reduce the time searching through free list
-  Block* list[BA_FREE_LIST_SIZE];
+  /// pointer to start of this Size Classes' Free List Ring Buffer
+  Block** start;
+  /// Pointer to end of this Size Classes' Free List Ring Buffer
+  Block** end;
+  /// A Ring buffer of pointers to freed blocks, segregated by size. Sizes >= [BA_FREE_LIST_MAX_SIZE] are not added to
+  /// any Size Class lists and are allocated and freed separately, as blocks of that size are likley to hang around for
+  /// a while
+  Block* list[SIZE_CLASS_LIST_LEN];
+};
+alias(SizeClass);
+
+static constexpr const i32 SIZE_CLASSES_LEN = 10;
+
+static constexpr const i32 SIZE_CLASS_MIN_SIZE = 24;
+
+static constexpr const i32 SIZE_CLASS_SIZES[SIZE_CLASSES_LEN] = {
+    SIZE_CLASS_MIN_SIZE, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13};
+
+static constexpr const i32 BA_FREE_LIST_MAX_SIZE = SIZE_CLASS_SIZES[SIZE_CLASSES_LEN - 1];
+
+struct FreeList {
+  i32 blocks_free;
+  // TODO: We can implement this as a flat red/black tree (or a non-sorted linked list), sorted by size (or age,
+  // whichever is most efficient) to help reduce the time searching through free list
+  // Block* list[BA_FREE_LIST_SIZE];
+  SizeClass sclasses[SIZE_CLASSES_LEN];
 };
 alias(FreeList);
 
 PURE_FUNC
 METHOD
-static inline isize bl_size(const Block* self) {
-  return self->end - bl_begin(self);
-}
+static inline isize bl_size(const Block* self) { return self->end - bl_begin(self); }
 
 PURE_FUNC
 METHOD
@@ -69,10 +78,7 @@ static inline isize bl_full_size(const Block* self) { return sizeof(Block) + bl_
 /// Adds given Block to FreeList.
 /// Returns true if block was successfully added to FreeList, otherwise false
 METHOD
-static void fl_push(FreeList* self, Block* val);
-
-METHOD
-static void fl_delete(FreeList* self, Block* val);
+static bool fl_push(FreeList* self, Block* val);
 
 struct BlockAllocator {
   VirtMem* vm;
@@ -116,7 +122,15 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   self->vm = backing;
   self->head = nullptr;
   self->tail = nullptr;
-  self->free_list = make(FreeList,  .overwrite_index = 0, .len = 0, .list = {});
+  self->free_list = make(FreeList, .blocks_free = 0, .sclasses = {});
+
+  for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
+    SizeClass* sc = &self->free_list.sclasses[i];
+    sc->class_size = SIZE_CLASS_SIZES[i];
+    LOG_DBG("Creating Size class of size: %d", sc->class_size);
+    sc->start = &sc->list[0];
+    sc->end = sc->start;
+  }
 
   *out = self;
 
@@ -138,7 +152,8 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
 
   layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
 
-  {
+  if (self->free_list.blocks_free > 0) {
+
     Block* next_free = ba_next_free_block(self, layout.size);
 
     if (next_free) {
@@ -263,8 +278,9 @@ void ba_free(BlockAllocator* self, void* ptr) {
   u8* ps = p - sizeof(Block);
   Block* b = pcast(Block, ps);
 
-
-  fl_push(&self->free_list, b);
+  if (fl_push(&self->free_list, b)) {
+    self->free_list.blocks_free += 1;
+  }
 }
 
 MemError ba_destroy(BlockAllocator* self) {
@@ -288,76 +304,137 @@ Allocator ba_allocator(BlockAllocator* self);
 Block* ba_next_free_block(BlockAllocator* self, isize size) {
   assert(self);
 
-  FreeList* fl = &self->free_list;
+  LOG_DBG("About to search for next free block");
 
-  for (i32 i = 0; i < fl->len; i++) {
-    Block* b = fl->list[i];
-    if (bl_size(b) >= size) {
-      fl_delete(fl, b);
-      return b;
-    }
+  if (size > BA_FREE_LIST_MAX_SIZE) {
+    return nullptr;
   }
 
-  return nullptr;
-}
+  FreeList* const fl = &self->free_list;
 
-void fl_push(FreeList* self, Block* val) {
-  assert(self);
-  assert(val);
+  SizeClass* klass = nullptr;
 
-  if LIKELY (self->len < BA_FREE_LIST_SIZE) {
-    const isize index = self->len;
-
-    // store index inside Block header for O(1) frees
-    val->fl_id = index;
-    // Mark this block as available since it has been freed
-    self->list[index] = val;
-    self->len += 1;
+  if (size <= BA_MIN_ALLOC_SIZE) {
+    size = SIZE_CLASS_MIN_SIZE;
+    klass = &fl->sclasses[0];
   } else {
-    // If we are out of space to add a new Block poitner to free list,
-    // then we overwrite the oldest element in free list
-    const isize index = self->overwrite_index;
-
-    val->fl_id = index;
-
-
-    // overwrite oldest element
-    self->list[index] = val;
-
-    const isize back_index = self->len - 1;
-
-    // if we already overwrote the back element,
-    if (index == back_index) {
-      // set next overwrite/oldest to element before that one
-      self->overwrite_index = back_index - 1;
+    for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
+      SizeClass* const sc = &fl->sclasses[i];
+      if (size <= sc->class_size) {
+        klass = sc;
+        break;
+      }
     }
   }
+  if LIKELY (klass) {
+    assert(klass->start);
+
+    assert(klass->end);
+    if (klass->len <= 0) {
+      return nullptr;
+    }
+
+    // If start has gotten to end of list, then end has forsure already wrapped around
+    // we check start != end, because it could be that start >= &list[SIZE_CLASS_LIST_LEN], but that means we are full
+    if (klass->start != klass->end && klass->start >= &klass->list[SIZE_CLASS_LIST_LEN]) {
+      klass->start = &klass->list[0];
+      // sanity check to make sure wrapping is working properly
+      assert(*klass->start);
+    }
+
+    // pop (unshift) the beginning of our free list ring buffer, selecting the
+    // block that has been in this queue the longest
+
+    Block* b = *klass->start;
+    klass->start++;
+
+    if UNLIKELY (is_null(b)) {
+      LOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len 1, but popped element was null!",
+              klass->class_size);
+      assert(b);
+    }
+
+    LOG_DBG("poping block of size: %li bytes from Size Class of %d bytes!", bl_size(b), klass->class_size);
+
+    klass->len -= 1;
+    self->free_list.blocks_free -= 1;
+
+    return b;
+  }
+
+  LOG_DBG(
+      "Unreachable section reached! tried to find next free block for allocation of size: %li, which should fit into a "
+      "size class, but did not.",
+      size);
+
+  assert(klass);
+
+  HEDLEY_UNREACHABLE();
 }
 
-void fl_delete(FreeList* self, Block* val) {
+bool fl_push(FreeList* self, Block* val) {
   assert(self);
   assert(val);
 
-  const isize index = val->fl_id;
-  assert(index >= 0 && index < BA_FREE_LIST_SIZE);
 
 
-  /// Mark this block as no longer available (freed);
-  /// We no longer need this value, so mark it as negative number
-  /// to signal this block is not in free list
-  val->fl_id = -1;
+  const i32 size = bl_size(val);
 
-  const isize back_index = self->len - 1;
-  Block* back = self->list[back_index];
-  self->list[index] = back;
-  self->len -= 1;
+  if (size > BA_FREE_LIST_MAX_SIZE) {
+    LOG_DBG(
+        "Attempted to push block of size: %d bytes into FreeList, which does not support blocks of size greater than "
+        "%d bytes!  Check size before attempting to add block to FreeList!",
+        size, BA_FREE_LIST_MAX_SIZE);
 
-  if UNLIKELY (index == self->overwrite_index) {
-    // just set oldest index to the last element of our free list, so we dont have
-    // to spend cpu cycles scanning for the oldest element, its really not that important, speedy allocations are more
-    // desired.
-    self->overwrite_index = self->len - 1;
+    assert(size <= BA_FREE_LIST_MAX_SIZE);
+    return false;
   }
+
+  SizeClass* klass = nullptr;
+
+
+  for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
+    SizeClass* const sc = &self->sclasses[i];
+    if (size <= sc->class_size) {
+      klass = sc;
+      break;
+    }
+  }
+
+  if UNLIKELY (is_null(klass)) {
+    LOG_DBG(
+        "Unrecoverable Error! Block of size %d bytes is less than max size of %d bytes, but for some reason was not "
+        "able to find a SizeClass of appropriate size. Definitely a logic error. check initialization is properly "
+        "done!!",
+        size, BA_FREE_LIST_MAX_SIZE);
+
+    assert(klass);
+    UNREACHABLE();
+  }
+
+  LOG_DBG("Pushing Block of size %d bytes into Size Class of %d bytes", size, klass->class_size);
+
+  if (klass->len >= SIZE_CLASS_LIST_LEN) {
+    LOG_DBG(
+        "Size class of size: %d bytes has no more space available to add freed block of size: %d. Memory will be "
+        "silently leaked, which is not entirely undesireable in this allocation model...",
+        klass->class_size, size);
+    return false;
+  }
+
+  if (klass->len <= 0 || klass->start == klass->end) {
+    klass->start = &klass->list[0];
+    klass->end = klass->start;  // will insert val into first index slot below, then gets properly incremented as well
+    klass->len = 0;  // will be incremented to 1 below, this is just to ensure that len is never a negative value
+
+  } else if (klass->end >= &klass->list[SIZE_CLASS_LIST_LEN]) {
+    klass->end = &klass->list[0];
+  }
+
+  *klass->end = val;
+  klass->end++;
+  klass->len += 1;
+  return true;
 }
 
 bool ba_contains(const BlockAllocator* self, const void* ptr) { return vmem_contains(self->vm, ptr); }

@@ -9,6 +9,7 @@
 #include "memory/alloc.h"
 #include "memory/arena.h"
 #include "memory/block_alloc.h"
+#include "memory/cstr.h"
 #include "memory/virt.h"
 #include "unity.h"
 
@@ -27,6 +28,7 @@ struct Stuff {
   i64 counter;
 };
 alias(Stuff);
+
 
 void arena_heap_exclusive(void) {
   Arena* ah = arena_new(4, MEGABYTES(2));

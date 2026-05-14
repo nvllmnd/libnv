@@ -52,7 +52,8 @@ inc = include_directories(
 core_lib = static_library(
   'nv_core',
   files(
-    'src/core/log.c'
+    'src/core/log.c',
+    'src/core/buffer.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

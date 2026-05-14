@@ -50,6 +50,8 @@ struct Arena {
 
   struct Block* root;
 
+  void* last_alloc;
+
   // NOTE: We use these last fields as our inital size allocation,
   // then there is less pointer indirection, as i dont like the idea
   // of allocation this [ArenaHeap] struct if its only used for a couple pointers and some stat tracking
@@ -131,40 +133,80 @@ static inline void* ah_block_allocate(Arena* self, isize size, isize align) {
 }
 
 METHOD
+static inline void* ah_expand(Arena* self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  if (new_layout.size < old_layout.size) {
+    return nullptr;
+  }
+  if (new_layout.size == old_layout.size) {
+    return ptr;
+  }
+
+  if (self->last_alloc == ptr) {
+    const u8* pend = pcast(const u8, ptr) + new_layout.size;
+    const i32 delta = new_layout.size - old_layout.size;
+    if (pend >= &self->mem[0] && pend <= &self->mem[self->mem_cap - 1]) {
+     self->mem_used += delta; 
+     return ptr;
+    }
+    if (self->root && pend >= &self->root->mem[0] && pend <= &self->root->mem[self->root->capacity - 1] ) {
+      self->root->used += delta;
+      return ptr;
+    }
+
+    // we cant expand in place. ): most likely because there is not enough room in the buffer this ptr lives at to expand any further
+    return nullptr;
+  }
+
+  /// we can only expand when the requested memory range to expand was the last thing allocated by this allocator
+  return nullptr;
+}
+
+METHOD
 static inline void* ah_allocate(Arena* self, MemLayout layout) {
   // try to allocate from ArenaHeap's inner memory buffer first
   // this function returns a nullptr if its out of memory
   // or it is unable to fit this allocation
-  void* ptr = ah_try_inner_allocate(self, layout);
-  if (is_not_null(ptr)) {
-    return ptr;
+  if (self->mem_used + layout.size < self->mem_cap) {
+    void* ptr = ah_try_inner_allocate(self, layout);
+    if (is_not_null(ptr)) {
+      self->last_alloc = ptr;
+      return ptr;
+    }
   }
-
   const isize size = layout.size;
   const isize align = layout.align;
+
   if (is_null(self->root) || !ah_alloc_in_block_ok(self, size, align)) {
     const isize block_size = size * 2;
     self->root = palloc_block_new(self->parent, self->root, block_size);
   }
 
-  return ah_block_allocate(self, size, align);
+  void* ptr = ah_block_allocate(self, size, align);
+  if (is_not_null(ptr)) {
+    self->last_alloc = ptr;
+    return ptr;
+  }
+  return nullptr;
 }
 
-static void* arena_heap_vtalloc_impl(void* ctx, MemLayout layout) {
+static void* arena_vtalloc_impl(void* ctx, MemLayout layout) {
   Arena* self = pcast(Arena, ctx);
   return arena_alloc(self, layout);
 }
 
-static void* arena_heap_vtzalloc_impl(void* ctx, MemLayout layout) {
+static void* arena_vtzalloc_impl(void* ctx, MemLayout layout) {
   Arena* self = pcast(Arena, ctx);
   return arena_zalloc(self, layout);
 }
 
+static void* arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  Arena* self = pcast(Arena, ctx);
+  return ah_expand(self, ptr,  old_layout,  new_layout);
+
+}
 
 static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
-
   if (is_null(vm)) {
-
     exclusive = true;
 
     if (vmem_init(&vm, vmem_mb) != OK) {
@@ -172,7 +214,6 @@ static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool 
           "Call to vmem_init failed! Could not allocate virtual memory when attempting to create a new [ArenaHeap]!");
       return nullptr;
     }
-
   }
 
   const isize size = sizeof(Arena) + capacity;
@@ -183,17 +224,60 @@ static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool 
     return nullptr;
   }
 
-  *self = make(Arena, .is_exclusive = exclusive, .parent = vm, .stats = make(ArenaStats, .total_used = 0, .total_allocated = capacity),
-               .root = nullptr, .mem_used = 0, .mem_cap = capacity);
+  *self = make(Arena, .is_exclusive = exclusive, .parent = vm,
+               .stats = make(ArenaStats, .total_used = 0, .total_allocated = capacity), .root = nullptr, .mem_used = 0,
+               .mem_cap = capacity);
 
   return self;
 }
 
-static const AllocVTable HEAP_VTABLE =
-    alloc_vtable_new(.allocate = arena_heap_vtalloc_impl, .zallocate = arena_heap_vtzalloc_impl,
-                      .free = NO_IMPL_FREE, .reallocate = NO_IMPL_REALLOCATE);
+static void* arena_vtrealloc_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+  if (old_layout.size == new_layout.size) {
+   return ptr; 
+  }
 
-Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) { return ah_new_ex(nullptr,vmem_size_in_mb, init_capacity, true); }
+  Arena* self = pcast(Arena, ctx);
+  if (new_layout.size < old_layout.size) {
+    const u8* p = pcast(const u8, ptr);
+    const i32 delta = old_layout.size - new_layout.size;
+    if (p >= &self->mem[0] && p < &self->mem[self->mem_cap -1]) {
+      self->mem_used -= delta;
+      return ptr;
+    }
+
+    if (self->root && p >= &self->root->mem[0] && p <= &self->root->mem[self->root->capacity - 1]) {
+      self->root->used -= delta;
+      return ptr; 
+    }
+
+    // If we got to here, the pointer probably exists somewhere deeper in the linked list of blocks, and therefore most likley
+    // not eligible for a resize, as "resizing" an Arena is the same as the inverse of expand (shrink) and if caller truely desires to "shrink" their allocated memory, then they can
+    // simply decrement their capacity/length field that tracks the size of its span in memory
+    return ptr;
+
+  }
+  if (self->last_alloc == ptr) {
+    return ah_expand(self, ptr,  old_layout,  new_layout);
+  }
+  // otherwise we just make more space for new allocation and memcpy contents over to new memory location. This is an arena, so leaking
+  // old data like this is not really undesireable, as all memory associated with this arena will be freed upon its destruction
+  void* res =  ah_allocate(self, new_layout);
+  if (is_not_null(res)) {
+    memcpy(res, ptr, old_layout.size);
+  }
+  // we out of space/memory!
+  return nullptr;
+}
+
+void arena_vtfree_impl(void*, void*) {}
+
+static const AllocVTable HEAP_VTABLE =
+    alloc_vtable_new(.allocate = arena_vtalloc_impl, .zallocate = arena_vtzalloc_impl, .free = arena_vtfree_impl,
+                     .reallocate = arena_vtrealloc_impl, .expand = arena_vtexpand_impl, .mask = VT__Allocate | VT__Zallocate | VT__Free | VT__Expand);
+
+Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) {
+  return ah_new_ex(nullptr, vmem_size_in_mb, init_capacity, true);
+}
 
 Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {
   assert(vm);
@@ -212,7 +296,6 @@ void* arena_zalloc(Arena* self, MemLayout layout) {
 }
 
 void arena_clear(Arena* self) {
-
   // fast path
   if (self->is_exclusive) {
     vmem_clear(self->parent);
@@ -220,7 +303,7 @@ void arena_clear(Arena* self) {
     self->root = nullptr;
     return;
   }
-  
+
   Block* current = self->root;
 
   while (current && current->prev) {
@@ -238,7 +321,7 @@ bool arena_destroy(Arena* self) {
     // cleans up everything
     vmem_destroy(self->parent);
     return true;
-  } 
+  }
 
   arena_clear(self);
   return false;
@@ -249,7 +332,3 @@ const AllocVTable* arena_alloc_vtable(void) { return &HEAP_VTABLE; }
 Allocator arena_allocator(Arena* self) { return make(Allocator, .ctx = self, .vtable = &HEAP_VTABLE); }
 
 ArenaStats arena_stats(Arena* self) { return self->stats; }
-
-
-
-
