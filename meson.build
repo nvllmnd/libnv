@@ -107,7 +107,7 @@ memory_dep = declare_dependency(
 dependencies += memory_dep
 
 
-lib = library(
+nv_lib = library(
   'nv',
   # 'src/main.c',
   include_directories: inc,
@@ -117,6 +117,12 @@ lib = library(
   c_args: cargs,
 )
 
+nv_dep = declare_dependency(
+  include_directories: inc,
+  link_with: nv_lib
+)
+
+meson.override_dependency('libnv', nv_dep)
 
 subdir('tests')
 
