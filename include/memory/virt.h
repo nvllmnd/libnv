@@ -173,7 +173,6 @@ struct TempBuffer {
   u8* inner;
 };
 
-static constexpr const i32 X = sizeof(TempBuffSmall);
 
 // struct TempBuffer {
 //   u8 inner[VBUFFER_MIN_SIZE];

@@ -51,12 +51,15 @@ alias(SizeClass);
 
 static constexpr const i32 SIZE_CLASSES_LEN = 10;
 
+static constexpr const i32 SIZE_CLASS_MIN_SIZE = 24;
+
 static constexpr const i32 SIZE_CLASS_SIZES[SIZE_CLASSES_LEN] = {
-    BA_MIN_ALLOC_SIZE, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13};
+    SIZE_CLASS_MIN_SIZE, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13};
 
 static constexpr const i32 BA_FREE_LIST_MAX_SIZE = SIZE_CLASS_SIZES[SIZE_CLASSES_LEN - 1];
 
 struct FreeList {
+  i32 blocks_free;
   // TODO: We can implement this as a flat red/black tree (or a non-sorted linked list), sorted by size (or age,
   // whichever is most efficient) to help reduce the time searching through free list
   // Block* list[BA_FREE_LIST_SIZE];
@@ -75,8 +78,7 @@ static inline isize bl_full_size(const Block* self) { return sizeof(Block) + bl_
 /// Adds given Block to FreeList.
 /// Returns true if block was successfully added to FreeList, otherwise false
 METHOD
-static void fl_push(FreeList* self, Block* val);
-
+static bool fl_push(FreeList* self, Block* val);
 
 struct BlockAllocator {
   VirtMem* vm;
@@ -120,11 +122,12 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   self->vm = backing;
   self->head = nullptr;
   self->tail = nullptr;
-  self->free_list = make(FreeList, .sclasses = {});
+  self->free_list = make(FreeList, .blocks_free = 0, .sclasses = {});
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
     SizeClass* sc = &self->free_list.sclasses[i];
     sc->class_size = SIZE_CLASS_SIZES[i];
+    LOG_DBG("Creating Size class of size: %d", sc->class_size);
     sc->start = &sc->list[0];
     sc->end = sc->start;
   }
@@ -149,7 +152,8 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
 
   layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
 
-  {
+  if (self->free_list.blocks_free > 0) {
+
     Block* next_free = ba_next_free_block(self, layout.size);
 
     if (next_free) {
@@ -274,7 +278,9 @@ void ba_free(BlockAllocator* self, void* ptr) {
   u8* ps = p - sizeof(Block);
   Block* b = pcast(Block, ps);
 
-  fl_push(&self->free_list, b);
+  if (fl_push(&self->free_list, b)) {
+    self->free_list.blocks_free += 1;
+  }
 }
 
 MemError ba_destroy(BlockAllocator* self) {
@@ -298,7 +304,9 @@ Allocator ba_allocator(BlockAllocator* self);
 Block* ba_next_free_block(BlockAllocator* self, isize size) {
   assert(self);
 
-  if (size >= BA_FREE_LIST_MAX_SIZE) {
+  LOG_DBG("About to search for next free block");
+
+  if (size > BA_FREE_LIST_MAX_SIZE) {
     return nullptr;
   }
 
@@ -307,7 +315,7 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
   SizeClass* klass = nullptr;
 
   if (size <= BA_MIN_ALLOC_SIZE) {
-    size = BA_MIN_ALLOC_SIZE;
+    size = SIZE_CLASS_MIN_SIZE;
     klass = &fl->sclasses[0];
   } else {
     for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
@@ -319,24 +327,23 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
     }
   }
   if LIKELY (klass) {
-    // this size class free list is empty
+    assert(klass->start);
+
+    assert(klass->end);
     if (klass->len <= 0) {
       return nullptr;
     }
 
-    assert(klass->start);
-    assert(klass->end);
-
-    if (klass->start == klass->end) {
-      klass->len = 0;
-      return nullptr;
-    }
-    /// If start has gotten to end of list, then end has forsure already wrapped around
-    if (klass->start >= &klass->list[SIZE_CLASS_LIST_LEN]) {
+    // If start has gotten to end of list, then end has forsure already wrapped around
+    // we check start != end, because it could be that start >= &list[SIZE_CLASS_LIST_LEN], but that means we are full
+    if (klass->start != klass->end && klass->start >= &klass->list[SIZE_CLASS_LIST_LEN]) {
       klass->start = &klass->list[0];
       // sanity check to make sure wrapping is working properly
       assert(*klass->start);
     }
+
+    // pop (unshift) the beginning of our free list ring buffer, selecting the
+    // block that has been in this queue the longest
 
     Block* b = *klass->start;
     klass->start++;
@@ -347,7 +354,10 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
       assert(b);
     }
 
+    LOG_DBG("poping block of size: %li bytes from Size Class of %d bytes!", bl_size(b), klass->class_size);
+
     klass->len -= 1;
+    self->free_list.blocks_free -= 1;
 
     return b;
   }
@@ -362,30 +372,11 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
   HEDLEY_UNREACHABLE();
 }
 
-//   // pop off the first element from list (since that is the one that has been sitting in the queue the longest),
-//   // copy the last element to the first index and decrement len counter, effectively rotating out the first element
-//   in
-//   // constant time
-
-//   Block* b = *klass->start;
-//   klass->start++;
-//   // klass->list[0] = klass->list[klass->len - 1];
-//   // klass->list[klass->len - 1] = nullptr;
-//   // klass->len -= 1;
-//   if UNLIKELY (is_null(b)) {
-//     LOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len: %d (now: %d), but ",
-//             klass->class_size, klass->len + 1, klass->len);
-
-//     assert(b);
-//   }
-//   return b;
-// }
-
-// }
-
-void fl_push(FreeList* self, Block* val) {
+bool fl_push(FreeList* self, Block* val) {
   assert(self);
   assert(val);
+
+
 
   const i32 size = bl_size(val);
 
@@ -396,15 +387,17 @@ void fl_push(FreeList* self, Block* val) {
         size, BA_FREE_LIST_MAX_SIZE);
 
     assert(size <= BA_FREE_LIST_MAX_SIZE);
-    return;
+    return false;
   }
 
   SizeClass* klass = nullptr;
+
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
     SizeClass* const sc = &self->sclasses[i];
     if (size <= sc->class_size) {
       klass = sc;
+      break;
     }
   }
 
@@ -419,12 +412,14 @@ void fl_push(FreeList* self, Block* val) {
     UNREACHABLE();
   }
 
+  LOG_DBG("Pushing Block of size %d bytes into Size Class of %d bytes", size, klass->class_size);
+
   if (klass->len >= SIZE_CLASS_LIST_LEN) {
     LOG_DBG(
         "Size class of size: %d bytes has no more space available to add freed block of size: %d. Memory will be "
         "silently leaked, which is not entirely undesireable in this allocation model...",
         klass->class_size, size);
-    return;
+    return false;
   }
 
   if (klass->len <= 0 || klass->start == klass->end) {
@@ -439,6 +434,7 @@ void fl_push(FreeList* self, Block* val) {
   *klass->end = val;
   klass->end++;
   klass->len += 1;
+  return true;
 }
 
 bool ba_contains(const BlockAllocator* self, const void* ptr) { return vmem_contains(self->vm, ptr); }
