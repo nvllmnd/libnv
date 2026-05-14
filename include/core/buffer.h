@@ -49,10 +49,10 @@ METHOD
 sslice buff_append_str(Buff* self, const char* string);
 
 METHOD
-char buff_putchar(Buff* self, char c);
+MemError buff_putchar(Buff* self, char c);
 
 METHOD
-u8 buff_putbyte(Buff* self, u8 b);
+MemError buff_putbyte(Buff* self, u8 b);
 
 /// Resizes given Buff in @param (Allocator alloc).
 /// @param (Allocator alloc) MUST BE the SAME allocator used to create this Buff [buff_new], not doing so

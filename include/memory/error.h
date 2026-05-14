@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include "attributes.h"
 #include "intdefs.h"
 #include <errno.h>
 
@@ -19,8 +20,9 @@ typedef enum MemError : error {
   /// Ok, No Error!
   MemError__Ok = 0,
 
-  MemError__FailedMemMap = -1,
-  MemError__FailedMemUnmap = -2,
+  MemError__FailedMemMap = -100,
+  MemError__FailedMemUnmap = -200,
+  MemError__BufferNeedsResize = -300,
   MemError__VirtMemOutOfMemory = -500,
     /// Not enough space/cannot allocate memory (POSIX.1-2001).
   MemError__OOM = -ENOMEM,
@@ -29,6 +31,43 @@ typedef enum MemError : error {
 
 
 } MemError;
+
+
+CONST_FUNC
+RETURNS_NON_NULL
+static inline const char* memerr_string(MemError err) {
+  switch (err) {
+    case MemError__Ok: {
+        return STRINGIFY(MemError__Ok) " :: Ok! no error.";
+      } break;
+    case MemError__FailedMemMap: {
+        return STRINGIFY(MemError__FailedMemMap) " :: mmap returned MAP_FAILED";
+      } break;
+    case MemError__FailedMemUnmap: {
+        return STRINGIFY(MemError__FailedMemUnmap) " :: munmap returned -1, check errno for more info";
+      } break;
+    case MemError__BufferNeedsResize: {
+        return STRINGIFY(MemError__BufferNeedsResize) " :: Buff must be resized in order to append a given layout!";
+      } break;
+    case MemError__VirtMemOutOfMemory: {
+        return STRINGIFY(MemError__VirtMemOutOfMemory) " :: Virtual Memory owned by VirtMem does not have enough memory for a given MemLayout!";
+      } break;
+    case MemError__OOM: {
+        return STRINGIFY(MemError__OOM) " :: General/Unspecified Out of Memory Error.";
+      } break;
+    case MemError__ValTooLargeFoDataType: {
+        return STRINGIFY(MemError__ValTooLargeForDataType) " :: Alias for ERRNO: EOVERFLOW";
+      } break;
+    case MemError__ResourceTempUnavail: {
+        return STRINGIFY(MemError__ResourceTempUnavail) " :: Alias for ERRNO: EAGAIN";
+      } break;
+      break;
+  }
+
+  return "Invalid MemError Value!";
+}
+
+
 /*
 
  	1 	Operation not permitted

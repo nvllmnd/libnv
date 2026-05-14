@@ -7,6 +7,7 @@
 #include "log.h"
 #include "memory/alloc.h"
 #include "memory/cstr.h"
+#include "memory/error.h"
 #include "memory/layout.h"
 
 struct Buffer {
@@ -19,37 +20,31 @@ alias(Buffer);
 #define asbuff(self) prefix_offset(self, Buffer)
 #define buff_start(self) (&((self)->start[0]))
 
-char buff_putchar(Buff* self, char c) {
+MemError buff_putchar(Buff* self, char c) {
   assert(self);
-  if (c == INT8_MIN) {
-    c = INT8_MIN + 1;
-  }
+
   Buffer* s = asbuff(self);
   if (s->len < s->capacity) {
     s->start[s->len] = c;
     s->len += 1;
-    return c;
+    return OK;
   }
 
-  return INT8_MIN;
+  return MemError__BufferNeedsResize;
   
 }
 
-u8 buff_putbyte(Buff* self, u8 b) {
+MemError buff_putbyte(Buff* self, u8 b) {
   assert(self);
   Buffer* s = asbuff(self);
-  if (b == UINT8_MAX) {
-    b = UINT8_MAX - 1;
-  }
 
   if (s->len < s->capacity) {
     s->start[s->len] = b;
     s->len += 1;
-    return b;
+    return OK;
   }
 
-  return UINT8_MAX;
-
+  return MemError__BufferNeedsResize;
   
 }
 
