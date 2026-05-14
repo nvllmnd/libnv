@@ -51,12 +51,18 @@ void buffs_works(void) {
 
 
 void vecs_works(void) {
-  Vec(i32) v = vec_new(i32, ALLOC);
+  Vec(i32) v = vec_new(i32, 100, ALLOC);
 
   vec_push(v, 50);
 
   TEST_ASSERT_EQUAL(50, v[0]);
 
+  vec_push(v, 100);
+
+  TEST_ASSERT_EQUAL(100, v[1]);
+
+  TEST_ASSERT_EQUAL(2, vec_len(v));
+  
   
 }
 

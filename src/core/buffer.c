@@ -19,6 +19,43 @@ alias(Buffer);
 #define asbuff(self) prefix_offset(self, Buffer)
 #define buff_start(self) (&((self)->start[0]))
 
+char buff_putchar(Buff* self, char c) {
+  assert(self);
+  if (c == INT8_MIN) {
+    c = INT8_MIN + 1;
+  }
+  Buffer* s = asbuff(self);
+  if (s->len < s->capacity) {
+    s->start[s->len] = c;
+    s->len += 1;
+    return c;
+  }
+
+  return INT8_MIN;
+  
+}
+
+u8 buff_putbyte(Buff* self, u8 b) {
+  assert(self);
+  Buffer* s = asbuff(self);
+  if (b == UINT8_MAX) {
+    b = UINT8_MAX - 1;
+  }
+
+  if (s->len < s->capacity) {
+    s->start[s->len] = b;
+    s->len += 1;
+    return b;
+  }
+
+  return UINT8_MAX;
+
+  
+}
+
+
+
+
 static inline const u8* buff_ctop(const Buff* self) {
   assert(self);
   const ptr(Buffer) s = asbuff(self);
@@ -87,15 +124,18 @@ void* buff_append(Buff* self, MemLayout layout) {
   assert(self);
   assert(layout.size > 0);
   assert(IS_POWER_OF_2(layout.align));
+  LOG_DBG("appending layout of size: %d and alignment: %d", layout.size, layout.align);
 
+
+    Buffer* s = asbuff(self);
   u8* next_top = buff_aligned_top(self, layout);
   if LIKELY (is_not_null(next_top)) {
-    Buffer* s = asbuff(self);
 
     const u8* top_end = next_top + layout.size;
     s->len = top_end - buff_start(s);
     return next_top;
   }
+  LOG_DBG("Aligned top was null! buffer len: %d. buffer cap: %d", s->len, s->capacity);
 
   return nullptr;
 }
@@ -185,7 +225,7 @@ sslice buff_as_string(const Buff* self) {
 /// this buffer into given memory located at @param(void* out)
 /// Returns nubmer of bytes written to @param (void* out).
 METHOD
-i32 buff_into(Buff* self, void* out, i32 out_len) {
+i32 buff_write(Buff* self, void* out, i32 out_len) {
   assert(self);
   assert(out);
   assert(out_len > 0);
