@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "algo.h"
 #include "core_types.h"
 #include "log.h"
 #include "memory/alloc.h"
@@ -103,7 +104,7 @@ Buff* buff_from_mem(u8* start, u8* end) {
 METHOD
 static inline u8* buff_aligned_top(Buff* self, MemLayout layout) {
   assert(self);
-  ptr(u8) top = align_ptr(buff_top(self), layout.align);
+  ptr(u8) top = ptr_alignup(buff_top(self), layout.align);
   ptr(u8) top_end = top + layout.size;
   ptr(u8) buffer_end = buff_end(self);
   if LIKELY (top_end <= buffer_end) {
@@ -265,7 +266,7 @@ bool buff_has_space_for(const Buff* self, MemLayout layout) {
   assert(self);
   assert(IS_POWER_OF_2(layout.align));
   assert(layout.size > 0);
-  const ptr(u8) top = align_ptr(buff_ctop(self), layout.align);
+  const ptr(u8) top = ptr_alignup((void*)buff_ctop(self), layout.align);
   const ptr(u8) next_top = top + layout.size;
   const ptr(u8) end = buff_cend(self);
   return next_top <= end;

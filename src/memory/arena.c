@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "algo.h"
 #include "attributes.h"
 #include "core_types.h"
 #include "log.h"
@@ -69,7 +70,7 @@ static inline void* ah_try_inner_allocate(Arena* self, MemLayout layout) {
   const isize end = self->mem_used + size;
   if (end < self->mem_cap) {
     u8* start = &self->mem[self->mem_used];
-    u8* aligned_start = align_ptr(start, align);
+    u8* aligned_start = ptr_alignup(start, align);
 
     const u8* alloc_end = aligned_start + size;
 
@@ -97,7 +98,7 @@ static inline bool ah_alloc_in_block_ok(Arena* self, isize size, isize align) {
     }
 
     const u8* alloc_start = &root->mem[root->used];
-    const u8* aligned_start = align_ptr(alloc_start, align);
+    const u8* aligned_start = ptr_alignup((void*)alloc_start, align);
 
     const u8* alloc_end = aligned_start + size;
 
@@ -124,7 +125,7 @@ static inline void* ah_block_allocate(Arena* self, isize size, isize align) {
 
   Block* root = self->root;
   u8* start = &root->mem[root->used];
-  u8* aligned = align_ptr(start, align);
+  u8* aligned = ptr_alignup(start, align);
 
   const isize alloc_size = (size + (aligned - start));
   root->used += alloc_size;

@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "algo.h"
 #include "attributes.h"
 #include "core/log.h"
 #include "memory/alloc.h"
@@ -100,7 +101,7 @@ void* vmem_allocate(VirtMem* self, MemLayout layout) {
     return nullptr;
   }
 
-  u8* ptr = align_ptr(self->top, align);
+  u8* ptr = ptr_alignup(self->top, align);
 
   // sanity check
   assert(ptr <= self->end);

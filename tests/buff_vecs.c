@@ -1,3 +1,4 @@
+#include "algo.h"
 #include "buffer.h"
 #include "intdefs.h"
 #include "log.h"

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <assert.h>
+
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
@@ -35,9 +36,7 @@ typedef enum AllocationResult : isize {
   AllocationOk,
 } AllocationResult;
 
-
 // #define mlayout_bytes()
-
 
 /// Returns the Error state of the pointer returned by an [Allocator] interface struct
 static inline AllocationResult alloc_result(void* ptr) { return (AllocationResult)ptr; }
@@ -89,9 +88,7 @@ typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
 /// void* ptr  - Pointer to block of memory to be freed by this allocator
 typedef void (*const VTableFree)(void* self, void* ptr);
 
-
 typedef void* (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
-
 
 typedef enum AllocVTableMask : u8 {
   VT__Allocate = 1,
@@ -105,46 +102,26 @@ typedef enum AllocVTableMask : u8 {
   VT__AllocReallocExpandFree = VT__Required | VT__Reallocate | VT__Expand,
   VT__AllocReallocZallocFree = VT__AllocZallocFree | VT__Reallocate,
   VT__All = VT__Allocate | VT__Reallocate | VT__Zallocate | VT__Expand | VT__Free,
-} HEDLEY_FLAGS AllocVTableMask; 
-
-
-CONST_FUNC
-static inline bool vtmask_has_alloc(AllocVTableMask mask) {
-  return bithas(mask, VT__Allocate);
-}
-
-
+} HEDLEY_FLAGS AllocVTableMask;
 
 CONST_FUNC
-static inline bool vtmask_has_realloc(AllocVTableMask mask) {
-  return bithas(mask, VT__Reallocate);
-}
-
+static inline bool vtmask_has_alloc(AllocVTableMask mask) { return bithas(mask, VT__Allocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_zalloc(AllocVTableMask mask) {
-  return bithas(mask, VT__Zallocate);
-}
-
+static inline bool vtmask_has_realloc(AllocVTableMask mask) { return bithas(mask, VT__Reallocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_expand(AllocVTableMask mask) {
-  return bithas(mask, VT__Expand);
-}
-
+static inline bool vtmask_has_zalloc(AllocVTableMask mask) { return bithas(mask, VT__Zallocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_free(AllocVTableMask mask) {
-  return bithas(mask, VT__Free);
-}
+static inline bool vtmask_has_expand(AllocVTableMask mask) { return bithas(mask, VT__Expand); }
+
+CONST_FUNC
+static inline bool vtmask_has_free(AllocVTableMask mask) { return bithas(mask, VT__Free); }
 
 /// Tests that a mask has the the needed allocation methods implemented (only allocate and free are mandatory)
 CONST_FUNC
-static inline bool vtmask_is_ok(AllocVTableMask mask) {
-  return bithasall(mask, VT__Allocate | VT__Free);
-}
-
-
+static inline bool vtmask_is_ok(AllocVTableMask mask) { return bithasall(mask, VT__Allocate | VT__Free); }
 
 /// [Allocator] VTable struct that contains function pointers
 /// to Allocator implementations
@@ -163,7 +140,6 @@ struct AllocVTable {
   /// VTable Mask, Allocators can set bits related to the allocation methods that they support, to avoid having to
   /// make  a funciton call. This also is more clear to the caller which functions they can use.
   AllocVTableMask mask;
-  
 };
 typedef struct AllocVTable AllocVTable;
 
@@ -182,6 +158,46 @@ void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout);
 #define NO_IMPL_REALLOCATE (&vtable_realloc_no_impl)
 #define NO_IMPL_ZALLOCATE (&vtable_zalloc_no_impl)
 // #define NO_IMPL_FREE (&vtable_free_no_impl)
+
+#define VTABLE_ADAPTER_ALLOC_NAME(T) T##_vtable_adapter_alloc
+
+#define VTABLE_ADAPTER_ALLOC(T, _impl)                              \
+  void* VTABLE_ADAPTER_ALLOC_NAME(T)(void* ctx, MemLayout layout) { \
+    __typeof(T)* self = ctx;                                        \
+    return (_impl)(self, layout);                                   \
+  }
+
+#define VTABLE_ADAPTER_REALLOC_NAME(T) T##_vtable_adapter_realloc
+
+#define VTABLE_ADAPTER_REALLOC(T, _impl)                                                                   \
+  void* VTABLE_ADAPTER_REALLOC_NAME(T)(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) { \
+    __typeof(T)* self = ctx;                                                                               \
+    return (_impl)(self, ptr, old_layout, new_layout);                                                     \
+  }
+
+#define VTABLE_ADAPTER_ZALLOC_NAME(T) T##_vtable_adapter_zalloc
+
+#define VTABLE_ADAPTER_ZALLOC(T, _impl)                              \
+  void* VTABLE_ADAPTER_ZALLOC_NAME(T)(void* ctx, MemLayout layout) { \
+    __typeof(T)* self = ctx;                                         \
+    return (_impl)(self, layout);                                    \
+  }
+
+#define VTABLE_ADAPTER_EXPAND_NAME(T) T##_vtable_adapter_expand
+
+#define VTABLE_ADAPTER_EXPAND(T, _impl)                                                                   \
+  void* VTABLE_ADAPTER_EXPAND_NAME(T)(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) { \
+    __typeof(T)* self = ctx;                                                                              \
+    return (_impl)(self, ptr, old_layout, new_layout);                                                    \
+  }
+
+#define VTABLE_ADAPTER_FREE_NAME(T) T##_vtable_adapter_free
+
+#define VTABLE_ADAPTER_FREE(T, _impl)                       \
+  void* VTABLE_ADAPTER_FREE_NAME(T)(void* ctx, void* ptr) { \
+    __typeof(T)* self = ctx;                                \
+    (_impl)(self, ptr);                                     \
+  }
 
 /// C-Style Allocator Interface
 /// Inspired by Zig <3
@@ -240,7 +256,6 @@ struct FixedBuffAlloc {
 };
 typedef struct FixedBuffAlloc FixedBuffAlloc;
 
-
 /// Creates a new [Arena] struct.
 /// If this function fails to allocate with the global allocator,
 /// or runs into an unexpected error during its execution at runtime,
@@ -279,9 +294,6 @@ void* fba_allocate(FixedBuffAlloc* self, MemLayout layout);
 METHOD
 void* fba_zallocate(FixedBuffAlloc* self, MemLayout layout);
 
-
-
-
 /// Cleans up memory used by this [Arena]
 METHOD
 void fba_destroy(FixedBuffAlloc* self);
@@ -296,9 +308,7 @@ void fba_clear(FixedBuffAlloc* self);
 METHOD
 void fba_clear_zeroed(FixedBuffAlloc* self);
 
-
 // struct Bytes {
-  
+
 // };
 // typedef struct Bytes Bytes;
-

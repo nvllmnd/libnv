@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "algo.h"
 #include "constants.h"
 #include "core_types.h"
 #include "intdefs.h"

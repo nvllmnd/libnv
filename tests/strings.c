@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 
+#include "algo.h"
 #include "core_types.h"
 #include "intdefs.h"
 #include "memory/cstr.h"

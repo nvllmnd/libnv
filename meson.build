@@ -54,6 +54,7 @@ core_lib = static_library(
   files(
     'src/core/log.c',
     'src/core/buffer.c',
+    'src/core/algo.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
@@ -89,6 +90,7 @@ memory_lib = static_library(
     'src/memory/arena.c',
     'src/memory/virt.c',
     'src/memory/block_alloc.c',
+    'src/memory/static_alloc.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

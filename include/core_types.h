@@ -7,13 +7,13 @@
 #include "attributes.h"
 #include "intdefs.h"
 #include "memory/error.h"
+#include "memory/layout.h"
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
 
 #define CONCAT3_(a, b, c) a##b##c
 #define CONCAT3(a, b, c) CONCAT3_(a, b, c)
-
 
 
 #define array(T, N)                                                    \
@@ -151,102 +151,11 @@
                           fields to all be set to 0. */                        \
   (make(T))
 
-PARAMS_NONNULL(1)
-static inline void* move(void** from) {
-  void* tmp = *from;
-  *from = nullptr;
-  return tmp;
-}
-#define move(from) (move((void**)&from))
-
-PARAMS_NONNULL(1, 2)
-static inline void* move_into(void** from, void** to) {
-  *to = move(*from);
-  return *to;
-}
-#define move_into(from, to) (move_into((void**)&from, (void**)&to))
-
-PARAMS_NONNULL(1, 2)
-static inline void* move_exchange(void** obj, void** new_value) {
-  void* tmp = *obj;
-  *obj = *new_value;
-  return tmp;
-}
-#define move_exchange(from, to) (move_exchange((void**)&from, (void**)&to))
-
 /// Offsetof polyfill
 #ifndef offsetof
 #define offsetof(T, m) ((isize) & ((T*)0)->m)
 #endif
 
-#define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
-
-CONST_FUNC
-static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
-
-static inline isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
-  if LIKELY (IS_POWER_OF_2(align)) {
-    const u64ptr mask = align - 1;
-    return cast(isize, cast(u64ptr, ptr) & mask);
-  }
-  return 0;
-}
-
-// static inline void* align_ptr(const void* ptr, isize align)
-// WHERE(IS_POWER_OF_2(align)) {
-//   const isize offset = ptr_align_offset(ptr, align);
-//   const isize adjust = (offset == 0 ? 0 : align - offset);
-//   const u64ptr p = cast(u64ptr, ptr);
-//   return pcast(void, p + adjust);
-// }
-
-/// Checks if a given pointer is aligned to given alignment.
-/// @param (align) MUST BE A POWER OF 2. If it is not this funciton returns
-/// false
-static inline bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
-  const auto addr = cast(uintptr_t, ptr);
-  const uintptr_t mask = align - 1;
-  return (addr & mask) == 0;
-}
-
-/// Aligns pointer up to given alignment, or returns the same pointer if it
-/// already is aligned
-/// @param (align) MUST BE A POWER OF 2.  If it is not, then this function
-/// returns the exact same pointer, doing no calulations and possiby causing
-/// confusion if given pointer is misaligned
-static inline const void* align_ptr(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align)) {
-  if (ptr_is_aligned(ptr, align)) {
-    return ptr;
-  }
-
-  const uintptr_t addr = cast(uintptr_t, ptr);
-  const uintptr_t mask = align - 1;
-
-  const uintptr_t aligned = (addr + mask) & (~mask);
-
-  return pcast(void, aligned);
-}
-#define align_ptr(p, align) ((__typeof__(p))align_ptr(p, align))
-
-/// Same as [align_ptr], but returns an error if any errors may occur
-static inline ApiError try_align_ptr(const void** ptr_out, isize align) {
-  if (!IS_POWER_OF_2(align)) {
-    return ApiError__ParameterValueNotPowerOf2;
-  }
-  if (is_null(ptr_out)) {
-    return ApiError__NullParameter;
-  }
-
-  const void* ptr = *ptr_out;
-
-  const uintptr_t addr = cast(uintptr_t, ptr);
-  const uintptr_t mask = align - 1;
-
-  const uintptr_t aligned = (addr + mask) & (~mask);
-
-  *ptr_out = cast(void*, aligned);
-  return OK;
-}
 
 #define alias(T) /* conveinence macro for defining structs to avoid having to \
                     write out the struct name 3 times*/                       \

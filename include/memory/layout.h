@@ -5,6 +5,7 @@
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
+
 struct MemLayout {
   /// Size of requested allocation in bytes. must be a multiple of alignment
   i32 size;
@@ -28,5 +29,5 @@ typedef struct MemLayout MemLayout;
 
 CONST_FUNC
 static inline MemLayout mlayout_bytes(isize nbytes) {
-  return make(MemLayout, .size = nbytes, .align = alignof(u8[nbytes]));
+  return make(MemLayout, .size = nbytes, .align = 1);
 }

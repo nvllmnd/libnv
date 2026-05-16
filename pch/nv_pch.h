@@ -9,6 +9,11 @@
 #include <assert.h>
 #include <errno.h>
 
+#include "core/algo.h"
+#include "core/constants.h"
+#include "memory/layout.h"
+#include "memory/error.h"
+
 #include "core_types.h"
 
 #include <stddef.h>
