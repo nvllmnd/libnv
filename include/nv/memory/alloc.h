@@ -87,7 +87,8 @@ typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
 /// void* ptr  - Pointer to block of memory to be freed by this allocator
 typedef void (*const VTableFree)(void* self, void* ptr);
 
-typedef void* (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
+/// Returns true if @param (void* ptr) was successfully expanded in place
+typedef bool (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
 
 typedef enum AllocVTableMask : u8 {
   VT__Allocate = 1,
@@ -234,8 +235,7 @@ static inline void* allocator_zallocate(Allocator self, MemLayout layout) {
   return self.vtable->zallocate(self.ctx, layout);
 }
 
-[[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_expand(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+static inline bool allocator_expand(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
   assert(vtmask_has_expand(self.vtable->mask) && self.vtable->expand);
   return self.vtable->expand(self.ctx, ptr, old_layout, new_layout);
 }

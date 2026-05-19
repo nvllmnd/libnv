@@ -139,7 +139,7 @@ static inline void* ah_expand(Arena* self, void* ptr, MemLayout old_layout, MemL
     return nullptr;
   }
   if (new_layout.size == old_layout.size) {
-    return ptr;
+    return nullptr;
   }
 
   if (self->last_alloc == ptr) {
@@ -200,7 +200,7 @@ static void* arena_vtzalloc_impl(void* ctx, MemLayout layout) {
   return arena_zalloc(self, layout);
 }
 
-static void* arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+static bool arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
   Arena* self = pcast(Arena, ctx);
   return ah_expand(self, ptr,  old_layout,  new_layout);
 

@@ -20,7 +20,7 @@ debug_flags := "--buildtype=debug"
 release_flags := "--buildtype='release' -Db_lto=true -Db_lto_threads=4 -Db_ndebug=true" 
 
 version_major := "1"
-version_minor := "2"
+version_minor := "3"
 version_patch := `echo "$(git rev-list --count HEAD)"`
 version_full :=  version_major + "." + version_minor + "." + version_patch 
 

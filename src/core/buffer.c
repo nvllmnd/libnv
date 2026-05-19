@@ -191,15 +191,17 @@ Buff* buff_resize(Buff* s, i32 new_capacity, Allocator alloc) {
     return s;
   }
   if (new_capacity < curr_cap) {
-    self->len = new_capacity;
+    self->capacity = new_capacity;
+    if (new_capacity < self->len) {
+      self->len = new_capacity;
+    }
     return s;
   }
 
   const auto old = mlayout_fma(Buffer, self->capacity);
   const auto new_layout = mlayout_fma(Buffer, new_capacity);
   if (vtmask_has_expand(alloc.vtable->mask)) {
-    self = allocator_expand(alloc, self, old, new_layout);
-    if LIKELY (is_not_null(self)) {
+    if (allocator_expand(alloc, self, old, new_layout)) {
       return &self->start[0];
     }
   }
