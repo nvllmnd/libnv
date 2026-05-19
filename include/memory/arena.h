@@ -36,6 +36,9 @@ void* arena_zalloc(Arena* self, MemLayout layout);
 METHOD
 void arena_clear(Arena* self);
 
+METHOD
+const char* arena_strndup(Arena* self, const char* string, i32 string_len);
+
 /// Destroys given ArenaHeap. If this ArenaHeap owns its VirtMem field exclusively, this function decommits/releases
 /// that virtual memory block, otherwise calls arena_heap_clear
 ///

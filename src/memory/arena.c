@@ -5,6 +5,7 @@
 
 #include "algo.h"
 #include "attributes.h"
+#include "buffer.h"
 #include "core_types.h"
 #include "log.h"
 #include "memory/alloc.h"
@@ -333,3 +334,21 @@ const AllocVTable* arena_alloc_vtable(void) { return &HEAP_VTABLE; }
 Allocator arena_allocator(Arena* self) { return make(Allocator, .ctx = self, .vtable = &HEAP_VTABLE); }
 
 ArenaStats arena_stats(Arena* self) { return self->stats; }
+
+const char* arena_strndup(Arena* self, const char* string, i32 string_len) {
+  assert(self);
+  if (is_null(string) || string_len <= 0) {
+    return nullptr;
+  }
+  char* s = arena_alloc(self, mlayout_bytes(string_len + 1));  
+  if UNLIKELY(is_null(s)) {
+    LOG_DBG(FILE_FMT " :: Failed to dup string: %.*s", FILE_FMT_ARGS(Arena, string_len, string));
+    return nullptr;
+  }
+  strncpy(s, string, string_len);
+
+  s[string_len] = 0;
+  return s;
+
+
+}

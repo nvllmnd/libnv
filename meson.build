@@ -47,7 +47,7 @@ dependencies = [
 
 inc = include_directories(
   'include',
-  'include/core',
+  'include/core'
 )
 
 core_lib = static_library(
@@ -87,6 +87,7 @@ memory_lib = static_library(
   include_directories: inc,
   dependencies: dependencies,
   install: true,
+
   pic: true,
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
@@ -111,6 +112,30 @@ lib = library(
   c_args: cargs,
 )
 
+if not meson.is_subproject()
+  install_headers(
+    'include/core_types.h',
+    subdir: meson.project_name() 
+  )
+  install_headers(
+    'include/core/attributes.h',
+    'include/core/constants.h',
+    'include/core/intdefs.h',
+    'include/core/sslice.h',
+    'include/core/algo.h',
+    subdir: meson.project_name() + '/core'
+  )
+
+  install_headers(
+    'include/memory/block_alloc.h',
+    'include/memory/error.h',
+    'include/memory/virt.h',
+    'include/memory/static_alloc.h',
+    'include/memory/cstr.h',
+    subdir: meson.project_name() + '/memory'
+  )
+  
+endif
 
 subdir('tests')
 
