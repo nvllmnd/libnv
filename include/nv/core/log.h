@@ -60,7 +60,7 @@ FormatError format_with(char* dst, isize dst_len, const char* fmt, ...);
 
 #define fdprint(fd, fmt, ...) (fprintf(fd, fmt __VA_OPT__(, ) __VA_ARGS__))
 
-#define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(,) __VA_ARGS__)
+#define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(,) __VA_ARGS__))
 #define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define fprintln(fd, fmt, ...) (fdprint(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
 
