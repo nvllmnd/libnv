@@ -215,7 +215,7 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 #define vec_write(self, out, out_len) \
   (buff_write(pcast(Buff, (self)), (out), (out_len) * (i32)sizeof(__typeof(*(self)))))
 #define vec_resize(self, new_capacity, alloc) \
-  (buff_resize(pcast(Buff, (self)), (new_capacity) * (i32)sizeof(__typeof(*(self))), (alloc)))
+  ((__typeof(*(self))*)(buff_resize(pcast(Buff, (self)), (new_capacity) * (i32)sizeof(__typeof(*(self))), (alloc))))
 
 #define vec_from_mem(start, end) (buff_from_mem(pcast(u8, (start)), pcast(u8, (end)))
 #define vec_is_full(self) (buff_is_full(pcast(const Buff, (self))))
