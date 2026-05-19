@@ -117,7 +117,7 @@ nv_dep = declare_dependency(
   link_with: nv_lib,
 )
 
-if not meson.is_subproject()
+# if not meson.is_subproject()
   install_headers(
     'include/core_types.h',
     subdir: meson.project_name() 
@@ -141,7 +141,7 @@ if not meson.is_subproject()
   )
 
   
-endif
+# endif
 
 meson.override_dependency('libnv', nv_dep)
 
