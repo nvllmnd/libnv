@@ -102,7 +102,7 @@ memory_dep = declare_dependency(
 dependencies += memory_dep
 
 
-lib = library(
+nv_lib = library(
   'nv',
   # 'src/main.c',
   include_directories: inc,
@@ -110,6 +110,11 @@ lib = library(
   dependencies : dependencies,
   install : true,
   c_args: cargs,
+)
+
+nv_dep = declare_dependency(
+  include_directories: inc,
+  link_with: nv_lib,
 )
 
 if not meson.is_subproject()
@@ -134,8 +139,13 @@ if not meson.is_subproject()
     'include/memory/cstr.h',
     subdir: meson.project_name() + '/memory'
   )
+
   
 endif
+
+meson.override_dependency('libnv', nv_dep)
+
+dependencies += nv_dep
 
 subdir('tests')
 
