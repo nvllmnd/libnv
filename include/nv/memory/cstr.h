@@ -4,10 +4,10 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "attributes.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "sslice.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/sslice.h"
 
 static constexpr i32 SMALL_BUF_SIZE = 14;
 

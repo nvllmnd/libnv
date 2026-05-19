@@ -1,11 +1,11 @@
 #pragma once
 
-#include "attributes.h"
-#include "constants.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/layout.h"
-#include "core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/constants.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/layout.h"
+#include "nv/core/algo.h"
 
 typedef struct StaticAlloc StaticAlloc;
 

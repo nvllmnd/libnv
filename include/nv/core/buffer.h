@@ -1,9 +1,9 @@
 #pragma once
 
-#include "attributes.h"
-#include "core/sslice.h"
-#include "intdefs.h"
-#include "memory/alloc.h"
+#include "nv/core/attributes.h"
+#include "nv/core/sslice.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/alloc.h"
 
 /// A Buffer of bytes. Must be manually resized. If created with an allocator ([buff_new]), then it must be resized and
 /// destroyed with the same allocator. This is to save metadata space, plus this is how its done in Zig so i think im

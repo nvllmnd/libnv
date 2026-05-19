@@ -1,12 +1,12 @@
-#include "memory/cstr.h"
+#include "nv/memory/cstr.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "attributes.h"
-#include "core_types.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
 
 static void init_small_cstr(cstr* self, const char* string, usize len) {
   assert(len <= SMALL_BUF_SIZE);

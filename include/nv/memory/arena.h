@@ -1,9 +1,9 @@
 #pragma once
 
-#include "attributes.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/alloc.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/alloc.h"
 
 typedef struct Arena Arena;
 

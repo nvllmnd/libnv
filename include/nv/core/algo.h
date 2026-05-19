@@ -2,9 +2,9 @@
 
 #include <stddef.h>
 
-#include "attributes.h"
-#include "intdefs.h"
-#include "memory/layout.h"
+#include "nv/core/attributes.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/layout.h"
 
 #define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 

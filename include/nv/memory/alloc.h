@@ -2,10 +2,10 @@
 
 #include <assert.h>
 
-#include "attributes.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/layout.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/layout.h"
 
 typedef enum AllocationResult : isize {
   /// The Allocator VTable Method is not implemented in the implementing/super Allocator!

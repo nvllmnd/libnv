@@ -3,9 +3,9 @@
 #include <math.h>
 #include <stdint.h>
 
-#include "attributes.h"
-#include "intdefs.h"
-#include "memory/error.h"
+#include "nv/core/attributes.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/error.h"
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)

@@ -1,18 +1,17 @@
-#include "core/runes.h"
+#include "nv/core/runes.h"
 
 #include <stdint.h>
 
-#include "algo.h"
-#include "attributes.h"
-#include "core/buffer.h"
-#include "core/constants.h"
-#include "core/log.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/alloc.h"
-#include "memory/arena.h"
-#include "memory/layout.h"
-#include "sslice.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/buffer.h"
+#include "nv/core/constants.h"
+#include "nv/core/log.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/arena.h"
+#include "nv/memory/layout.h"
+#include "nv/core/sslice.h"
 
 typedef enum RuneType { Rune__Empty = 0, Rune__Used, Rune__TypeCount } RuneType;
 

@@ -2,16 +2,16 @@
 
 #include <string.h>
 
-#include "algo.h"
-#include "constants.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/arena.h"
-#include "memory/block_alloc.h"
-#include "memory/cstr.h"
-#include "memory/virt.h"
+#include "nv/core/algo.h"
+#include "nv/core/constants.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/log.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/arena.h"
+#include "nv/memory/block_alloc.h"
+#include "nv/memory/cstr.h"
+#include "nv/memory/virt.h"
 #include "unity.h"
 
 void setUp(void) {}

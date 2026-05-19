@@ -1,8 +1,8 @@
 #pragma once
 
 
-#include "attributes.h"
-#include "intdefs.h"
+#include "nv/core/attributes.h"
+#include "nv/core/intdefs.h"
 #include <errno.h>
 
 static constexpr const error OK = 0;

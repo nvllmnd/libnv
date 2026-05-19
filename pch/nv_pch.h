@@ -11,16 +11,16 @@
 #include <assert.h>
 #include <errno.h>
 
-#include "core_types.h"
+#include "nv/core_types.h"
 
-#include "core/sslice.h"
-#include "core/algo.h"
-#include "core/constants.h"
-#include "memory/layout.h"
-#include "memory/error.h"
+#include "nv/core/sslice.h"
+#include "nv/core/algo.h"
+#include "nv/core/constants.h"
+#include "nv/memory/layout.h"
+#include "nv/memory/error.h"
 
 
 
-#include "attributes.h"
+#include "nv/core/attributes.h"
 
-#include "core/log.h"
+#include "nv/core/log.h"

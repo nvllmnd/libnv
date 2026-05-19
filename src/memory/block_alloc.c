@@ -1,13 +1,13 @@
-#include "memory/block_alloc.h"
+#include "nv/memory/block_alloc.h"
 
 #include <assert.h>
 
-#include "attributes.h"
-#include "core_types.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/error.h"
-#include "memory/virt.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
+#include "nv/core/log.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
+#include "nv/memory/virt.h"
 
 #define asblock(bl) (&((Block*)(bl))[-1])
 

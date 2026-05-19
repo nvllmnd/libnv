@@ -3,10 +3,10 @@
 //!
 #pragma once
 
-#include "attributes.h"
-#include "constants.h"
-#include "memory/alloc.h"
-#include "memory/error.h"
+#include "nv/core/attributes.h"
+#include "nv/core/constants.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
 
 /// Block-style allocator
 /// Allocates from a backing VirtMem poitner, that can be marked as exclusively owned. If exclusively owned,

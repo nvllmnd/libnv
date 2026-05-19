@@ -1,10 +1,10 @@
-#include "memory/static_alloc.h"
+#include "nv/memory/static_alloc.h"
 
 #include <assert.h>
 #include <string.h>
 
-#include "algo.h"
-#include "log.h"
+#include "nv/core/algo.h"
+#include "nv/core/log.h"
 
 struct StaticAlloc {
   u8* top;

@@ -1,4 +1,4 @@
-#include "memory/alloc.h"
+#include "nv/memory/alloc.h"
 
 #include <asm-generic/errno.h>
 #include <assert.h>
@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "constants.h"
-#include "core_types.h"
+#include "nv/core/constants.h"
+#include "nv/core_types.h"
 
 typedef FixedBuffAlloc FBA;
 

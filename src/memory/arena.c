@@ -1,15 +1,14 @@
-#include "memory/arena.h"
+#include "nv/memory/arena.h"
 
 #include <assert.h>
 #include <string.h>
 
-#include "algo.h"
-#include "attributes.h"
-#include "buffer.h"
-#include "core_types.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/virt.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
+#include "nv/core/log.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/virt.h"
 
 struct Block {
   struct Block* prev;

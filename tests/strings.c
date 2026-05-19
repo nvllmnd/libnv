@@ -1,10 +1,10 @@
 
 #include <stdio.h>
 
-#include "algo.h"
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/cstr.h"
+#include "nv/core/algo.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/cstr.h"
 #include "unity.h"
 
 void setUp(void) {}

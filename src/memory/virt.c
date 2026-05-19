@@ -1,15 +1,15 @@
-#include "memory/virt.h"
+#include "nv/memory/virt.h"
 
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
 
-#include "algo.h"
-#include "attributes.h"
-#include "core/log.h"
-#include "memory/alloc.h"
-#include "memory/error.h"
-#include "memory/layout.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/log.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
+#include "nv/memory/layout.h"
 
 #if SYSTEM_POSIX
 #include <errno.h>

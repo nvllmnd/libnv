@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 
-#include "core_types.h"
-#include "intdefs.h"
-#include "core/sslice.h"
+#include "nv/core_types.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/sslice.h"
 
 /// A Set of unique strings (called 'Runes'), hashed with FNV-1A,
 /// Each rune has a unique index and a pointer to the table where it lives in memory,

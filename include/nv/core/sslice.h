@@ -16,9 +16,9 @@
 /// mutate strings through a [sslice]. As such these are treated like views
 ///
 #include <string.h>
-#include "algo.h"
-#include "attributes.h"
-#include "intdefs.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/intdefs.h"
 
 struct sslice {
   const char* begin;

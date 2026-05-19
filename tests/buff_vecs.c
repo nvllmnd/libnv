@@ -1,9 +1,9 @@
-#include "algo.h"
-#include "buffer.h"
-#include "intdefs.h"
-#include "log.h"
-#include "memory/arena.h"
-#include "memory/virt.h"
+#include "nv/core/algo.h"
+#include "nv/core/buffer.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/log.h"
+#include "nv/memory/arena.h"
+#include "nv/memory/virt.h"
 #include "unity.h"
 
 static VirtMem* VM = nullptr;

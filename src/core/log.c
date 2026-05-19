@@ -1,11 +1,10 @@
-#include "core/log.h"
+#include "nv/core/log.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "stdarg.h"
 
 static inline void fdwrite(i32 fd, const char *src, isize len) {
   i32 nbytes = 0;

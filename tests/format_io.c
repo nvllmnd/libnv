@@ -1,8 +1,8 @@
 
 
 
-#include "intdefs.h"
-#include "log.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/log.h"
 #include "unity.h"
 
 void setUp(void)

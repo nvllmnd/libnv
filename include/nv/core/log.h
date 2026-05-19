@@ -1,12 +1,12 @@
 #pragma once
 
-#include <__stdarg_va_list.h>
 #include <stdio.h>
+#include <stdarg.h>
 
-#include "attributes.h"
-#include "core/sslice.h"
-#include "intdefs.h"
-#include "memory/cstr.h"
+#include "nv/core/attributes.h"
+#include "nv/core/sslice.h"
+#include "nv/core/intdefs.h"
+#include "nv/memory/cstr.h"
 
 // #include "memory/cstr.h"
 
