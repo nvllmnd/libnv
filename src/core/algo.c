@@ -1,13 +1,31 @@
 #include "nv/core/algo.h"
 
 #include <assert.h>
+#include <string.h>
 #include "nv/core_types.h"
 #include "nv/core/log.h"
 #include "nv/core/algo.h"
+
+bool stringeq(const char* left, const char* right) {
+  if (left == right) {
+    return true;
+  }
+
+  const i32 llen = stringlen(left);
+  const i32 rlen = stringlen(right);
+
+  if (llen == rlen) {
+    return strncmp(left, right, llen) == 0;
+  }
+
+  return false;
+}
+
 static constexpr const u32 PRIME32 = 0x010001930;
 static constexpr const u32 OFFSET32 = 0x811c9dc5;
 static constexpr const u64 PRIME64 = 0x00000100000001b3;
 static constexpr const u64 OFFSET64 = 0xcbf29ce484222325;
+
 
 u32 fnv_hash32(const char* string, isize len) {
   assert(string);

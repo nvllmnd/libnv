@@ -77,6 +77,10 @@ isize str_len(const char* string, isize max_len);
 PURE_FUNC
 static inline isize stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
 
+PURE_FUNC
+bool stringeq(const char* left, const char* right);
+
+
 PARAMS_NONNULL(1)
 isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 
@@ -127,3 +131,6 @@ static inline void* move_exchange(void** obj, void** new_value) {
   return tmp;
 }
 #define move_exchange(from, to) (move_exchange((void**)&from, (void**)&to))
+
+
+
