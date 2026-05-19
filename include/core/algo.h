@@ -4,22 +4,81 @@
 
 #include "attributes.h"
 #include "intdefs.h"
-#include "memory/error.h"
 #include "memory/layout.h"
+
 #define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
+
+PURE_FUNC
+PARAMS_NONNULL(1)
+u32 fnv_hash32(const char* string, isize len) WHERE(len > 0);
+
+PURE_FUNC
+PARAMS_NONNULL(1)
+u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
+
 
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 
+
+// CLANG_NON_NULL_BEGIN
+
+// struct NonNull {
+//   void* CLANG_NON_NULL ptr;
+// };
+// typedef struct NonNull NonNull;
+
+RETURNS_NON_NULL
+void* ptr_nonnull_(void* ptr);
+
+// CLANG_NON_NULL_END
+
+#define ptr_nonnull(_ptr) ((__typeof(*(_ptr))*)(ptr_nonnull_((void*)(_ptr))))
+
+#if !defined(pexpect) && !defined(LIBNV_NO_USE_SHORT_NAMES)
+#define pexpect ptr_nonnull
+#endif
+
+#ifndef STRLEN_UPPER_BOUND
+
+#define STRLEN_UPPER_BOUND                                                    \
+  /* Upper bound used by [stringlen] as the max_len parameter to [str_len] */ \
+  /* NOTE: I decided to make this a macro so that it can be configurable to   \
+   * each build (-D compiler flag)*/                                          \
+  (INT32_MAX - 1)
+
+#endif  // STRLEN_UPPER_BOUND
+
+/// A safe version of the standard lib: [strlen], which technically may never
+/// return if the passed in string never contains a null character to signal
+/// that this is the end of the string and return the length.
+///
+/// This function takes a (max_len) parameter, which, if after
+/// iterating through given (string) up to (max_len) characters,
+/// and a terminal null character has still not been found,
+/// then this funciton will return (max_len).
+///
+/// As such, consider if:
+///
+/// isize result = str_len(some_long_string, 255);
+/// if (result == 255) {
+///  /* failure! especially if the 256th character (in this example) is not a
+///  terminal null character! */
+/// }
+///
+/// For a version that does not require a @param (max_len) and passes []
+///
+///
+PURE_FUNC
+isize str_len(const char* string, isize max_len);
+
+/// Same as [stringlen], forwards @param (string) to [stringlen], passing
+/// [STRLEN_UPPER_BOUND]([INT32_MAX -1]) as the second parameter
+PURE_FUNC
+static inline isize stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
+
 PARAMS_NONNULL(1)
 isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-// {
-//   if LIKELY (IS_POWER_OF_2(align)) {
-//     const u64ptr mask = align - 1;
-//     return cast(isize, cast(u64ptr, ptr) & mask);
-//   }
-//   return 0;
-// }
 
 /// Checks if a given pointer is aligned to given alignment.
 /// @param (align) MUST BE A POWER OF 2. If it is not this funciton returns
@@ -27,11 +86,6 @@ isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align))
 PURE_FUNC
 PARAMS_NONNULL(1)
 bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-// {
-//   const auto addr = cast(uintptr_t, ptr);
-//   const uintptr_t mask = align - 1;
-//   return (addr & mask) == 0;
-// }
 
 /// Aligns pointer up to given alignment, or returns the same pointer if it
 /// already is aligned
@@ -41,37 +95,7 @@ bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 PARAMS_NONNULL(1)
 RETURNS_NON_NULL
 PURE_FUNC
- void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-// {
-//   if (ptr_is_aligned(ptr, align)) {
-//     return ptr;
-//   }
-
-//   const uintptr_t addr = cast(uintptr_t, ptr);
-//   const uintptr_t mask = align - 1;
-
-//   const uintptr_t aligned = (addr + mask) & (~mask);
-
-//   return pcast(void, aligned);
-// }
-
-// {
-//   if (!IS_POWER_OF_2(align)) {
-//     return ApiError__ParameterValueNotPowerOf2;
-//   }
-//   if (is_null(ptr_out)) {
-//     return ApiError__NullParameter;
-//   }
-
-//   const void* ptr = *ptr_out;
-
-//   const uintptr_t addr = cast(uintptr_t, ptr);
-//   const uintptr_t mask = align - 1;
-
-//   const uintptr_t aligned = (addr + mask) & (~mask);
-//   *ptr_out = cast(void*, aligned);
-//   return OK;
-// }
+void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 
 PARAMS_NONNULL(1, 2)
 PURE_FUNC
@@ -80,19 +104,6 @@ u8* ptr_alignto(u8* ptr, u8* end, MemLayout layout) WHERE(IS_POWER_OF_2(layout.a
 /// behaves similarly to C++'s std::align
 PARAMS_NONNULL(1, 2)
 u8* ptr_alignin(u8* ptr, i32* space, MemLayout layout);
-
-// {
-//   assert(top);
-//   assert(end);
-//   u8* top = align_ptr(self->top, layout.align);kkk
-
-//   if (top + layout.size >= self->end) {
-//     return nullptr;
-//   }
-
-//   return top;
-
-// }
 
 PARAMS_NONNULL(1)
 static inline void* move(void** from) {

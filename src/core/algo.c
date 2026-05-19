@@ -1,6 +1,75 @@
 #include "core/algo.h"
 
 #include <assert.h>
+#include "core_types.h"
+#include "log.h"
+#include "core/algo.h"
+static constexpr const u32 PRIME32 = 0x010001930;
+static constexpr const u32 OFFSET32 = 0x811c9dc5;
+static constexpr const u64 PRIME64 = 0x00000100000001b3;
+static constexpr const u64 OFFSET64 = 0xcbf29ce484222325;
+
+u32 fnv_hash32(const char* string, isize len) {
+  assert(string);
+  assert(len > 0);
+  
+  u32 hash = OFFSET32;
+  for (i32 i = 0; i < len; i++) {
+    const u32 c = string[i];
+    hash = (hash ^ c) * PRIME32;
+  }
+  return hash;
+}
+
+u64 fnv_hash64(const char* string, isize len) {
+  assert(string);
+  assert(len > 0);
+
+  u64 hash = OFFSET64;
+
+  for (i32 i = 0; i < len; i++) {
+    const u64 c = string[i];
+    hash = (hash ^ c) * PRIME64;
+  }
+  return hash;
+}
+
+
+
+isize str_len(const char* string, isize max_len) {
+  if UNLIKELY (is_null(string)) {
+    return 0;
+  }
+
+  isize len = 0;
+  while ((string[len] != 0) && (len <= max_len)) {
+    len++;
+  }
+  return len;
+}
+
+
+bool sslice_eq(sslice left, sslice right) {
+  if (left.len == right.len) {
+    return sslice_cmp(left, right) == 0;
+  }
+  return false;
+}
+
+
+i32 sslice_cmp(sslice left, sslice right) {
+
+  if (left.begin == nullptr) { return -1; }
+  if (right.begin == nullptr) { return 1; }
+  return strncmp(left.begin, right.begin, min(left.len, right.len));
+}
+
+void* ptr_nonnull_(void* ptr) {
+  if UNLIKELY (nullptr == ptr) {
+    log_fatal(" Expected given pointer to be non-null, but was nullptr! Aborting program!");
+  }
+  return ptr;
+}
 
 isize ptr_align_offset(const void* ptr, isize align) {
   assert(ptr);

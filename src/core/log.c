@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include "memory/cstr.h"
 #include "stdarg.h"
 
 static inline void fdwrite(i32 fd, const char *src, isize len) {
@@ -117,15 +116,22 @@ void seprintln(sslice str) {
   stderr_write(NL, NL_SIZE);
 }
 
+NORETURN void vlog_fatal(const char* fmt,   va_list args) {
+  va_list copy;
+  va_copy(copy, args);
+
+  vfprintf(stderr, fmt, args);
+  va_end(copy);
+
+  exit(1);
+}
 void log_fatal(const char *fmt, ...) {
   va_list args;
   va_start(args);
 
-  vfprintf(stderr, fmt, args);
 
-  va_end(args);
+  vlog_fatal(fmt, args);
 
-  exit(1);
 }
 
 void panic_abort(RuntimePanic err) {

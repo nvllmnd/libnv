@@ -15,6 +15,7 @@ project(
 if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
+  # add_global_arguments('-Wno-nullability-extension', language: 'c')
 endif
 
 hedley_dep = dependency('hedley')
@@ -55,6 +56,7 @@ core_lib = static_library(
     'src/core/log.c',
     'src/core/buffer.c',
     'src/core/algo.c',
+    'src/core/runes.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
@@ -70,16 +72,6 @@ core_dep = declare_dependency(
 )
 
 dependencies += core_dep
-
-# if get_option('mimalloc-override').enabled()
-#   mimalloc_proj = subproject('mimalloc')
-#   mimalloc_dep = mimalloc_proj.get_variable('mi_dep')
-  
-#   dependencies += mimalloc_dep
-#   cargs += '-DUSE_MIMALLOC'
-# endif
-
-
 
 
 memory_lib = static_library(

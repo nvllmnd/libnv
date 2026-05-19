@@ -1,20 +1,17 @@
 #pragma once
 
 #include <math.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #include "attributes.h"
 #include "intdefs.h"
 #include "memory/error.h"
-#include "memory/layout.h"
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
 
 #define CONCAT3_(a, b, c) a##b##c
 #define CONCAT3(a, b, c) CONCAT3_(a, b, c)
-
 
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
@@ -23,7 +20,6 @@
 #define ptr(T)                                                 \
   /* conveinence for declaring pointer types. bye, bye '*'! */ \
   __typeof__(T)*
-
 
 #define type_eq(a, b)                                                         \
   /* compares an expression (a) with given type (b) to see if their types are \
@@ -81,54 +77,46 @@
             f64: fmax,                 \
             f128: fmaxl)(a, b)))
 
-#define cmin(a, b)                          \
-  ({                                        \
-    constexpr const __typeof__(a) _a = (a); \
-    constexpr const __typeof__(b) _b = (b); \
-    _a < _b ? _a : _b;                      \
+#define cmin(_a_, _b_)                          \
+  ({                                            \
+    constexpr const __typeof__(_a_) _a = (_a_); \
+    constexpr const __typeof__(_b_) _b = (_b_); \
+    _a < _b ? _a : _b;                          \
   })
 
-#define cmax(a, b)                          \
-  ({                                        \
-    constexpr const __typeof__(a) _a = (a); \
-    constexpr const __typeof__(b) _b = (b); \
-    _a > _b ? _a : _b;                      \
+#define cmax(_a_, _b_)                          \
+  ({                                            \
+    constexpr const __typeof__(_a_) _a = (_a_); \
+    constexpr const __typeof__(_b_) _b = (_b_); \
+    _a > _b ? _a : _b;                          \
   })
 
-#define min(a, b)                 \
-  ({                              \
-    const __typeof__(a) _a = (a); \
-    const __typeof__(b) _b = (b); \
-    _a < _b ? _a : _b;            \
+#define min(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a < _b ? _a : _b;                \
   })
 
-#define max(a, b)                 \
-  ({                              \
-    const __typeof__(a) _a = (a); \
-    const __typeof__(b) _b = (b); \
-    _a > _b ? _a : _b;            \
+#define max(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a > _b ? _a : _b;                \
   })
 
-#define is_null(p)                                    \
+#define is_null(_p)                                   \
   /* checks if given pointer (p) is equal to null. */ \
-  (nullptr == (p))
+  (nullptr == (_p))
 
-#define is_not_null(p)                                   \
+#define is_not_null(_p)                                  \
   /* checks if given pointer (p) is not equal to null */ \
-  (!(is_null((p))))
+  (!(is_null((_p))))
 
-#define is_ptr_ok(p)                                                           \
-  /* check if given pointer (p) is good. (converts to a non-negative, non-zero \
-   * integer) */                                                               \
-  /* shorthand for [alloc_result] for checking pointers returned by            \
-   * [Allocator] interface struct [AllocVTable] methods                        \
-   */                                                                          \
-  (((isize)(p)) > 0)
-
-#define clamp(x, _min, _max)                                           \
+#define clamp(_x, _min, _max)                                          \
   /* clamps a value values (x) to be between (min) and (max) */        \
   /* i.e.: 'clamp(-1, 0, 5) == 0;', or 'clamp(650, 0, 100) == 100;' */ \
-  (max((_min), min((x), (_max))))
+  (max((_min), min((_x), (_max))))
 
 // NOTE: I kind of like these 2 macros in a guilty pleasure kind of way lmao...
 //  i might one day use them, but idk its kinda ugg and seems too distant to C
@@ -138,7 +126,7 @@
 //  #define ref &
 //
 
-#define UNUSED(v) ((void)v)
+#define UNUSED(_v) ((void)_v)
 
 #define make(T, ...) /* Conveinence macro for creating new structs on stack. its possible \
                         to pass a value instead of a type as the first parameter to this  \
@@ -153,20 +141,22 @@
 
 /// Offsetof polyfill
 #ifndef offsetof
-#define offsetof(T, m) ((isize) & ((T*)0)->m)
+#define offsetof(T, _m) ((isize) & ((T*)0)->_m)
 #endif
+
+#define sizeof_field(T, _name_) (sizeof(make_zeroed(T)._name_))
 
 
 #define alias(T) /* conveinence macro for defining structs to avoid having to \
                     write out the struct name 3 times*/                       \
   typedef struct T T
 
-#define tryerr(expr)                                                         \
+#define tryerr(_expr)                                                        \
   /* evaluates given expression that returns [error] (int), and returns from \
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
-    const error _err = (expr);                                               \
+    const error _err = (_expr);                                              \
     if (_err != 0) {                                                         \
       return _err;                                                           \
     }                                                                        \
@@ -177,19 +167,19 @@
 //     if (_er != 0) { (orelse); }\
 // } while(0)
 
-#define tryerr_or(expr, orelse)                                               \
+#define tryerr_or(_expr, _orelse)                                             \
   /* Same as [tryerr] macro, but instead of returning error value in the case \
    * it is not equal to 0, a given expression is ran. you can use this macro  \
    * anywhere in the case you want to handle an error dynamicaly inside a     \
    * function that does not return [error](int)*/                             \
   do {                                                                        \
-    const error _err = (expr);                                                \
+    const error _err = (_expr);                                               \
     if (_err != 0) {                                                          \
-      (orelse);                                                               \
+      (_orelse);                                                              \
     }                                                                         \
   } while (0)
 
-#define tryerr_or_cb(expr, cb, ...)                                            \
+#define tryerr_or_cb(_expr, _cb, ...)                                          \
   /* Same as [tryerr_or], but instead of running a given expression in the     \
    * case where error is not equal to 0, a given callback function is called.  \
    * Callback function can have any signature, as long as it has at least a    \
@@ -198,35 +188,30 @@
    * version of this macro that returns from the surrounding function with the \
    * return value of given callback, see: [tryerr_or_ret]*/                    \
   do {                                                                         \
-    const error _err = (expr);                                                 \
+    const error _err = (_expr);                                                \
     if (_err != 0) {                                                           \
-      (cb)(_err, __VA_ARGS__);                                                 \
+      (_cb)(_err, __VA_ARGS__);                                                \
     }                                                                          \
   } while (0)
 
-#define tryerr_or_ret(expr, cb, ...)                                   \
+#define tryerr_or_ret(_expr, _cb, ...)                                 \
   /* Same as [tryerr_or_cb], but returns from the surrounding function \
      with the value returned by given callback function. Due to this,  \
      this macro can only be called inside functions with the same      \
      return type as the surrounding function. */                       \
-  (tryerr_or_cb((expr), (cb), __VA_ARGS__))
-
-
+  (tryerr_or_cb((_expr), (_cb), __VA_ARGS__))
 
 #define tptr_new(p, enable) (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
 #define tptr_ptr(p) ((__typeof((p)))((addr)(p) & ~1UL))
 #define tptr_tag(p) (((addr)(p)) & 1)
 
+#define prefix_offset(_ptr, T) (&((pcast(T, (_ptr)))[-1]))
 
+#define bitset(_set, _flag) ((_set) |= (_flag))
 
-#define prefix_offset(ptr, T) (&((pcast(T, (ptr)))[-1]))
+#define bitclear(_set, _flag) ((_set) &= ~(_flag))
+#define bittoggle(_set, _flag) ((_set) ^= (_flag))
+#define bithas(_set, _flag) (cast(bool, (_set) & (_flag)))
 
-
-#define bitset(set, flag) ((set) |= (flag))
-
-#define bitclear(set, flag) ((set) &= ~(flag))
-#define bittoggle(set, flag) ((set) ^= (flag))
-#define bithas(set, flag) (cast(bool, (set) & (flag)))
-
-#define bithasall(set, flags) (((set) & (flags)) == (flags))
-#define bithasany(set, flags) ((set) & (flags))
+#define bithasall(_set, _flags) (((_set) & (_flags)) == (_flags))
+#define bithasany(_set, _flags) ((_set) & (_flags))

@@ -1,13 +1,13 @@
 #include "core/buffer.h"
 
 #include <assert.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include "algo.h"
 #include "core_types.h"
 #include "log.h"
 #include "memory/alloc.h"
-#include "memory/cstr.h"
 #include "memory/error.h"
 #include "memory/layout.h"
 
@@ -19,7 +19,28 @@ struct Buffer {
 alias(Buffer);
 
 #define asbuff(self) prefix_offset(self, Buffer)
+
 #define buff_start(self) (&((self)->start[0]))
+
+i32 buff_set_len(Buff* s, i32 new_len) {
+  assert(s);
+
+  Buffer* self = asbuff(s);
+
+  const i32 len = self->len;
+  const i32 cap = self->capacity;
+
+  if (len == new_len) {
+    return len;
+  }
+
+  // clamp to capacity so we dont accidently trigger UB
+  new_len = clamp(new_len, 0, cap);
+
+  self->len = new_len;
+
+  return self->len;
+}
 
 MemError buff_putchar(Buff* self, char c) {
   assert(self);
@@ -32,7 +53,6 @@ MemError buff_putchar(Buff* self, char c) {
   }
 
   return MemError__BufferNeedsResize;
-  
 }
 
 MemError buff_putbyte(Buff* self, u8 b) {
@@ -46,11 +66,7 @@ MemError buff_putbyte(Buff* self, u8 b) {
   }
 
   return MemError__BufferNeedsResize;
-  
 }
-
-
-
 
 static inline const u8* buff_ctop(const Buff* self) {
   assert(self);
@@ -122,11 +138,9 @@ void* buff_append(Buff* self, MemLayout layout) {
   assert(IS_POWER_OF_2(layout.align));
   LOG_DBG("appending layout of size: %d and alignment: %d", layout.size, layout.align);
 
-
-    Buffer* s = asbuff(self);
+  Buffer* s = asbuff(self);
   u8* next_top = buff_aligned_top(self, layout);
   if LIKELY (is_not_null(next_top)) {
-
     const u8* top_end = next_top + layout.size;
     s->len = top_end - buff_start(s);
     return next_top;
@@ -231,16 +245,12 @@ i32 buff_write(Buff* self, void* out, i32 out_len) {
   return size;
 }
 
-/// Clears Buff. Sets its inner field to 0
-METHOD
 void buff_clear(Buff* self) {
   assert(self);
   Buffer* s = asbuff(self);
   s->len = 0;
 }
 
-/// Same as [buff_clear], but also memsets this Buff to all zeroes
-METHOD
 void buff_clear_zeroed(Buff* self) {
   assert(self);
   Buffer* s = asbuff(self);
@@ -248,6 +258,55 @@ void buff_clear_zeroed(Buff* self) {
 
   buff_clear(self);
   memset(&s->start[0], 0, old_len);
+}
+
+i32 buff_grow_to_cap(Buff* s) {
+  assert(s);
+  Buffer* self = asbuff(s);
+
+  self->len = self->capacity;
+
+  return self->len;
+}
+
+const void* buff_cindex(const Buff* s, i32 index) {
+  assert(s);
+  const Buffer* self = asbuff(s);
+  if (index < 0 || index >= self->len) {
+    log_fatal(FILE_FMT "Attempted to index Buffer of length: %d with an index that is out of range!: %d",
+              FILE_FMT_ARGS(Buff, self->len, index));
+  }
+  return &self->start[index];
+}
+
+void* buff_index(Buff* s, i32 index) {
+  assert(s);
+  Buffer* self = asbuff(s);
+  if (index < 0 || index >= self->len) {
+    log_fatal(FILE_FMT "Attempted to index Buffer of length: %d with an index that is out of range!: %d",
+              FILE_FMT_ARGS(Buff, self->len, index));
+  }
+  return &self->start[index];
+}
+
+void buff_fatal_error(Buff* s, const char* fmt, ...) {
+  va_list args;
+  va_start(args);
+
+  Buffer* self = asbuff(s);
+  println(
+      "Buffer of size: %d bytes, and capacity %d bytes experienced an unrecoverable error when calling one of its "
+      "functions!",
+      self->len, self->capacity);
+
+  vlog_fatal(fmt, args);
+}
+
+void buff_clear_zeroed_cap(Buff* self) {
+  // set length to capacity so when we call [buff_clear_zeroed], it memsets the entire capacity of this Buff to 0 and
+  // then sets our length field to 0
+  buff_set_len(self, buff_capacity(self));
+  buff_clear_zeroed(self);
 }
 
 /// Releases memory used by this buffer back to the @param (Allocator alloc) that created it.

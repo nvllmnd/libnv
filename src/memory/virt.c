@@ -8,7 +8,6 @@
 #include "attributes.h"
 #include "core/log.h"
 #include "memory/alloc.h"
-#include "memory/cstr.h"
 #include "memory/error.h"
 #include "memory/layout.h"
 

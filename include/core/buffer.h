@@ -1,6 +1,7 @@
 #pragma once
 
 #include "attributes.h"
+#include "core/sslice.h"
 #include "intdefs.h"
 #include "memory/alloc.h"
 
@@ -29,6 +30,16 @@ bool buff_is_empty(const Buff* self);
 METHOD
 PURE_FUNC
 bool buff_is_full(const Buff* self);
+
+METHOD
+PURE_FUNC
+RETURNS_NON_NULL
+const void* buff_cindex(const Buff* self, i32 index);
+
+METHOD
+PURE_FUNC
+RETURNS_NON_NULL
+void* buff_index(Buff* self, i32 index);
 
 Buff* buff_new(i32 capacity, Allocator alloc);
 
@@ -76,9 +87,14 @@ i32 buff_write(Buff* self, void* out, i32 out_len);
 METHOD
 void buff_clear(Buff* self);
 
-/// Same as [buff_clear], but also memsets this Buff to all zeroes
+/// Same as [buff_clear], but also memsets this Buff to zeroes from start up to current length before callig
+/// [buff_clear]
 METHOD
 void buff_clear_zeroed(Buff* self);
+
+/// same as [buff_clear_zeroed], but clears the entire capacity of this buff
+METHOD
+void buff_clear_zeroed_cap(Buff* self);
 
 /// Releases memory used by this buffer back to the @param (Allocator alloc) that created it.
 /// This must be the same allocator that was used to resize/create it. Not doing so is at best a runtime segfault, at
@@ -98,6 +114,17 @@ static inline bool buff_needs_resize_for(const Buff* self, MemLayout layout) {
   return !buff_has_space_for(self, layout);
 }
 
+/// Sets This Buff's length to @param (i32 new_len).
+/// @param (i32 new_len) is clamped at current Buff capacity
+/// Returns the length that this [Buff] was set to.
+METHOD
+i32 buff_set_len(Buff* self, i32 new_len);
+
+/// Sets this [Buff]'s length field to be equal to its capacity field'
+/// Returns the value of the new length
+METHOD
+i32 buff_grow_to_cap(Buff* self);
+
 METHOD
 PURE_FUNC
 i32 buff_available(const Buff* self);
@@ -108,6 +135,12 @@ u8* buff_end(Buff* self);
 METHOD
 PURE_FUNC
 const u8* buff_cend(const Buff* self);
+
+NORETURN
+METHOD
+HEDLEY_PRINTF_FORMAT(2, 3)
+/// Used so we odnt have to include "log.h" in vec_index macro...
+void buff_fatal_error(Buff* self, const char* fmt, ...);
 
 #define buff_for_i(_self_, _index_name_) /* convienence macro for iterating over a vec. second parameter is just \
 the loop index variable name. [vec_foreach] uses i' by default */                                                \
@@ -147,6 +180,10 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 #define vec_cend(self) ((const __typeof(self))(buff_cend(pcast(const Buff, (self)))))
 #define vec_end(self) ((__typeof(self))(buff_end(pcast(Buff, (self)))))
 
+#define vec_set_len(_self_, _new_len_) (buff_set_len((_self_), _new_len_ * sizeof(__typeof(*(_self_)))))
+
+#define vec_grow_to_cap(_self_) (buff_grow_to_cap((Buff*)(_self_)))
+
 #define vec_available(self) (buff_available(pcast(const Buff, (self))) / (i32)sizeof(__typeof(*(self))))
 
 #define vec_needs_resize_for(self, T, n) \
@@ -159,7 +196,21 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 
 #define vec_clear_zeroed(self) (buff_clear_zeroed(pcast(Buff, (self))))
 
+#define vec_clear_zeroed_cap(_self_) (buff_clear_zeroed_cap(pcast(Buff, (_self_))))
+
 #define vec_clear(self) (buff_clear(pcast(Buff, (self))))
+
+#define vec_index(_self_, _i_)                                                                                 \
+  ({                                                                                                           \
+    const i32 _len_ = vec_len((_self_));                                                                       \
+    const i32 _index_ = (_i_);                                                                                 \
+    if (_index_ < 0 || _index_ >= _len_) {                                                                     \
+      buff_fatal_error((Buff*)(_self_),                                                                        \
+                       "Attempted to index vec of length: %d with an index that is out of bounds!: %d", _len_, \
+                       _index_);                                                                               \
+    }                                                                                                          \
+    &(_self_)[_index_];                                                                                        \
+  })
 
 #define vec_write(self, out, out_len) \
   (buff_write(pcast(Buff, (self)), (out), (out_len) * (i32)sizeof(__typeof(*(self)))))
@@ -199,7 +250,9 @@ static HEDLEY_ALWAYS_INLINE sslice string_npush(String self, const char* string,
 }
 
 METHOD
-static HEDLEY_ALWAYS_INLINE sslice string_push(String self, const char* string) { return buff_append_str((Buff*)self, string); }
+static HEDLEY_ALWAYS_INLINE sslice string_push(String self, const char* string) {
+  return buff_append_str((Buff*)self, string);
+}
 
 METHOD
 PURE_FUNC
@@ -207,10 +260,10 @@ static HEDLEY_ALWAYS_INLINE i32 string_len(const String self) { return vec_len(s
 
 METHOD
 PURE_FUNC
-static HEDLEY_ALWAYS_INLINE  i32 string_capacity(const String self) { return vec_capacity(self); }
+static HEDLEY_ALWAYS_INLINE i32 string_capacity(const String self) { return vec_capacity(self); }
 
 METHOD
-static HEDLEY_ALWAYS_INLINE  char* string_end(String self) { return vec_end(self); }
+static HEDLEY_ALWAYS_INLINE char* string_end(String self) { return vec_end(self); }
 
 METHOD
 PURE_FUNC
@@ -240,20 +293,16 @@ static HEDLEY_ALWAYS_INLINE String string_from_mem(char* start, char* end) {
 
 PURE_FUNC
 METHOD
-static HEDLEY_ALWAYS_INLINE bool string_is_full(const String self) {
-  return vec_is_full(self);
-}
+static HEDLEY_ALWAYS_INLINE bool string_is_full(const String self) { return vec_is_full(self); }
 
 PURE_FUNC
 METHOD
-static HEDLEY_ALWAYS_INLINE bool string_is_empty(const String self) {
-  return vec_is_empty(self);
-}
+static HEDLEY_ALWAYS_INLINE bool string_is_empty(const String self) { return vec_is_empty(self); }
 
 #define string_min_size buff_min_size
 
 #define string_for_i(_self_, _index_name_) /* convienence macro for iterating over a vec. second parameter is just \
-the loop index variable name. [vec_foreach] uses i' by default */                                               \
+the loop index variable name. [vec_foreach] uses i' by default */                                                  \
   for (int _index_name_ = 0; _index_name_ < vec_len((_self_)); _index_name_++)
 
 #define string_for(_self_) /* same as [vec_for_i] macro, but sets _index_name_ = i*/ vec_for_i(_self_, i)

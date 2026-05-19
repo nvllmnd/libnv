@@ -5,7 +5,6 @@
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
-#include "memory/cstr.h"
 #include "memory/layout.h"
 
 typedef enum AllocationResult : isize {
@@ -207,6 +206,9 @@ struct Allocator {
 };
 typedef struct Allocator Allocator;
 
+static constexpr const Allocator ALLOCATOR_NONE = make_zeroed(Allocator);
+// static constexpr const Allocator ALLOCATOR_NOOP = make(Allocator, .ctx = nullptr, .vtable = )
+
 // CONST_FUNC
 /// Gets a [Allocator] interface struct for the
 // Allocator global_allocator(void);
@@ -242,6 +244,18 @@ static inline void allocator_free(Allocator self, void* ptr) {
   assert(vtmask_has_free(self.vtable->mask && self.vtable->free));
   self.vtable->free(self.ctx, ptr);
 }
+
+PURE_FUNC
+static inline bool allocator_is_none(Allocator self) {
+  return nullptr == self.vtable;
+}
+
+/// Returns true if given 
+PURE_FUNC
+static inline bool allocator_is_ok(Allocator self) {
+  return !allocator_is_none(self) && (self.vtable->allocate && self.vtable->free);
+}
+
 
 /// A simple Arena Allocator
 ///

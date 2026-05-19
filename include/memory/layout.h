@@ -3,8 +3,8 @@
 
 /// Memory Layout, used for determining size and alignment of Allocator allocations
 #include "attributes.h"
-#include "core_types.h"
 #include "intdefs.h"
+#include "core_types.h"
 
 struct MemLayout {
   /// Size of requested allocation in bytes. must be a multiple of alignment

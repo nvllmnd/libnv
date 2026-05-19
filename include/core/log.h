@@ -1,9 +1,14 @@
 #pragma once
 
+#include <__stdarg_va_list.h>
 #include <stdio.h>
 
 #include "attributes.h"
+#include "core/sslice.h"
+#include "intdefs.h"
 #include "memory/cstr.h"
+
+// #include "memory/cstr.h"
 
 // #define format(lit, ...)
 
@@ -93,6 +98,9 @@ void seprint(sslice str);
 
 void seprintln(sslice str);
 
+#define FILE_FMT "%s[%s::%s]:%d => "
+#define FILE_FMT_ARGS(TNAME, ...) __FILE__, STRINGIFY(TNAME), __func__, __LINE__ __VA_OPT__(,) __VA_ARGS__
+
 
 #if defined(NDEBUG)
 
@@ -117,6 +125,10 @@ void seprintln(sslice str);
 HEDLEY_NO_RETURN
 FORMAT_FUNC(1, 2)
 void log_fatal(const char* fmt, ...);
+
+
+HEDLEY_NO_RETURN
+void vlog_fatal(const char* fmt, va_list args);
 
 #define EXIT_FATAL(msg) (log_fatal( \
 "%s:%d :: FatalError in function: %s\n=> %s",\

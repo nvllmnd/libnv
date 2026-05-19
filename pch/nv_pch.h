@@ -1,7 +1,9 @@
 #pragma once
 
-#include <inttypes.h>
 #include <strings.h>
+
+#include <stdint.h>
+#include <string.h>
 #include <stdbool.h>
 #include <stdalign.h>
 #include <stdatomic.h>
@@ -9,17 +11,16 @@
 #include <assert.h>
 #include <errno.h>
 
+#include "core_types.h"
+
+#include "core/sslice.h"
 #include "core/algo.h"
 #include "core/constants.h"
 #include "memory/layout.h"
 #include "memory/error.h"
 
-#include "core_types.h"
 
-#include <stddef.h>
-#include <stdint.h>
 
 #include "attributes.h"
 
-#include "memory/cstr.h"
 #include "core/log.h"

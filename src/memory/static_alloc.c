@@ -5,8 +5,6 @@
 
 #include "algo.h"
 #include "log.h"
-#include "memory/alloc.h"
-#include "memory/layout.h"
 
 struct StaticAlloc {
   u8* top;

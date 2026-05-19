@@ -7,56 +7,10 @@
 #include "attributes.h"
 #include "core_types.h"
 #include "intdefs.h"
+#include "sslice.h"
 
 static constexpr i32 SMALL_BUF_SIZE = 14;
 
-#ifndef STRLEN_UPPER_BOUND
-
-#define STRLEN_UPPER_BOUND                                                    \
-  /* Upper bound used by [stringlen] as the max_len parameter to [str_len] */ \
-  /* NOTE: I decided to make this a macro so that it can be configurable to   \
-   * each build (-D compiler flag)*/                                          \
-  (INT32_MAX - 1)
-
-#endif  // STRLEN_UPPER_BOUND
-
-/// A safe version of the standard lib: [strlen], which technically may never
-/// return if the passed in string never contains a null character to signal
-/// that this is the end of the string and return the length.
-///
-/// This function takes a (max_len) parameter, which, if after
-/// iterating through given (string) up to (max_len) characters,
-/// and a terminal null character has still not been found,
-/// then this funciton will return (max_len).
-///
-/// As such, consider if:
-///
-/// isize result = str_len(some_long_string, 255);
-/// if (result == 255) {
-///  /* failure! especially if the 256th character (in this example) is not a
-///  terminal null character! */
-/// }
-///
-/// For a version that does not require a @param (max_len) and passes []
-///
-///
-PURE_FUNC
-static inline isize str_len(const char* string, isize max_len) {
-  if (is_null(string)) {
-    return 0;
-  }
-
-  isize len = 0;
-  while ((string[len] != 0) && (len <= max_len)) {
-    len++;
-  }
-  return len;
-}
-
-/// Same as [stringlen], forwards @param (string) to [stringlen], passing
-/// [STRLEN_UPPER_BOUND]([INT32_MAX -1]) as the second parameter
-PURE_FUNC
-static inline isize stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
 
 /// Type alias to make it more clear that
 /// this is a pointer to a string that has an [i32] prefix length
@@ -256,98 +210,6 @@ static inline cstr priv_cstr_token_impl(const char* s, usize len) {
     priv_cstr_token_impl(string_literal, _LEN);                               \
   })
 
-/// A String slice, consisting of a pointer to the beginning of
-/// the slice and a length
-///
-/// Its possible to create [sslice]s that point to static constant strings
-/// in readonly memory; see: [sslice_static_new], as it is not currently
-/// possible to create [cstr] instances that point to constant static strings if
-/// those strings are greater than [SMALL_BUF_SIZE] in length
-///
-/// [sslice_static_new] aslo does some additional (rudimentary)
-/// static validation (static_assert) to ensure given string
-/// is an actual string literal.
-///
-/// These slices are ment to be immutable, as in it is not typical to
-/// mutate strings through a [sslice]. As such these are treated like views
-///
-struct sslice {
-  const char* begin;
-  i32 len;
-};
-typedef struct sslice sslice;
-
-
-#define sslice_new(...) ((sslice){__VA_ARGS__})
-
-
-#define sslice_static_new(static_str)                                      \
-  /* Creates a new instance of [sslice] on the stack that points to string \
-   literals, which reside in constant static readonly memory*/             \
-  (sslice_new(.begin = (static_str), .len = (sizeof((static_str)) - 1))) /* - 1 so we dont include the null-terminating byte*/
-
-
-#define sslice_empty() (sslice_new())  
-
-
-PURE_FUNC
-static inline bool sslice_is_empty(sslice self) {
-  return self.begin == nullptr || self.len <= 0;
-}
-
-PURE_FUNC
-static inline sslice sslice_from_str(const char* string) {
-  const isize len = stringlen(string);
-  return sslice_new(.begin = string, .len = len);
-}
-
-
-PURE_FUNC
-/// creates a new [sslice] from given string that points to the range provided by @param (from) and @param (to)
-/// such that the new slice points to string[from..to]
-static inline sslice sslice_from_range(const char* string, isize from, isize to) {
-  const isize slen = stringlen(string);
-  const isize slice_len = to - from;
-  if (slice_len > slen || slice_len < 0) {
-    return sslice_empty();
-  }
-  const char* begin = &string[from];
-  return sslice_new(.begin = begin, .len = slice_len);
-}
-
-/// Forwards each given [sslice]'s begin pointer to [strncmp], taking the
-/// minimum of each [sslice]'s length. for the count parameter of [strncmp]
-///
-/// Returns:
-/// - A negative value if (left) appears before (right) in lexicographical order
-/// - Zero if (left) and (right) compare equal, or if count is zero
-/// - A positive value if (left) appears after (right) in lexicographical order
-///
-PURE_FUNC
-static inline i32 sslice_cmp(sslice left, sslice right) {
-
-  if (left.begin == nullptr) { return -1; }
-  if (right.begin == nullptr) { return 1; }
-  return strncmp(left.begin, right.begin, min(left.len, right.len));
-}
-
-/// Checks if 2 [sslice]s are exaclty equal.
-/// This means that if both [sslice]s have dissimilar lengths, this function will return false.
-/// Both [sslice]s must be the same length, and have the exact same characters in the exact same order.
-/// i.e.:
-///     sslice_eq("asdf", "asdf1") == false;
-///     sslice_eq("ayo", "ayo") == true;
-///
-/// For a version of this function that compares 2 [sslice]s lexicographically,
-/// see: [sslice_cmp]
-PURE_FUNC
-static inline bool sslice_eq(sslice left, sslice right) {
-  if (left.len == right.len) {
-    return sslice_cmp(left, right) == 0;
-  }
-  return false;
-}
-
 /// Attempts to create a new [sslice] from a sub range of
 /// this [cstr]'s inner string.
 /// Returns a null/empty [sslice] if @param (from) or @param (to)
@@ -394,5 +256,6 @@ static inline bool cstr_eq(const cstr* left, const cstr* right) {
   const sslice r = cstr_as_slice(right);
   return sslice_eq(l, r);
 }
+
 
 
