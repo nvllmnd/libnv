@@ -7,7 +7,8 @@ project(
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
     'werror=true',
     'b_ndebug=if-release',
-    # 'default_library=static',
+    'b_staticpic=false',
+    'default_library=static',
     'warning_level=3'
   ],
 )
@@ -15,7 +16,6 @@ project(
 if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
-  # add_global_arguments('-Wno-nullability-extension', language: 'c')
 endif
 
 hedley_dep = dependency('hedley')
@@ -59,14 +59,14 @@ core_lib = static_library(
   include_directories: inc,
   dependencies: dependencies,
   install: true,
-  pic: true,
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
 )
 
 core_dep = declare_dependency(
   include_directories: inc,
-  link_with: core_lib,
+  link_whole: core_lib,
+  static: true,
 )
 
 dependencies += core_dep
@@ -86,14 +86,14 @@ memory_lib = static_library(
   dependencies: dependencies,
   install: true,
 
-  pic: true,
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
 )
 
 memory_dep = declare_dependency(
   include_directories: inc,
-  link_with: memory_lib
+  link_whole: memory_lib,
+  static: true,
 )
 
 
@@ -112,7 +112,8 @@ nv_lib = library(
 
 nv_dep = declare_dependency(
   include_directories: inc,
-  link_with: nv_lib,
+  link_whole: nv_lib,
+  static: true,
 )
 
 # if not meson.is_subproject()
