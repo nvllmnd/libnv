@@ -65,8 +65,7 @@ core_lib = static_library(
 
 core_dep = declare_dependency(
   include_directories: inc,
-  link_whole: core_lib,
-  static: true,
+  link_with: core_lib,
 )
 
 dependencies += core_dep
@@ -92,8 +91,7 @@ memory_lib = static_library(
 
 memory_dep = declare_dependency(
   include_directories: inc,
-  link_whole: memory_lib,
-  static: true,
+  link_with: memory_lib,
 )
 
 
@@ -113,7 +111,6 @@ nv_lib = library(
 nv_dep = declare_dependency(
   include_directories: inc,
   link_whole: nv_lib,
-  static: true,
 )
 
 # if not meson.is_subproject()
