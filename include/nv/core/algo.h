@@ -38,11 +38,25 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 // CLANG_NON_NULL_END
 
-#define ptr_nonnull(_ptr) ((__typeof(*(_ptr))*)(ptr_nonnull_((const void*)(_ptr))))
+#define ptr_nonnull(_ptr) (typeof_ptr(_ptr))(ptr_nonnull_((const void*)(_ptr))))
 
-#if !defined(pexpect) && !defined(LIBNV_NO_USE_SHORT_NAMES)
-#define pexpect ptr_nonnull
+#if !defined(punwrap) && !defined(LIBNV_NO_USE_SHORT_NAMES)
+#define punwrap ptr_nonnull
 #endif
+
+/// Same as [ptr_nonnull], but fails with a user provided, message.
+/// NOTE: Because this function is inteded to be used in hot paths, the user
+/// must build error messages themselves. if this function were a printf-style function, it
+/// would at the very worst, pass a bunch of parameters onto the stack that will never be used most the time, callers are also
+/// encouraged to keep messages light (no formatting, just as simple string literal)
+RETURNS_NON_NULL
+PURE_FUNC
+void* ptr_expect_(const void* ptr, const char* msg);
+
+#if !defined(pexpect) && (!defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0)
+#define pexpect(_p, _msg) (typeof_ptr(_p))(ptr_expect((const void*)(_p), (_msg))))
+#endif
+
 
 #ifndef STRLEN_UPPER_BOUND
 

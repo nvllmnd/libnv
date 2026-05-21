@@ -6,6 +6,16 @@
 #include "nv/core/log.h"
 #include "nv/core/algo.h"
 
+void* ptr_expect_(const void* ptr, const char* msg) {
+
+  if UNLIKELY (nullptr == ptr) {
+    log_fatal("%s", msg);
+  }
+  // NOTE: We dont mutate this pointer at all, so its safe to cast this back to non-const, since
+  // we cast it back to exactly the same type as the pointer was before being passed to this function though the implementation macro
+  return pcast(void, ptr);  
+}
+
 bool stringeq(const char* left, const char* right) {
   if (left == right) {
     return true;
@@ -83,13 +93,9 @@ i32 sslice_cmp(sslice left, sslice right) {
 }
 
 void* ptr_nonnull_(const void* ptr) {
-  if UNLIKELY (nullptr == ptr) {
-    log_fatal(" Expected given pointer to be non-null, but was nullptr! Aborting program!");
-  }
-  // NOTE: We dont mutate this pointer at all, so its safe to cast this back to non-const, since
-  // we cast it back to exactly the same type as the pointer was before being passed to this function though the implementation macro
-  return pcast(void, ptr);
+  return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
 }
+
 
 isize ptr_align_offset(const void* ptr, isize align) {
   assert(ptr);
