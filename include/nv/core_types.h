@@ -144,7 +144,8 @@
 #define offsetof(T, _m) ((isize) & ((T*)0)->_m)
 #endif
 
-#define sizeof_field(T, _name_) (sizeof(make_zeroed(T)._name_))
+#define sizeof_field(T, _name_) (sizeof(__typeof(make_zeroed(T)._name_)))
+
 
 
 #define alias(T) /* conveinence macro for defining structs to avoid having to \
@@ -200,6 +201,9 @@
      this macro can only be called inside functions with the same      \
      return type as the surrounding function. */                       \
   (tryerr_or_cb((_expr), (_cb), __VA_ARGS__))
+
+// #define tryerr_orelse(_try_expr, _else_expr, _def) ({ (_try_expr) != OK ? (_else_expr) : (_def); })
+
 
 #define tptr_new(p, enable) (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
 #define tptr_ptr(p) ((__typeof((p)))((addr)(p) & ~1UL))

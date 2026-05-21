@@ -29,11 +29,12 @@ static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 // typedef struct NonNull NonNull;
 
 RETURNS_NON_NULL
-void* ptr_nonnull_(void* ptr);
+PURE_FUNC
+void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 // CLANG_NON_NULL_END
 
-#define ptr_nonnull(_ptr) ((__typeof(*(_ptr))*)(ptr_nonnull_((void*)(_ptr))))
+#define ptr_nonnull(_ptr) ((__typeof(*(_ptr))*)(ptr_nonnull_((const void*)(_ptr))))
 
 #if !defined(pexpect) && !defined(LIBNV_NO_USE_SHORT_NAMES)
 #define pexpect ptr_nonnull

@@ -7,5 +7,9 @@
 #define noreturn _Noreturn
 #define noexecpt NOTHROW
 
+#define INFO LOG_INFO
+#define WARN LOG_WARN
+#define LOGERR LOG_ERROR
+
 #endif
 

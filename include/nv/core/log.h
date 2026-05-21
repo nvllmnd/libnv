@@ -99,7 +99,7 @@ void seprint(sslice str);
 void seprintln(sslice str);
 
 #define FILE_FMT "%s[%s::%s]:%d => "
-#define FILE_FMT_ARGS(TNAME, ...) __FILE__, STRINGIFY(TNAME), __func__, __LINE__ __VA_OPT__(,) __VA_ARGS__
+#define FILE_FMT_ARGS(CTX_NAME, ...) __FILE__, STRINGIFY(CTX_NAME), __func__, __LINE__ __VA_OPT__(,) __VA_ARGS__
 
 
 #if defined(NDEBUG)
@@ -121,6 +121,19 @@ void seprintln(sslice str);
 #define SELOG_DBG(slice) (seprintln((slice)))
 
 #endif
+
+#define LOG_CTX(CTX_NAME, _fmt, ...) (println(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(,) __VA_ARGS__))
+#define ELOG_CTX(CTX_NAME, _fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(,) __VA_ARGS__))
+
+#define LOG(fmt, ...) (LOG_CTX(LIBNV, fmt __VA_OPT__(,) __VA_ARGS__))
+#define LOG_INFO(fmt, ...) (LOG_CTX(INFO, fmt __VA_OPT__(,) __VA_ARGS__))
+#define LOG_WARN(fmt, ...) (LOG_CTX(!WARNING!, fmt __VA_OPT__(,) __VA_ARGS__))
+#define LOG_ERROR(fmt, ...) (ELOG_CTX(!!ERROR!!, fmt __VA_OPT__(,) __VA_ARGS__))
+
+
+#define SSPREAD(slice) (slice).begin, (slice).len
+#define RSSPREAD(slice) (slice).len, (slice).begin
+
 
 HEDLEY_NO_RETURN
 FORMAT_FUNC(1, 2)
