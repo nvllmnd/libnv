@@ -31,6 +31,7 @@ typedef long double ldouble;
 
 typedef typeof(void *) voidptr;
 
+#if !defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0
 /// type alias to help clarify functions that return errors.
 /// also for setting the undlying type of an enum to : error.
 /// Unless returned value is an enum, usually a value of 0 means that
@@ -38,6 +39,12 @@ typedef typeof(void *) voidptr;
 /// each funcitons documentation specifics. Negative numbers usually correlate
 /// to some error code, assuming that numbers >= 0 are not errors
 typedef i32 error;
+#else
+typedef i32 nv_error;
+#ifndef error
+#define error nv_error
+#endif
+#endif
 
 #define bint(N) _BitInt(N)
 #define ubint(N) unsigned bint(N)
