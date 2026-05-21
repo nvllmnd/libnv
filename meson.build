@@ -39,6 +39,9 @@ else
 endif
 
 
+if not meson.is_subproject() 
+  cargs += '-DLIBNV_INTERNAL=1'
+endif
 
 
 dependencies = [
