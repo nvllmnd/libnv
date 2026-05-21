@@ -24,8 +24,7 @@ FORMAT_FUNC(1, 2)
 RETURNS_RESOURCE
 cstr format_string(const char* fmt, ...);
 
-typedef enum FormatError {
-  Format__Error = -1,
+typedef enum FormatError {  Format__Error = -1,
   Format__Ok = 0
 } FormatError;
 
@@ -102,7 +101,7 @@ void seprintln(sslice str);
 #define FILE_FMT_ARGS(CTX_NAME, ...) __FILE__, STRINGIFY(CTX_NAME), __func__, __LINE__ __VA_OPT__(,) __VA_ARGS__
 
 
-#if defined(NDEBUG)
+#if ZEAL_DEBUG == 0
 
 #define LOG_DBG(fmt, ...) ((void)fmt)/* inactive in release builds (NDEBUG == 1) */
 
