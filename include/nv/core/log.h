@@ -7,6 +7,7 @@
 #include "nv/core/sslice.h"
 #include "nv/core/intdefs.h"
 #include "nv/memory/cstr.h"
+#include "nv/core/debug.h"
 
 // #include "memory/cstr.h"
 

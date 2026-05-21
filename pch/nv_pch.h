@@ -13,6 +13,7 @@
 
 #include "nv/core_types.h"
 
+#include "nv/core/debug.h"
 #include "nv/core/sslice.h"
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
