@@ -82,11 +82,13 @@ i32 sslice_cmp(sslice left, sslice right) {
   return strncmp(left.begin, right.begin, min(left.len, right.len));
 }
 
-void* ptr_nonnull_(void* ptr) {
+void* ptr_nonnull_(const void* ptr) {
   if UNLIKELY (nullptr == ptr) {
     log_fatal(" Expected given pointer to be non-null, but was nullptr! Aborting program!");
   }
-  return ptr;
+  // NOTE: We dont mutate this pointer at all, so its safe to cast this back to non-const, since
+  // we cast it back to exactly the same type as the pointer was before being passed to this function though the implementation macro
+  return pcast(void, ptr);
 }
 
 isize ptr_align_offset(const void* ptr, isize align) {

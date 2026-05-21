@@ -28,6 +28,10 @@ static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 // };
 // typedef struct NonNull NonNull;
 
+/// Takes any pointer and if it is null, aborts execution with [log_fatal]. otherwise returns
+/// the same pointer unchanged/un-mutated.
+/// This is to assert to the compiler that a poitner is not null, as
+/// this function is marked with the __returns_nonnull__ compiler attribute
 RETURNS_NON_NULL
 PURE_FUNC
 void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
