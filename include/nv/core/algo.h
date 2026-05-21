@@ -38,7 +38,7 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 // CLANG_NON_NULL_END
 
-#define ptr_nonnull(_ptr) (typeof_ptr(_ptr))(ptr_nonnull_((const void*)(_ptr))))
+#define ptr_nonnull(_ptr) ((typeof_ptr(_ptr))(ptr_nonnull_((const void*)(_ptr))))
 
 #if !defined(punwrap) && !defined(LIBNV_NO_USE_SHORT_NAMES)
 #define punwrap ptr_nonnull
@@ -54,7 +54,7 @@ PURE_FUNC
 void* ptr_expect_(const void* ptr, const char* msg);
 
 #if !defined(pexpect) && (!defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0)
-#define pexpect(_p, _msg) (typeof_ptr(_p))(ptr_expect_((const void*)(_p), (_msg))))
+#define pexpect(_p, _msg) ((typeof_ptr(_p))(ptr_expect_((const void*)(_p), (_msg))))
 #endif
 
 
