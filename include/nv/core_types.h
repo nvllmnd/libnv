@@ -26,7 +26,7 @@
    * the same */                                                              \
   _Generic((a), __typeof__(b): true, default: false)
 
-#define typeof_ptr(_p) (__typeof(*(_p))*)
+#define typeof_ptr(_p) __typeof(*(_p))*
 
 #define assert_type_eq(a, b)                                               \
   /* same as [type_eq] macro, but fails a static assertion if types do not \
