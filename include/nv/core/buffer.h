@@ -163,18 +163,16 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 
 #define vec_new(T, _init_capacity_, alloc) ((Vec(T))buff_new(sizeof(T) * (_init_capacity_), (alloc)))
 
-#define vec_append(self, T) ((Vec(T))buff_append((self), mlayout_new(T)))
+#define vec_append(self) ((Vec(__typeof(*(self))))buff_append((Buff*)(self), mlayout_new(__typeof(*(self)))))
 
-#define vec_push(_self, _val)                                              \
-  ({                                                                       \
-    static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_val)));   \
-    const auto _v = (_val);                                                \
-    Buff* _s = (Buff*)(_self);                                             \
-    __typeof_unqual(_v)* _elem = buff_append(_s, mlayout_new(__typeof(_v))); \
-    if (_elem) {                                                           \
-      memcpy(_elem, &_v, sizeof(__typeof(_v)));                                      \
-    }                                                                      \
-  })
+#define vec_push(SELF, VAL) do {\
+  static_assert(sizeof(__typeof(*(SELF))) == sizeof(__typeof((VAL)))); \
+  __typeof_unqual((VAL))* _elem = vec_append(SELF); \
+  if (_elem) {\
+      *_elem = (VAL); \
+  }\
+} while(0) 
+
 
 #define vec_len(self) ((buff_len(pcast(u8, (self)))) / (i32)sizeof(__typeof(*(self))))
 #define vec_capacity(self) ((buff_capacity(pcast(u8, (self)))) / (i32)(sizeof(__typeof(*(self)))))
