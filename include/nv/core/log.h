@@ -160,4 +160,7 @@ HEDLEY_NO_RETURN
 void panic_abort(RuntimePanic err);
 
 
+#define TODO_MSG(_msg, ...) (log_fatal((_msg) __VA_OPT__(,) __VA_ARGS__))
+
+#define TODO() TODO_MSG("%s: %s @ LINE: %d => Not Yet Implemented!", __FILE__, __func__, __LINE__)
 
