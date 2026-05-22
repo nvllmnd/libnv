@@ -1,22 +1,27 @@
 #pragma once
 
 #include <assert.h>
+#include "nv/core_types.h"
 
-#ifndef ZEAL_DEBUG
+#ifndef LIBNV_DEBUG
 
 #ifdef NDEBUG
-#define ZEAL_DEBUG 0
+#define LIBNV_DEBUG 0
 #else
-#define ZEAL_DEBUG 1
+#define LIBNV_DEBUG 1
 #endif
 
 #endif
 
-#if ZEAL_DEBUG == 1
+#if LIBNV_DEBUG == 1
 #define IF_DEBUG(x) x
 #define IF_RELEASE(x)
+#define ASSERT_PTR(_p) assert((_p))
+
 #else
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x
+#define ASSERT_PTR(_p) punwrap(_p)
 #endif
+
 

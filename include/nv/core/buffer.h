@@ -4,6 +4,7 @@
 #include "nv/core/sslice.h"
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
 
 /// A Buffer of bytes. Must be manually resized. If created with an allocator ([buff_new]), then it must be resized and
 /// destroyed with the same allocator. This is to save metadata space, plus this is how its done in Zig so i think im
