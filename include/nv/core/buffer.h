@@ -169,9 +169,9 @@ the loop index variable name. [vec_foreach] uses i' by default */               
     static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_val)));   \
     const auto _v = (_val);                                                \
     Buff* _s = (Buff*)(_self);                                             \
-    __typeof_unqual(_v)* _elem = buff_append(_s, mlayout_new(typeof(_v))); \
+    __typeof_unqual(_v)* _elem = buff_append(_s, mlayout_new(__typeof(_v))); \
     if (_elem) {                                                           \
-      memcpy(_elem, &_v, sizeof(_v));                                      \
+      memcpy(_elem, &_v, sizeof(__typeof(_v)));                                      \
     }                                                                      \
   })
 

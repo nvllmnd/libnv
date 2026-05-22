@@ -51,6 +51,14 @@
    * given type and an expresion; see: [cast]*/                           \
   (cast(__typeof__(T*), (_ptr)))
 
+#define size_of(_e) /* Same as the standard keyword 'sizeof', but may be a little more 'correct' and 'type-safe'(ish), \
+                       as it wraps the target of sizeof in __typeof first */                                           \
+  sizeof(__typeof((_e)))
+
+#define align_of(_e) /*Same as the standard keyword 'alignof', but may be a little more 'correct' and \
+                        'type-safe'(ish), as it wraps the target of alignof in __typeof first  */     \
+  alignof(__typeof((_e)))
+
 #define fmin(a, b)                     \
   (cast(__typeof__((a)), _Generic((a), \
             i8: fmin,                  \
@@ -148,8 +156,6 @@
 
 #define sizeof_field(T, _name_) (sizeof(__typeof(make_zeroed(T)._name_)))
 
-
-
 #define alias(T) /* conveinence macro for defining structs to avoid having to \
                     write out the struct name 3 times*/                       \
   typedef struct T T
@@ -205,7 +211,6 @@
   (tryerr_or_cb((_expr), (_cb), __VA_ARGS__))
 
 // #define tryerr_orelse(_try_expr, _else_expr, _def) ({ (_try_expr) != OK ? (_else_expr) : (_def); })
-
 
 #define tptr_new(p, enable) (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
 #define tptr_ptr(p) ((__typeof((p)))((addr)(p) & ~1UL))
