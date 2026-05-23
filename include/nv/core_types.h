@@ -10,6 +10,15 @@
 #define CONCAT3_(a, b, c) a##b##c
 #define CONCAT3(a, b, c) CONCAT3_(a, b, c)
 
+// NOTE: Ngl, i got this from duckduckgo Claude Haiku ai chat lmao. This is literally the first piece of code ive
+// taken from any kind of AI. Which, would you lookie here, not even 5 min of searching on internet, Claude stole this code from here:
+// https://github.com/donmccaughey/va_args_count/blob/master/va_args_count.h
+// 11 years ago!!! I gotta give credit where credit is due. Fuck AI. Fuck Claude.
+#define VA_ARGS_LEN(...) VA_ARGS_LEN_(__VA_ARGS__, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+
+#define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, ...) N
+
+
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
   __typeof__(T[N])
