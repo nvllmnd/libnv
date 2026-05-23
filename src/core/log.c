@@ -5,32 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-static inline void fdwrite(i32 fd, const char *src, isize len) {
-  i32 nbytes = 0;
 
-  while (nbytes < len) {
-    const void *start = &src[nbytes];
-    const isize remaining = len - nbytes;
-    const i32 n = write(fd, start, remaining);
-    if (n == -1) {
-      perror("POSIX write returned -1 while attempting to write to Stdout "
-             "Stream!");
-      return;
-    }
-
-    nbytes += n;
-  }
-}
-
-static inline void stdout_write(const char *src, isize len) {
-  fdwrite(STDOUT_FILENO, src, len);
-}
-
-static inline void stderr_write(const char *src, isize len) {
-  fdwrite(STDERR_FILENO, src, len);
-}
-
-FormatError format_with(char *dst, isize len, const char *fmt, ...) {
+FormatError format_with(char* dst, isize len, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
 
@@ -45,7 +21,7 @@ FormatError format_with(char *dst, isize len, const char *fmt, ...) {
   return Format__Ok;
 }
 
-cstr format_string(const char *fmt, ...) {
+cstr format_string(const char* fmt, ...) {
   va_list args = {};
   va_start(args);
 
@@ -82,83 +58,63 @@ cstr format_string(const char *fmt, ...) {
   return cstr_new(buf);
 }
 
-void sfprint(FILE *fd, sslice str) {
-  const void *src = pcast(void, str.begin);
-  const isize len = str.len;
-  fwrite(src, len, 1, fd);
-  fflush(fd);
-}
+void sfprint(FILE* fd, sslice str) { fprintf(fd, "%.*s", RSSPREAD(str)); }
 
-static constexpr const i32 NL_SIZE = sizeof("\n");
-static constexpr const char NL[] = "\n";
+void sfprintln(FILE* fd, sslice str) { fprintf(fd, "%.*s\n", RSSPREAD(str)); }
 
-void sfprintln(FILE *fd, sslice str) {
-  const void *src = pcast(void, str.begin);
-  const isize len = str.len;
-  fwrite(src, len, 1, fd);
-  fwrite(NL, NL_SIZE, 1, fd);
-  fflush(fd);
-}
+void sprint(sslice str) { print("%.*s", RSSPREAD(str)); }
 
-void sprint(sslice str) { stdout_write(str.begin, str.len); }
+void sprintln(sslice str) { printf("%.*s\n", RSSPREAD(str)); }
 
-void sprintln(sslice str) {
-  stdout_write(str.begin, str.len);
-  stdout_write(NL, NL_SIZE);
-}
+void seprint(sslice str) { fprintf(stderr, "%.*s", RSSPREAD(str)); }
 
-void seprint(sslice str) { stderr_write(str.begin, str.len); }
+void seprintln(sslice str) { fprintf(stderr, "%.*s\n", RSSPREAD(str)); }
 
-void seprintln(sslice str) {
-  stderr_write(str.begin, str.len);
-  stderr_write(NL, NL_SIZE);
-}
-
-NORETURN void vlog_fatal(const char* fmt,   va_list args) {
+void vlog_fatal(const char* fmt, va_list args) {
   va_list copy;
   va_copy(copy, args);
 
   vfprintf(stderr, fmt, args);
+  fprintf(stderr, "\n");
+
   va_end(copy);
 
   exit(1);
 }
-void log_fatal(const char *fmt, ...) {
+void log_fatal(const char* fmt, ...) {
   va_list args;
   va_start(args);
 
-
   vlog_fatal(fmt, args);
-
 }
 
 void panic_abort(RuntimePanic err) {
-  const char *s = nullptr;
+  const char* s = nullptr;
 
   switch (err) {
-  case Panic__OutOfMemory: {
-    s = STRINGIFY(Panic__OutOfMemory);
-  } break;
-  case Panic__NullPointerUnexpected: {
-    s = STRINGIFY(Panic__NullPointerUnexpected);
-  } break;
-  case Panic__ExpectedSomeWhenThereWasNone: {
-    s = STRINGIFY(Panic__ExpectedSomeWhenThereWasNone);
-  } break;
-  case Panic__ConditionFailure: {
-    s = STRINGIFY(Panic__ConditionFailure);
-  } break;
-  case Panic__ExceptionType: {
-    s = STRINGIFY(Panic__ExceptionType);
-  } break;
-  case Panic__UnexpectedProgramState: {
-    s = STRINGIFY(Panic__UnexpectedProgramState);
-  } break;
-  case Panic__SystemError:
-    [[fallthrough]];
-  default: {
-    s = STRINGIFY(Panic__SystemError);
-  } break;
+    case Panic__OutOfMemory: {
+      s = STRINGIFY(Panic__OutOfMemory);
+    } break;
+    case Panic__NullPointerUnexpected: {
+      s = STRINGIFY(Panic__NullPointerUnexpected);
+    } break;
+    case Panic__ExpectedSomeWhenThereWasNone: {
+      s = STRINGIFY(Panic__ExpectedSomeWhenThereWasNone);
+    } break;
+    case Panic__ConditionFailure: {
+      s = STRINGIFY(Panic__ConditionFailure);
+    } break;
+    case Panic__ExceptionType: {
+      s = STRINGIFY(Panic__ExceptionType);
+    } break;
+    case Panic__UnexpectedProgramState: {
+      s = STRINGIFY(Panic__UnexpectedProgramState);
+    } break;
+    case Panic__SystemError:
+      [[fallthrough]];
+    default: {
+      s = STRINGIFY(Panic__SystemError);
+    } break;
   }
 
   log_fatal("%s", s);
