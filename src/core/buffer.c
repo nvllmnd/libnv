@@ -1,14 +1,13 @@
-#include "nv/iter/buff.h"
-
-
-
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "nv/core/algo.h"
-#include "nv/core_types.h"
 #include "nv/core/log.h"
+#include "nv/core_types.h"
+#include "nv/iter/buff.h"
+#include "nv/iter/string.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/layout.h"
@@ -18,7 +17,7 @@ struct Buffer {
   i32 len;
   /// capacity of buffer in bytes
   i32 capacity;
-  /// element size of each element appended to this buffer in bytes, used for Vecs, 
+  /// element size of each element appended to this buffer in bytes, used for Vecs,
   i32 elem_size;
   u8 start[];
 };
@@ -103,23 +102,18 @@ bool buff_is_full(const Buff* self) {
 }
 
 Buff* buff_sized_new(i32 elem_size, i32 capacity, Allocator alloc) {
-  
-
   assert(vtmask_is_ok(alloc.vtable->mask));
   assert(capacity > 1);
   assert(capacity > 0);
 
-  
   const i32 cap = elem_size * capacity;
 
   Buffer* self = allocator_allocate(alloc, mlayout_fma(Buffer, capacity * elem_size));
   self->len = 0;
-  self->capacity = cap ;
+  self->capacity = cap;
   self->elem_size = elem_size;
   return &self->start[0];
 }
-  
-
 
 Buff* buff_new(i32 capacity, Allocator alloc) {
   assert(vtmask_is_ok(alloc.vtable->mask));
@@ -358,12 +352,12 @@ void buff_destroy(Buff* self, Allocator alloc) {
 
 i32 buff_elem_size(const Buff* self) {
   assert(self);
-  return asbuff(self)->elem_size;  
+  return asbuff(self)->elem_size;
 }
 
 bool buff_is_sized(const Buff* self) {
   const i32 size = buff_elem_size(self);
-  return size > 1; 
+  return size > 1;
 }
 
 /// Returns true if this Buff has enough capacity to fit a @param (MemLayout layout), otherwise false.
@@ -416,4 +410,65 @@ i32 buff_capacity(const Buff* self) {
   const ptr(Buffer) s = asbuff(self);
   assert(s->elem_size > 0);
   return s->capacity / s->elem_size;
+}
+
+sslice string_vfpush(String self, char terminal, const char* fmt, va_list args) {
+  assert(self);
+  assert(fmt);
+
+  const i32 avail = string_available(self);
+
+  Buff* b = pcast(Buff, self);
+  char* top = pcast(char, buff_top(b));
+  const i32 len = vsnprintf(top, avail, fmt, args);
+
+  /// vsnprintf already copies a null terminator into the resulting formatted string, so
+  // we dont need to do this if given terminal is a null character
+  if (terminal != '\0') {
+    top[len] = terminal;
+  }
+
+  return sslice_new(.begin = top, .len = len);
+}
+
+sslice string_fpush(String self, char terminal, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, terminal, fmt, args);
+
+  va_end(args);
+
+  return slice;
+}
+
+sslice string_fpush_nl(String self, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, '\n', fmt, args);
+
+  va_end(args);
+
+  return slice;
+}
+
+sslice string_fpush_null(String self, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, '\0', fmt, args);
+
+  va_end(args);
+
+  return slice;
 }

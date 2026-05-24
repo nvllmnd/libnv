@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdarg.h>
+#include "nv/core/attributes.h"
 #include "nv/iter/vec.h"
 
 
@@ -85,6 +87,21 @@ PURE_FUNC
 METHOD
 static HEDLEY_ALWAYS_INLINE bool string_is_empty(const String self) { return vec_is_empty(self); }
 
+HEDLEY_PRINTF_FORMAT(3, 4)
+METHOD
+sslice string_fpush(String self, char terminal, const char* fmt, ...);
+
+
+sslice string_vfpush(String self, char terminal, const char* fmt, va_list args);
+
+HEDLEY_PRINTF_FORMAT(2, 3)
+METHOD
+sslice string_fpush_nl(String self, const char* fmt, ...);
+
+METHOD
+HEDLEY_PRINTF_FORMAT(2, 3)
+sslice string_fpush_null(String self, const char* fmt, ...);
+
 #define string_min_size buff_min_size
 
 #define string_for_i(_self_, _index_name_) /* convienence macro for iterating over a vec. second parameter is just \
@@ -102,3 +119,4 @@ the loop index variable name. [vec_foreach] uses i' by default */               
   for (const __typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < vec_end((_self_)); _iter_name_++)
 
 #define string_foreach_const(_self_) vec_foreach_iter_const(_self_, iter)
+
