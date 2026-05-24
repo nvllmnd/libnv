@@ -27,7 +27,8 @@ typedef i32 MemSize;
 /// most applications methinks
 typedef struct VirtMem VirtMem;
 
-/// Used to configure new VirtMems as well as types and APIs that create a VirtMem internally, but do not take one as a parameter
+/// Used to configure new VirtMems as well as types and APIs that create a VirtMem internally, but do not take one as a
+/// parameter
 struct VirtMemOpts {
   i32 size_in_mb;
   i32 initial_commit;
@@ -146,6 +147,23 @@ const AllocVTable* vmem_vtable(void);
 
 Allocator vmem_allocator(VirtMem* self);
 
+struct VirtMemView {
+  const void* start;
+  const void* end;
+  i32 size_bytes;
+  i32 used_bytes;
+  i32 avail_bytes;
+};
+alias(VirtMemView);
+
+/// Returns a const view into this Virtual Memory
+/// For now you can only get a const view into a VirtMem, maybe later
+/// ill allow for a mutable view, (but to me that seems like encouraging users to be able to write anywhere in this
+/// VirtMem, which would be find if i had the option to inject canaries and such things so i can detect if that happens
+/// and abort execution like mimalloc...)
+PURE_FUNC
+METHOD
+VirtMemView vmem_view(const VirtMem* self);
 
 CONST_FUNC
 i32 os_page_size(void);
@@ -155,22 +173,24 @@ i32 os_page_size(void);
 /// TODO: Actually implement this. lol
 typedef struct Heap Heap;
 
-
 static constexpr const i32 VBUFFER_MIN_SIZE = KILOBYTES(4);
 
 /// A large buffer of bytes (4KB+), residing in system virtual memory.
 /// This differs from a [VirtMem] in that this type is not an 'allocator' type,
 /// this is intended to be used to build strings, arrays, complex datastructures/memory that must
-/// be contiguous in memory, before copying that data out of this buffer and into somewhere else, clear this buffer, repeat!
+/// be contiguous in memory, before copying that data out of this buffer and into somewhere else, clear this buffer,
+/// repeat!
 ///
-/// Since this buffer resides in virtual memory, callers are expectd to keep this buffer alive for a while, and if you think you wont ever need more than [VBUFFER_MIN_SIZE] bytes,
-/// then you should probably use a static array 
+/// Since this buffer resides in virtual memory, callers are expectd to keep this buffer alive for a while, and if you
+/// think you wont ever need more than [VBUFFER_MIN_SIZE] bytes, then you should probably use a static array
 typedef struct VBuffer VBuffer;
 
 // typedef u8 TempBuffer[VBUFFER_MIN_SIZE];
 
-
-#define Bytes(N) struct { u8 inner[N]; }
+#define Bytes(N) \
+  struct {       \
+    u8 inner[N]; \
+  }
 
 typedef Bytes(KILOBYTES(1)) TempBuffSmall;
 typedef Bytes(KILOBYTES(2)) TempBuffMid;
@@ -181,13 +201,10 @@ struct TempBuffer {
   u8* inner;
 };
 
-
 // struct TempBuffer {
 //   u8 inner[VBUFFER_MIN_SIZE];
 // };
 // typedef struct TempBuffer TempBuffer;
-
-
 
 VBuffer* vbuff_new(i32 cap_in_kb);
 
@@ -211,5 +228,3 @@ VBuffer* vbuff_new(i32 cap_in_kb);
 //   };
 
 // };
-
-

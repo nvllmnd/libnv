@@ -40,10 +40,8 @@ struct VirtMem {
   u8 storage[];
 };
 
-
-
 i32 os_page_size(void) {
-  static i32 size = -1;  
+  static i32 size = -1;
   if (size < 0) {
     size = sysconf(_SC_PAGESIZE);
   }
@@ -233,3 +231,7 @@ bool vmem_contains(const VirtMem* self, const void* p) {
   return ptr >= &self->storage[0] && ptr <= self->end;
 }
 
+VirtMemView vmem_view(const VirtMem* self) {
+  return make(VirtMemView, .start = self, .end = self->end, .avail_bytes = vmem_available(self),
+              .used_bytes = vmem_used_bytes(self), .size_bytes = self->size + sizeof(VirtMem));
+}
