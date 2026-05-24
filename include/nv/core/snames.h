@@ -3,7 +3,7 @@
 
 #if !defined(LIBNV_NO_USE_SHORT_NAMES)
 #define typeof __typeof
-#define noreturn _Noreturn
+#define noreturn [[noreturn]]
 #define noexecpt NOTHROW
 
 #define INFO LOG_INFO
