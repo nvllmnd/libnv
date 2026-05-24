@@ -2,6 +2,7 @@
 
 #include <stdarg.h>
 #include "nv/core/attributes.h"
+#include "nv/iter/buff.h"
 #include "nv/iter/vec.h"
 
 
@@ -21,7 +22,15 @@ static HEDLEY_ALWAYS_INLINE sslice string_push(String self, const char* string) 
   return buff_append_str((Buff*)self, string);
 }
 
+METHOD
+static HEDLEY_ALWAYS_INLINE char string_putchar(String self, char c) {
+  return buff_putchar((Buff*)self,  c);
+}
 
+METHOD
+static HEDLEY_ALWAYS_INLINE char string_putbyte(String self, u8 b) {
+  return buff_putbyte((Buff*)self,  b);
+}
 
 METHOD
 PURE_FUNC
