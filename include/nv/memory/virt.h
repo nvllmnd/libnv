@@ -2,6 +2,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
+#include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
@@ -25,6 +26,13 @@ typedef i32 MemSize;
 /// im going to keep it simple, as this on top of [ArenaHeap] is sufficient for
 /// most applications methinks
 typedef struct VirtMem VirtMem;
+
+/// Used to configure new VirtMems as well as types and APIs that create a VirtMem internally, but do not take one as a parameter
+struct VirtMemOpts {
+  i32 size_in_mb;
+  i32 initial_commit;
+};
+alias(VirtMemOpts);
 
 /// Maximum value that can be passed to [vmem_new] for its parameter recieving a
 /// value for megabytes to allocate
