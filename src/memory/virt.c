@@ -232,6 +232,6 @@ bool vmem_contains(const VirtMem* self, const void* p) {
 }
 
 VirtMemView vmem_view(const VirtMem* self) {
-  return make(VirtMemView, .start = self, .end = self->end, .avail_bytes = vmem_available(self),
-              .used_bytes = vmem_used_bytes(self), .size_bytes = self->size + sizeof(VirtMem));
+  return make(VirtMemView, .start = &self->storage[0], .end = self->end, .avail_bytes = vmem_available(self),
+              .used_bytes = vmem_used_bytes(self), .size_bytes = self->size);
 }
