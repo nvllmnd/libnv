@@ -6,10 +6,8 @@
 #include "nv/core/attributes.h"
 #include "nv/core/sslice.h"
 #include "nv/core/intdefs.h"
-#include "nv/memory/cstr.h"
 #include "nv/core/debug.h"
 
-// #include "memory/cstr.h"
 
 // #define format(lit, ...)
 
@@ -21,9 +19,9 @@
 ///
 /// Returns empty string in case of formatting error
 ///
-FORMAT_FUNC(1, 2)
-RETURNS_RESOURCE
-cstr format_string(const char* fmt, ...);
+// FORMAT_FUNC(1, 2)
+// RETURNS_RESOURCE
+// cstr format_string(const char* fmt, ...);
 
 typedef enum FormatError {  Format__Error = -1,
   Format__Ok = 0
@@ -43,15 +41,15 @@ typedef enum FormatError {  Format__Error = -1,
 /// [SMALL_BUF_SIZE] (should) be large enough to represent [INT32_MAX] or [INT32_MIN]
 /// as a string without losing any information
 ///
-PURE_FUNC
-cstr i64_truncate_into(i64 n);
+// PURE_FUNC
+// cstr i64_truncate_into(i64 n);
 
 
-/// Creates a string representation of a given i32 integer into  a
-/// new [cstr]. This function is guaranteed to not allocate (on the heap).
-/// as the parsed string is stored on the stack
-PURE_FUNC
-cstr i32_to_cstr(i32 n);
+// /// Creates a string representation of a given i32 integer into  a
+// /// new [cstr]. This function is guaranteed to not allocate (on the heap).
+// /// as the parsed string is stored on the stack
+// PURE_FUNC
+// cstr i32_to_cstr(i32 n);
 
 
 FORMAT_FUNC(3,4)

@@ -1,5 +1,9 @@
+#include "nv/iter/buff.h"
+
+#include "nv/iter/vec.h"
+
+#include "nv/iter/string.h"
 #include "nv/core/algo.h"
-#include "nv/core/buffer.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/memory/arena.h"
@@ -53,6 +57,7 @@ void buffs_works(void) {
 
 void vecs_works(void) {
   Vec(i32) v = vec_new(i32, 100, ALLOC);
+  TEST_ASSERT_EQUAL(100, vec_capacity(v));
 
   vec_push(v, 50);
 
@@ -66,6 +71,8 @@ void vecs_works(void) {
   
   
 }
+
+
 
 i32 main(void) {
   UNITY_BEGIN();

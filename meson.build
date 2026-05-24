@@ -77,7 +77,6 @@ dependencies += core_dep
 memory_lib = static_library(
   'nv_memory',
   files(
-    'src/memory/cstr.c',
     'src/memory/alloc.c',
     'src/memory/arena.c',
     'src/memory/virt.c',
@@ -135,7 +134,6 @@ nv_dep = declare_dependency(
   #   'include/memory/error.h',
   #   'include/memory/virt.h',
   #   'include/memory/static_alloc.h',
-  #   'include/memory/cstr.h',
   #   subdir: meson.project_name() + '/memory'
   # )
 

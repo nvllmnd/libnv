@@ -1,4 +1,6 @@
-#include "nv/core/buffer.h"
+#include "nv/iter/buff.h"
+
+
 
 #include <assert.h>
 #include <stdarg.h>
@@ -12,8 +14,12 @@
 #include "nv/memory/layout.h"
 
 struct Buffer {
+  /// Length of buffer in bytes
   i32 len;
+  /// capacity of buffer in bytes
   i32 capacity;
+  /// element size of each element appended to this buffer in bytes, used for Vecs, 
+  i32 elem_size;
   u8 start[];
 };
 alias(Buffer);
@@ -26,9 +32,10 @@ i32 buff_set_len(Buff* s, i32 new_len) {
   assert(s);
 
   Buffer* self = asbuff(s);
+  assert(self->elem_size >= 1);
 
-  const i32 len = self->len;
-  const i32 cap = self->capacity;
+  const i32 len = self->len / self->elem_size;
+  const i32 cap = self->capacity / self->elem_size;
 
   if (len == new_len) {
     return len;
@@ -37,7 +44,7 @@ i32 buff_set_len(Buff* s, i32 new_len) {
   // clamp to capacity so we dont accidently trigger UB
   new_len = clamp(new_len, 0, cap);
 
-  self->len = new_len;
+  self->len = new_len * self->elem_size;
 
   return self->len;
 }
@@ -95,12 +102,32 @@ bool buff_is_full(const Buff* self) {
   return s->len >= s->capacity;
 }
 
+Buff* buff_sized_new(i32 elem_size, i32 capacity, Allocator alloc) {
+  
+
+  assert(vtmask_is_ok(alloc.vtable->mask));
+  assert(capacity > 1);
+  assert(capacity > 0);
+
+  
+  const i32 cap = elem_size * capacity;
+
+  Buffer* self = allocator_allocate(alloc, mlayout_fma(Buffer, capacity * elem_size));
+  self->len = 0;
+  self->capacity = cap ;
+  self->elem_size = elem_size;
+  return &self->start[0];
+}
+  
+
+
 Buff* buff_new(i32 capacity, Allocator alloc) {
   assert(vtmask_is_ok(alloc.vtable->mask));
   assert(capacity > 0);
   Buffer* self = allocator_allocate(alloc, mlayout_fma(Buffer, capacity));
   self->len = 0;
   self->capacity = capacity;
+  self->elem_size = 1;
   return &self->start[0];
 }
 
@@ -157,6 +184,7 @@ sslice buff_append_nstr(Buff* self, const char* string, i32 n) {
   assert(self);
   assert(string);
   assert(n > 0);
+  assert(!buff_is_sized(self));
   char* str = buff_append(self, mlayout_bytes(n));
   if UNLIKELY (is_null(str)) {
     return sslice_empty();
@@ -172,6 +200,7 @@ METHOD
 sslice buff_append_str(Buff* self, const char* string) {
   assert(self);
   assert(string);
+  assert(!buff_is_sized(self));
   const i32 len = stringlen(string);
   return buff_append_nstr(self, string, len);
 }
@@ -185,6 +214,11 @@ Buff* buff_resize(Buff* s, i32 new_capacity, Allocator alloc) {
   assert(new_capacity > 0);
   assert(vtmask_is_ok(alloc.vtable->mask));
   Buffer* self = asbuff(s);
+
+  if (buff_is_sized(s)) {
+    new_capacity *= self->elem_size;
+  }
+
   const i32 curr_cap = self->capacity;
 
   if UNLIKELY (curr_cap == new_capacity) {
@@ -322,6 +356,16 @@ void buff_destroy(Buff* self, Allocator alloc) {
   allocator_free(alloc, s);
 }
 
+i32 buff_elem_size(const Buff* self) {
+  assert(self);
+  return asbuff(self)->elem_size;  
+}
+
+bool buff_is_sized(const Buff* self) {
+  const i32 size = buff_elem_size(self);
+  return size > 1; 
+}
+
 /// Returns true if this Buff has enough capacity to fit a @param (MemLayout layout), otherwise false.
 bool buff_has_space_for(const Buff* self, MemLayout layout) {
   assert(self);
@@ -360,12 +404,16 @@ i32 buff_min_size(void) {
 
 i32 buff_len(const Buff* self) {
   assert(self);
+
   const ptr(Buffer) s = asbuff(self);
-  return s->len;
+  assert(s->elem_size > 0);
+
+  return s->len / s->elem_size;
 }
 
 i32 buff_capacity(const Buff* self) {
   assert(self);
   const ptr(Buffer) s = asbuff(self);
-  return s->capacity;
+  assert(s->elem_size > 0);
+  return s->capacity / s->elem_size;
 }

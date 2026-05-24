@@ -1,9 +1,9 @@
 #pragma once
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
-#include "nv/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
 
 /// Integral type used for tracking bytes of virtual memory allocated
 typedef i32 MemSize;
