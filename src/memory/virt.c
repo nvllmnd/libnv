@@ -235,3 +235,17 @@ VirtMemView vmem_view(const VirtMem* self) {
   return make(VirtMemView, .start = &self->storage[0], .end = self->end, .avail_bytes = vmem_available(self),
               .used_bytes = vmem_used_bytes(self), .size_bytes = self->size);
 }
+
+
+VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb) {
+  assert(self);
+
+}
+
+VMarker vmem_mark(const VirtMem* self);
+
+void vmem_reset_to(VirtMem* self, VMarker marker);
+
+
+
+

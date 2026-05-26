@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
@@ -26,14 +27,6 @@ typedef i32 MemSize;
 /// im going to keep it simple, as this on top of [ArenaHeap] is sufficient for
 /// most applications methinks
 typedef struct VirtMem VirtMem;
-
-/// Used to configure new VirtMems as well as types and APIs that create a VirtMem internally, but do not take one as a
-/// parameter
-struct VirtMemOpts {
-  i32 size_in_mb;
-  i32 initial_commit;
-};
-alias(VirtMemOpts);
 
 /// Maximum value that can be passed to [vmem_new] for its parameter recieving a
 /// value for megabytes to allocate
@@ -78,6 +71,29 @@ void* vmem_allocate(VirtMem* self, MemLayout layout);
 /// successfull [vmem_new] call
 METHOD
 void* vmem_zallocate(VirtMem* self, MemLayout layout);
+
+/// @brief Byte offset of an allocation
+typedef i32 VAddrOffset;
+
+/// @brief calculates the byte offset of a pointer allocated by this allocator. You can use this to ensure you have pointers that point to the correct location in memory, persisting through calls to [vmem_remap]
+PURE_FUNC
+METHOD
+VAddrOffset vmem_offset(const VirtMem* self, const void* ptr);
+
+/// @brief Allocates and sets address offset if not null.
+/// @details Same as [vmem_allocate] followed by a call to [vmem_offset]
+/// @param (VirtMem* self) -  
+/// @param (MemLayout layout) - 
+/// @param (VAddrOffset* offset_out) -
+METHOD
+void* vmem_alloc_offset(VirtMem* self,  MemLayout layout, VAddrOffset* offset_out);
+
+
+/// @brief Zero Allocates and sets address offset if not null.
+/// @details Same as [vmem_zallocate] followed by a call to [vmem_offset]
+METHOD
+void* vmem_zalloc_offset(VirtMem* self,  MemLayout layout, VAddrOffset* offset);
+
 
 /// Releases (decommits) virtual memory back to operating system.
 /// Note that after this function returns, the structure is zeroed and must be
@@ -168,6 +184,12 @@ VirtMemView vmem_view(const VirtMem* self);
 CONST_FUNC
 i32 os_page_size(void);
 
+/// @brief remaps virtual memory used by self to given new size in megabytes
+/// @warning assume all memory allocated up to before this call is made as invalid after the call has returned
+/// @returns pointer to new remapped [VirtMem]
+METHOD
+VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb);
+
 /// A Heap of Virtual Memory. This is a block style allocator, capable of freeing memory and coalescing adjacent freed
 /// blocks
 /// TODO: Actually implement this. lol
@@ -228,3 +250,21 @@ VBuffer* vbuff_new(i32 cap_in_kb);
 //   };
 
 // };
+
+
+/// @brief A memory location marker returned from [vmem_mark].
+/// @details can later be passed to [vmem_reset_to] to set back its internal used counter back to where it was when
+/// [vmem_mark] was first called This allows you to clear sections of virtual memory to be reused by later
+/// allocations, while still keeping allocations before first call to [vmem_mark] intact and valid
+typedef i32 VMarker;
+
+METHOD
+PURE_FUNC
+VMarker vmem_mark(const VirtMem* self);
+
+METHOD
+/// @brief Resets allocations made from given marker
+/// @details a [VMarker] can be returned from a call to [vmem_mark], which is a memory
+/// location to 'reset' to. All allocations made after given marker are considered freed for reused
+/// and should be considered invalid after this function returns
+void vmem_reset_to(VirtMem* self, VMarker marker);
