@@ -1,19 +1,27 @@
+#define _GNU_SOURCE 1
+
 #include "nv/memory/virt.h"
 
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
 
+#include <errno.h>
+#include <sys/mman.h>
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
+
 #include "nv/memory/layout.h"
 
+
+
+
 #if SYSTEM_POSIX
-#include <errno.h>
-#include <sys/mman.h>
+
+
 #endif
 
 #if SYSTEM_WINDOWS
@@ -23,14 +31,13 @@
 #endif
 
 struct VirtMem {
-#if SYSTEM_WINDOWS
-  /// NOTE: This will not compile for windows currently as of 04/05/2026.
-  ///       I cant be tiffed. Micro$hit Windoze is bloatware anway :)
-  /// number of bytes available for allocation
-  MemSize committed;
-#endif
+  VModeFlags flags;
+
+  /// @brief lock size in bytes of this mappings [mlock]ed region (spanning from 0 - lsize)
+  i32 lsize;
+
   /// total size of virtual memory block, in bytes.
-  MemSize size;
+  i32 size;
 
   /// aligned pointer to the next free space to use for allocation
   u8* top;
@@ -53,6 +60,7 @@ MemError vmem_init(VirtMem** self, isize size_in_mb) {
   size_in_mb = clamp(size_in_mb, MEMSIZE_MIN_MB, MEMSIZE_MAX_MB);
 
   const isize size = sizeof(VirtMem) + MEGABYTES(size_in_mb);
+
 
   VirtMem* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if UNLIKELY (ptr == MAP_FAILED) {

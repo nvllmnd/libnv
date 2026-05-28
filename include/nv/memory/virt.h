@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
@@ -42,6 +43,60 @@ static constexpr const MemSize MEMSIZE_MIN = MEGABYTES(MEMSIZE_MIN_MB);
 /// cannot represent a number higher than 1GB, for a signed integer
 static constexpr const MemSize MEMSIZE_MAX = GIGABYTES(1);
 
+/// @brief Essentially a wrapper around flags passed to [mmap]
+/// @details This falls under the [VirtMem] API, so any mmap flags specific to memory mapping of files
+/// are not supported/present here (MAP_PRIVATE|MAP_ANONYMOUS are the base/minimum flags passed to [mmap])
+typedef enum HEDLEY_FLAGS VMapModeFlags {
+  VMap__NoAccess = 0,
+  VMap__Read = 1,
+  VMap__Write = 2, 
+  VMap__Default = VMap__Read | VMap__Write,
+} VMapModeFlags;
+
+// typedef enum HEDLEY_FLAGS VRemapModeFlags {
+//   VRemap__NoAccess = 0,
+//   VMap__Read = 1,
+//   VMap__Write = 2, 
+//   VMap__Default = VMap__Read | VMap__Write,
+// } VMapModeFlags;
+
+
+typedef enum HEDLEY_FLAGS VModeFlags {
+  VMode__FixedSize = 0,
+  VMode__AllowRelocate = 1 << 0,
+  VMode__AllowExpandInPlace = 1 << 1,
+  /// essentially, [MAP_POPULATE] which ensures the entirety of mapped virtual memory is locked to (lives in) physical
+  /// RAM
+  VMode__PreloadAll = 1 << 2,
+  VMode__AllowShrink = 1 << 3,
+  /// Essentially, mmap with [MAP_LOCKED], or [mlock] the entire mapping
+  VMode__RAMLock = 1 << 4,
+  /// This virtual memory block behaves like an [Arena],
+  /// internally it passes [MREMAP_DONTUNMAP] to [mremap]. Mutually exculive with [VMode__AllowRelocate]
+  VMode__ArenaRemap = 1 << 5,
+  /// ensure up to size bytes of virtual memory is 'pre-faulted' (Committed/[mlock]ed) after initial [mmap]/[mremap]
+  VMode__PreloadSize = 1 << 6,
+  /// if set, the
+  VMode__RAMLockSize = 1 << 7,
+  VMode__Arena = VMode__AllowExpandInPlace | VMode__AllowShrink | VMode__ArenaRemap,
+  VMode__Default = VMode__FixedSize,
+} VModeFlags;
+
+/// @brief Initialization struct for initializing new [VirtMem]
+struct VirtMemOpts {
+  /// @details count of bytes of requested virtual memory mapping
+  i32 size_bytes;
+  /// @details if [VMode__PreloadSize] bitflag is set, After initial virtual memory mapping is successfully created,
+  /// then we ask the OS to try to ensure that the first init_commit bytes of mapped virt memory are locked into
+  /// Physical RAM, k
+  i32 init_commit;
+  /// @details size in bytes of mapping to request to [mlock] into Physical RAM
+  i32 lock_size;
+  /// @details a quick abstraction over the POSIX [mmap]/[mremap] API
+  VModeFlags flags;
+};
+alias(VirtMemOpts);
+
 /// brief Calls [mmap]/[VirtualAlloc] to request memory of @param (size_in_mb)
 /// megabytes of virtual paged memory.
 ///
@@ -59,6 +114,10 @@ static constexpr const MemSize MEMSIZE_MAX = GIGABYTES(1);
 METHOD
 MemError vmem_init(VirtMem** self, isize size_in_mb);
 
+/// @brief same as [vmem_init], but with extended initialization params!
+METHOD
+MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts);
+
 METHOD
 /// returns next available location in memory and increments used counter.
 /// This function returns nullptr if there is not enough available space
@@ -73,27 +132,48 @@ METHOD
 void* vmem_zallocate(VirtMem* self, MemLayout layout);
 
 /// @brief Byte offset of an allocation
+/// @details Must always be a positive value, any negative values are treated as errors
 typedef i32 VAddrOffset;
 
-/// @brief calculates the byte offset of a pointer allocated by this allocator. You can use this to ensure you have pointers that point to the correct location in memory, persisting through calls to [vmem_remap]
+/// @brief calculates the byte offset of a pointer allocated by this allocator.
+/// @remarks You can use this to ensure you have
+/// pointers that point to the correct location in memory, persisting through calls to [vmem_remap].
+/// @details if pointer parameter does not exist in this virtual memory region, this function returns -1
 PURE_FUNC
 METHOD
 VAddrOffset vmem_offset(const VirtMem* self, const void* ptr);
 
 /// @brief Allocates and sets address offset if not null.
-/// @details Same as [vmem_allocate] followed by a call to [vmem_offset]
-/// @param (VirtMem* self) -  
-/// @param (MemLayout layout) - 
-/// @param (VAddrOffset* offset_out) -
+/// @details Same as [vmem_allocate] followed by a call to [vmem_offset],
+/// @param (MemLayout layout) - Allocation size
+/// @param (VAddrOffset* offset_out) - if not-null, sets as the relative offset of the pointer returned by this
+/// function. Ignored if null
 METHOD
-void* vmem_alloc_offset(VirtMem* self,  MemLayout layout, VAddrOffset* offset_out);
+void* vmem_alloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset_out);
 
-
-/// @brief Zero Allocates and sets address offset if not null.
-/// @details Same as [vmem_zallocate] followed by a call to [vmem_offset]
+/// @brief Allocates and sets address offset if not null.
+/// @details Same as [vmem_allocate] followed by a call to [vmem_offset],
+/// @param (MemLayout layout) - Allocation size
+/// @param (VAddrOffset* offset_out) - if not-null, sets as the relative offset of the pointer returned by this
+/// function. Ignored if null//
 METHOD
-void* vmem_zalloc_offset(VirtMem* self,  MemLayout layout, VAddrOffset* offset);
+void* vmem_zalloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset);
 
+#define vmem_allocate_tp(_self, T) ((__typeof(T)*)vmem_allocate((_self), mlayout_new(T)))
+#define vmem_zallocate_tp(_self, T) ((__typeof(T)*)vmem_zallocate((_self), mlayout_new(T)))
+
+#define vmem_allocate_array(_self, T, N) ((__typeof(T)*)vmem_allocate((_self), mlayout_array(T, N)))
+#define vmem_allocate_vec(_self, T, _n) ((__typeof(T)*)vmem_allocate((_self), mlayout_vec(T, _n)))
+
+#define vmem_zallocate_array(_self, T, N) ((__typeof(T)*)vmem_zallocate((_self), mlayout_array(T, N)))
+#define vmem_zallocate_vec(_self, T, _n) ((__typeof(T)*)vmem_zallocate((_self), mlayout_vec(T, _n)))
+
+#define vmem_alloc_offset_tp(_self, T) ((__typeof(T)*)vmem_alloc_offset((_self), mlayout_new(T)))
+#define vmem_zalloc_offset_tp(_self, T) ((__typeof(T)*)vmem_zalloc_offset((_self), mlayout_new(T)))
+#define vmem_alloc_offset_array(_self, T, N) ((__typeof(T)*)vmem_alloc_offset((_self), mlayout_array(T, N)))
+#define vmem_alloc_offset_vec(_self, T, _n) ((__typeof(T)*)vmem_alloc_offset((_self), mlayout_vec(T, _n)))
+#define vmem_zalloc_offset_array(_self, T, N) ((__typeof(T)*)vmem_zalloc_offset((_self), mlayout_array(T, N)))
+#define vmem_zalloc_offset_vec(_self, T, _n) ((__typeof(T)*)vmem_zalloc_offset((_self), mlayout_vec(T, _n)))
 
 /// Releases (decommits) virtual memory back to operating system.
 /// Note that after this function returns, the structure is zeroed and must be
@@ -185,73 +265,10 @@ CONST_FUNC
 i32 os_page_size(void);
 
 /// @brief remaps virtual memory used by self to given new size in megabytes
-/// @warning assume all memory allocated up to before this call is made as invalid after the call has returned
+/// 
 /// @returns pointer to new remapped [VirtMem]
 METHOD
-VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb);
-
-/// A Heap of Virtual Memory. This is a block style allocator, capable of freeing memory and coalescing adjacent freed
-/// blocks
-/// TODO: Actually implement this. lol
-typedef struct Heap Heap;
-
-static constexpr const i32 VBUFFER_MIN_SIZE = KILOBYTES(4);
-
-/// A large buffer of bytes (4KB+), residing in system virtual memory.
-/// This differs from a [VirtMem] in that this type is not an 'allocator' type,
-/// this is intended to be used to build strings, arrays, complex datastructures/memory that must
-/// be contiguous in memory, before copying that data out of this buffer and into somewhere else, clear this buffer,
-/// repeat!
-///
-/// Since this buffer resides in virtual memory, callers are expectd to keep this buffer alive for a while, and if you
-/// think you wont ever need more than [VBUFFER_MIN_SIZE] bytes, then you should probably use a static array
-typedef struct VBuffer VBuffer;
-
-// typedef u8 TempBuffer[VBUFFER_MIN_SIZE];
-
-#define Bytes(N) \
-  struct {       \
-    u8 inner[N]; \
-  }
-
-typedef Bytes(KILOBYTES(1)) TempBuffSmall;
-typedef Bytes(KILOBYTES(2)) TempBuffMid;
-typedef Bytes(KILOBYTES(3)) TempBuffTall;
-typedef Bytes(KILOBYTES(4)) TempBuffLarge;
-
-struct TempBuffer {
-  u8* inner;
-};
-
-// struct TempBuffer {
-//   u8 inner[VBUFFER_MIN_SIZE];
-// };
-// typedef struct TempBuffer TempBuffer;
-
-VBuffer* vbuff_new(i32 cap_in_kb);
-
-// typedef enum SBufferType {
-//   SBuffer__Inner,
-//   /// non-owned
-//   SBuffer__Foreign,
-//   SBuffer__VirtualMem
-
-// } SBufferType;
-
-// struct ScratchBuff {
-//   SBufferType type;
-
-//   u8* top;
-
-//   union {
-//     u8 inner[SBUFFER_INNER_SIZE];
-//     struct { u8* start; u8* end; } foreign;
-//     VirtMem* mem;
-//   };
-
-// };
-
-
+MemError vmem_remap(VirtMem** self, i32 new_size_mb);
 /// @brief A memory location marker returned from [vmem_mark].
 /// @details can later be passed to [vmem_reset_to] to set back its internal used counter back to where it was when
 /// [vmem_mark] was first called This allows you to clear sections of virtual memory to be reused by later
@@ -265,6 +282,6 @@ VMarker vmem_mark(const VirtMem* self);
 METHOD
 /// @brief Resets allocations made from given marker
 /// @details a [VMarker] can be returned from a call to [vmem_mark], which is a memory
-/// location to 'reset' to. All allocations made after given marker are considered freed for reused
+/// location to 'reset' to. All allocations made after given marker are considered freed for reuse
 /// and should be considered invalid after this function returns
 void vmem_reset_to(VirtMem* self, VMarker marker);
