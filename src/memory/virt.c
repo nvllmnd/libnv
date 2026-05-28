@@ -31,10 +31,10 @@
 #endif
 
 struct VirtMem {
-  VModeFlags flags;
+  // VModeFlags flags;
 
   /// @brief lock size in bytes of this mappings [mlock]ed region (spanning from 0 - lsize)
-  i32 lsize;
+  // i32 lsize;
 
   /// total size of virtual memory block, in bytes.
   i32 size;
@@ -245,14 +245,23 @@ VirtMemView vmem_view(const VirtMem* self) {
 }
 
 
-VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb) {
-  assert(self);
+// VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb) {
+//   assert(self);
 
+// }
+
+VMarker vmem_mark(const VirtMem* self) {
+  assert(self);
+  assert(self->top);
+  return self->top - &self->storage[0];
 }
 
-VMarker vmem_mark(const VirtMem* self);
-
-void vmem_reset_to(VirtMem* self, VMarker marker);
+void vmem_reset_to(VirtMem* self, VMarker marker) {
+  assert(marker >= 0 && marker <= vmem_size(self));
+  u8* const ntop = (&self->storage[0]) + marker;
+  assert(ntop <= self->top);
+  self->top = ntop;
+}
 
 
 
