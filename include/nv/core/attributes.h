@@ -292,3 +292,22 @@
 #if !defined(UNPREDICTABLE)
 #define UNPREDICTABLE(expr) PREDICT(expr, 1, 0.5)
 #endif
+
+
+
+// ###################################################
+// ######### Custom Extensions to hedley.h ###########
+// ###################################################
+
+
+
+#if HEDLEY_HAS_ATTRIBUTE(counted_by)
+#ifndef ATTR_COUNTED_BY
+#define ATTR_COUNTED_BY(_field) __attribute__((counted_by(_field)))
+#endif // ifndef ATTR_COUNTED_BY
+#ifndef ATTR_COUNTED_BY
+
+#define ATTR_COUNTED_BY
+#endif // ifndef ATTR_COUNTED_BY
+
+#endif // HEDLEY_HAS_ATTRIBUTE(counted_by) 

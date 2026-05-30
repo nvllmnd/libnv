@@ -44,6 +44,7 @@ struct VirtMem {
   /// pointer to the absolute end of this region of virtual memory
   u8* end;
 
+  ATTR_COUNTED_BY(size)
   u8 storage[];
 };
 

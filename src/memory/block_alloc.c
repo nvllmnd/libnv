@@ -3,8 +3,8 @@
 #include <assert.h>
 
 #include "nv/core/attributes.h"
-#include "nv/core_types.h"
 #include "nv/core/log.h"
+#include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/virt.h"
@@ -153,7 +153,6 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
 
   if (self->free_list.blocks_free > 0) {
-
     Block* next_free = ba_next_free_block(self, layout.size);
 
     if (next_free) {
@@ -234,34 +233,28 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
     return bl_begin(bptr);
   }
 
-  if (new_layout.size > old_layout.size) {
-    u8* new_end = &bptr->storage[new_layout.size - 1];
-    // we can grow in place!
-    if UNLIKELY (new_end <= bptr->end) {
-      bptr->end = new_end;
+  u8* new_end = &bptr->storage[new_layout.size - 1];
+  // we can grow in place!
+  if UNLIKELY (new_end <= bptr->end) {
+    bptr->end = new_end;
 
-      return bl_begin(bptr);
-    }
-
-    const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
-
-    Block* next = vmem_allocate(self->vm, block_layout);
-    if UNLIKELY (is_null(next)) {
-      LOG_DBG(
-          "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-          "available memory and cannot accomadate an allocation of size %d bytes!",
-          __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
-      return nullptr;
-    }
-
-    memcpy(next, bptr, bl_full_size(bptr));
-    ba_free(self, bptr);
-    return bl_begin(next);  //&next->storage[0];
+    return bl_begin(bptr);
   }
 
-  // should never reach this point. as we have check if new.size == old.size, new.size < old.size and finally new.size <
-  // old.size
-  HEDLEY_UNREACHABLE();
+  const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
+
+  Block* next = vmem_allocate(self->vm, block_layout);
+  if UNLIKELY (is_null(next)) {
+    LOG_DBG(
+        "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
+        "available memory and cannot accomadate an allocation of size %d bytes!",
+        __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
+    return nullptr;
+  }
+
+  memcpy(next, bptr, bl_full_size(bptr));
+  ba_free(self, bptr);
+  return bl_begin(next);  //&next->storage[0];
 }
 
 void ba_free(BlockAllocator* self, void* ptr) {
@@ -376,8 +369,6 @@ bool fl_push(FreeList* self, Block* val) {
   assert(self);
   assert(val);
 
-
-
   const i32 size = bl_size(val);
 
   if (size > BA_FREE_LIST_MAX_SIZE) {
@@ -391,7 +382,6 @@ bool fl_push(FreeList* self, Block* val) {
   }
 
   SizeClass* klass = nullptr;
-
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
     SizeClass* const sc = &self->sclasses[i];
@@ -409,6 +399,7 @@ bool fl_push(FreeList* self, Block* val) {
         size, BA_FREE_LIST_MAX_SIZE);
 
     assert(klass);
+    __builtin_trap();
     UNREACHABLE();
   }
 
