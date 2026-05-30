@@ -1,26 +1,29 @@
+
 #define _GNU_SOURCE 1
+#define __USE_GNU 1
+#define __USE_MISC 1
 
-#include "nv/memory/virt.h"
-
-#include <assert.h>
-#include <string.h>
 #include <unistd.h>
-
-#include <errno.h>
 #include <sys/mman.h>
+
+// #include <assert.h>
+// #include <errno.h>
+// #include <string.h>
+
+
+#include "nv/core_types.h"
+
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
-
 #include "nv/memory/layout.h"
-
+#include "nv/memory/virt.h"
 
 
 
 #if SYSTEM_POSIX
-
 
 #endif
 
@@ -50,22 +53,22 @@ struct VirtMem {
 
 i32 os_page_size(void) {
   static i32 size = -1;
-  if (size < 0) {
+  if UNLIKELY (size < 0) {
     size = sysconf(_SC_PAGESIZE);
   }
   return size;
 }
 
-MemError vmem_init(VirtMem** self, isize size_in_mb) {
+MemError vmem_init(VirtMem** self, i32 size_bytes) {
   assert(self);
-  size_in_mb = clamp(size_in_mb, MEMSIZE_MIN_MB, MEMSIZE_MAX_MB);
+  assert(size_bytes > 0);
 
-  const isize size = sizeof(VirtMem) + MEGABYTES(size_in_mb);
+  const isize size = sizeof(VirtMem) + max(size_bytes, os_page_size());
 
 
   VirtMem* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if UNLIKELY (ptr == MAP_FAILED) {
-    LOG_DBG("Failed to map virtual memory of size: %li (%liMB). ERRNO(%d) :: %s", size, size_in_mb, errno,
+    LOG_DBG("Failed to map virtual memory of size: %li (%dMB). ERRNO(%d) :: %s", size, size_bytes, errno,
             strerror(errno));
 
     switch (errno) {
@@ -96,14 +99,12 @@ MemError vmem_init(VirtMem** self, isize size_in_mb) {
 
 void* vmem_allocate(VirtMem* self, MemLayout layout) {
   assert(self);
-  const isize size = layout.size;
-  const isize align = layout.align;
+  const i32 size = layout.size;
+  const i32 align = layout.align;
 
   if UNLIKELY (size > vmem_available(self)) {
-    LOG_DBG(
-        "Call to %s Unsuccessful! Virtual Memory has been exhausted! Clear/Reset this VirtMem, or release its memory "
-        "back to the system and reinitialize to allocate more memory from this VirtMem!",
-        __func__);
+    LOG_FATAL("Failed to allocate memory block of size: %d bytes. Virtual Memory only has %d bytes available", size, vmem_available(self));
+
     return nullptr;
   }
 
@@ -178,22 +179,22 @@ error vmem_zero_range(VirtMem* self, isize index) {
   return MemError__Ok;
 }
 
-isize vmem_size(const VirtMem* self) {
+i32 vmem_size(const VirtMem* self) {
   assert(self);
   return self->size;
 }
 
-isize vmem_full_size(const VirtMem* self) {
+i32 vmem_full_size(const VirtMem* self) {
   assert(self);
   return sizeof(VirtMem) + self->size;
 }
 
-isize vmem_used_bytes(const VirtMem* self) {
+i32 vmem_used_bytes(const VirtMem* self) {
   assert(self);
   return self->top - &self->storage[0];
 }
 
-isize vmem_available(const VirtMem* self) {
+i32 vmem_available(const VirtMem* self) {
   assert(self);
   return self->end - self->top;
 }
@@ -245,7 +246,6 @@ VirtMemView vmem_view(const VirtMem* self) {
               .used_bytes = vmem_used_bytes(self), .size_bytes = self->size);
 }
 
-
 // VirtMem* vmem_remap(VirtMem* self, i32 new_size_mb) {
 //   assert(self);
 
@@ -264,6 +264,208 @@ void vmem_reset_to(VirtMem* self, VMarker marker) {
   self->top = ntop;
 }
 
+MemError vmem_lock(VirtMem* self, i32 nbytes) {
+  assert(self);
+  assert(nbytes > 0); 
+  const i32 err = mlock(self,nbytes);
+
+  LOG_DBG("Called mlock with %d bytes", nbytes);
+
+  if (err != 0) {
+
+  ELOG_DBG("Called to mlock with %d bytes Failed!", nbytes);
+    return MemError__VMapCannotLockToRAM;
+  }
+  return MemError__Ok;
+}
+
+MemError vmem_unlock(VirtMem* self, i32 nbytes) {
+
+  assert(self);
+  assert(nbytes > 0); 
+  const i32 err = munlock(self,nbytes);
+
+  LOG_DBG("Called munlock with %d bytes", nbytes);
+
+  if (err != 0) {
+  ELOG_DBG("Called to munlock with %d bytes Failed!", nbytes);
+    return MemError__CannotUnlockRAM;
+  }
+  return MemError__Ok;  
+}
+
+MemError vmem_commit(VirtMem* self, i32 nbytes) {
+  assert(self);
+  assert(nbytes > 0);
+  const i32 err = madvise(self, nbytes, MADV_WILLNEED);
+  LOG_DBG("Called madvise with %d bytes and flag MADV_WILLNEED", nbytes);
+
+  if (err != 0) {
+  ELOG_DBG("Called to madvise with %d bytes and flag MADV_WILLNEED Failed!", nbytes);
+    return MemError__MAdviseWillNeedFailed;
+  }
+  return MemError__Ok;
+
+}
+
+MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
+  assert(self);
+  assert(opts.size_bytes > 0);
+
+  const i32 size = max(opts.size_bytes, os_page_size());
+
+  if (opts.mode == VMap__Default) {
+    return vmem_init(self, size);
+  }
+
+  i32 flags = MAP_PRIVATE | MAP_ANONYMOUS;
+
+  if (bithas(opts.mode, VMap__NoReserve)) {
+    LOG_DBG("Adding MAP_NORESERVE flag to mmap call");
+    bitset(flags, MAP_NORESERVE);
+  }
+
+  if (bithas(opts.mode, VMap__CommitAll)) {
+    LOG_DBG("Adding MAP_POPULATE flag to mmap call");
+    bitset(flags, MAP_POPULATE);
+  }
+
+  if (bithas(opts.mode, VMap__LockAll)) {
+    LOG_DBG("Adding MAP_LOCKED flag to mmap call");
+    bitset(flags, MAP_LOCKED);
+  }
+
+  const i32 access = cast(i32, opts.access);
+
+  VirtMem* ptr = mmap(0, size, access, flags, -1, 0);
+  if UNLIKELY (ptr == MAP_FAILED) {
+    LOG_DBG("Failed to map virtual memory of size: %d bytes. ERRNO(%d) :: %s", size,errno,
+            strerror(errno));
+
+    switch (errno) {
+      case ENOMEM: {
+        return MemError__OOM;
+      } break;
+      case EOVERFLOW: {
+        return MemError__ValTooLargeFoDataType;
+      } break;
+      case EAGAIN: {
+        return MemError__ResourceTempUnavail;
+        default: {
+          return MemError__FailedMemMap;
+        } break;
+      } break;
+    }
+
+    return MemError__FailedMemMap;
+  }
+
+  // NOTE: set size right away before we access storage to take advantage of the counted_by attribute
+  ptr->size = size;
+  ptr->top = &ptr->storage[0];
+  ptr->end = ptr->top + size;
+  *self = ptr;
 
 
+  if (bithas(opts.mode, VMap__CommitPages) && opts.commit_bytes != 0) {
+    const i32 bytes = opts.commit_bytes < 0 ? size : opts.commit_bytes;
+    return vmem_commit(*self, bytes);
+  }
 
+  if (bithas(opts.mode, VMap__LockPages) && opts.lock_bytes != 0) {
+    const i32 bytes = opts.lock_bytes < 0 ? size : opts.lock_bytes;
+    return vmem_lock(*self, bytes);
+  }
+
+  return MemError__Ok;
+  
+}
+
+VAddrOffset vmem_offset(const VirtMem* self, const void* ptr) {
+  assert(self);
+  assert(ptr);
+  if (vmem_contains(self, ptr)) {
+    return pcast(u8, ptr) - (&self->storage[0]);
+  }
+  return -1;
+}
+
+void* vmem_alloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset_out) {
+  void* res = vmem_allocate(self,  layout);
+  if UNLIKELY (is_null(res)) {
+   return nullptr; 
+  }
+
+  if LIKELY (is_not_null(offset_out)) {
+    *offset_out = pcast(u8, res) - (&self->storage[0]);
+  }
+
+  return res;
+
+}
+
+void* vmem_zalloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset_out) {
+  void* res = vmem_zallocate(self,  layout);
+
+  if UNLIKELY (is_null(res)) {
+   return nullptr; 
+  }
+
+  if LIKELY (is_not_null(offset_out)) {
+    *offset_out = pcast(u8, res) - (&self->storage[0]);
+  }
+
+  return res;
+
+}
+
+void vmem_update_ptr(VirtMem* self, void** ptr, VAddrOffset rel_address) {
+  assert(self);
+  assert(ptr);
+  assert(rel_address >=0);
+  assert(rel_address <= self->size);
+
+  *ptr = vmem_lookup_offset(self,  rel_address);
+  
+}
+
+void* vmem_lookup_offset(VirtMem* self, VAddrOffset rel_address) {
+  assert(self);
+  assert(rel_address >=0);
+  assert(rel_address <= self->size);
+
+  if UNLIKELY (rel_address > self->size) {
+    LOG_FATAL("rel_address: %d is out of range! VirtMem size is only %d bytes!", rel_address, self->size);
+  }
+
+  return pcast(void, &self->storage[rel_address]);
+}
+
+MemError vmem_remap(VirtMem** s, i32 size_bytes, VRemapMode mode) {
+  assert(s);
+
+  VirtMem* self = *s;
+
+  i32 flags = 0;
+
+  if (mode == VRemap__AllowRelocate) {
+    bitset(flags, MREMAP_MAYMOVE); 
+  }
+
+  VirtMem* new_self = mremap(self, self->size, size_bytes, flags);
+  if UNLIKELY (new_self == MAP_FAILED) {
+    if (mode == VRemap__AllowRelocate) {
+      ELOG_DBG("Virtual Mapping allows reloction, but failed to remap from size: %d bytes to %d bytes", self->size, size_bytes);
+      return MemError__FailedRemap;
+    }
+
+    // NOTE: This isnt exactly an error, user may respond to this error by calling this function again, but with VRemap__AllowRelocate 
+    ELOG_DBG("Virtual Mapping failed to expand in place!");
+    return MemError__CannotExpandInPlace;
+  }
+
+  *s = new_self;
+
+  return MemError__Ok;
+  
+}

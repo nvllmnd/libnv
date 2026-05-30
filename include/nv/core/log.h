@@ -8,43 +8,10 @@
 #include "nv/core/intdefs.h"
 #include "nv/core/sslice.h"
 
-// #define format(lit, ...)
 
-// FORMAT_FUNC(1,2)
-// void println(const char* fmt, ...);
-
-/// Formats arguments int a new [cstr] using
-/// a [printf] style format string
-///
-/// Returns empty string in case of formatting error
-///
-// FORMAT_FUNC(1, 2)
-// RETURNS_RESOURCE
-// cstr format_string(const char* fmt, ...);
 
 typedef enum FormatError { Format__Error = -1, Format__Ok = 0 } FormatError;
 
-// FormatError i64_into_str(i64 n, char* dst, i32 dst_len);
-
-/// Creates a string representation of a given i64 integer into a
-/// new [cstr]. This function is guaranteed to not allocate. However,
-/// any digits past the [SMALL_BUF_SIZE]th (or [SMALL_BUF_SIZE - 1]th digit if (n) is a negative number, to account for
-/// the negative sign) digit will be lost/truncated,
-///
-/// If you know the number you want to turn into
-/// a string is <= [INT32_MAX], then see: [i32_to_cstr], as
-/// that function is also gauranteed not to allocate memory, but
-/// [SMALL_BUF_SIZE] (should) be large enough to represent [INT32_MAX] or [INT32_MIN]
-/// as a string without losing any information
-///
-// PURE_FUNC
-// cstr i64_truncate_into(i64 n);
-
-// /// Creates a string representation of a given i32 integer into  a
-// /// new [cstr]. This function is guaranteed to not allocate (on the heap).
-// /// as the parsed string is stored on the stack
-// PURE_FUNC
-// cstr i32_to_cstr(i32 n);
 
 FORMAT_FUNC(3, 4)
 RETURNS_ERROR
@@ -131,20 +98,8 @@ void log_fatal(const char* fmt, ...);
 HEDLEY_NO_RETURN
 void vlog_fatal(const char* fmt, va_list args);
 
-#define EXIT_FATAL(msg) (log_fatal("%s:%d :: FatalError in function: %s\n=> %s", __FILE__, __LINE__, __func__, msg))
 
-typedef enum RuntimePanic : i32 {
-  Panic__OutOfMemory = -(0x404379),
-  Panic__NullPointerUnexpected,
-  Panic__ExpectedSomeWhenThereWasNone,
-  Panic__ConditionFailure,
-  Panic__ExceptionType,
-  Panic__UnexpectedProgramState,
-  Panic__SystemError,
-} RuntimePanic;
-
-HEDLEY_NO_RETURN
-void panic_abort(RuntimePanic err);
+#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL!! __VA_OPT__(,) __VA_ARGS__)))
 
 #define TODO_MSG(_msg, ...) (log_fatal((_msg)__VA_OPT__(, ) __VA_ARGS__))
 

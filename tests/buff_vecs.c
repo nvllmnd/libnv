@@ -16,7 +16,7 @@ static Arena* ARENA = nullptr;
 static Allocator ALLOC;
 
 void setUp(void) {
-  assert(vmem_init(&VM, 16) == OK);
+  assert(vmem_init(&VM, MEGABYTES(16)) == OK);
   ARENA = arena_in_vmem(VM, KILOBYTES(24), true);
   ALLOC = arena_allocator(ARENA);
 

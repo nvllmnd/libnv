@@ -4,13 +4,12 @@
 
 #ifndef LIBNV_DEBUG
 
-#ifdef NDEBUG
+#ifdef NDEBUG 
 #define LIBNV_DEBUG 0
 #else
 #define LIBNV_DEBUG 1
-#endif
-
-#endif
+#endif //  NDEBUG  
+#endif // LIBNV_DEBUG
 
 #if LIBNV_DEBUG == 1
 
@@ -27,4 +26,17 @@
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x
 #define ASSERT_PTR(_p) punwrap(_p)
-#endif
+
+#endif // if LIBNV_DEBUG == 1
+
+#include "hedley.h"
+
+#if HEDLEY_HAS_BUILTIN(__builtin_trap) 
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() __builtin_trap()
+#endif // ifndef EXIT_FATAL
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() abort()
+#endif // ifndef EXIT_FATAL
+#endif // HEDLEY_HAS_BUILTIN(__builtin_trap)
+

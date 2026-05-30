@@ -206,11 +206,11 @@ static bool arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemL
 
 }
 
-static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
+static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_bytes, isize capacity, bool exclusive) {
   if (is_null(vm)) {
     exclusive = true;
 
-    if (vmem_init(&vm, vmem_mb) != OK) {
+    if (vmem_init(&vm, vmem_bytes) != OK) {
       LOG_DBG(
           "Call to vmem_init failed! Could not allocate virtual memory when attempting to create a new [ArenaHeap]!");
       return nullptr;
@@ -276,8 +276,8 @@ static const AllocVTable HEAP_VTABLE =
     alloc_vtable_new(.allocate = arena_vtalloc_impl, .zallocate = arena_vtzalloc_impl, .free = arena_vtfree_impl,
                      .reallocate = arena_vtrealloc_impl, .expand = arena_vtexpand_impl, .mask = VT__Allocate | VT__Zallocate | VT__Free | VT__Expand);
 
-Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) {
-  return ah_new_ex(nullptr, vmem_size_in_mb, init_capacity, true);
+Arena* arena_new(isize vmem_size_bytes, isize init_capacity) {
+  return ah_new_ex(nullptr, vmem_size_bytes, init_capacity, true);
 }
 
 Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {

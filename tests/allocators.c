@@ -10,6 +10,7 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/arena.h"
 #include "nv/memory/block_alloc.h"
+#include "nv/memory/error.h"
 #include "nv/memory/virt.h"
 #include "unity.h"
 
@@ -31,7 +32,7 @@ alias(Stuff);
 
 
 void arena_heap_exclusive(void) {
-  Arena* ah = arena_new(4, MEGABYTES(2));
+  Arena* ah = arena_new(MEGABYTES(4), MEGABYTES(2));
   TEST_ASSERT_NOT_NULL(ah);
 
   Stuff* s = arena_zalloc(ah, mlayout_new(Stuff));
@@ -45,7 +46,7 @@ void arena_heap_exclusive(void) {
 void arena_heap_from_vmem(void) {
   VirtMem* vm = nullptr;
 
-  TEST_ASSERT_EQUAL(OK, vmem_init(&vm, 4));
+  TEST_ASSERT_EQUAL(OK, vmem_init(&vm, MEGABYTES(16)));
 
   TEST_ASSERT_NOT_NULL(vm);
 
@@ -69,8 +70,81 @@ void arena_heap_from_vmem(void) {
   arena_destroy(ah);
 }
 
+
+void vmap_ex_lock_and_commit(void) {
+  
+  VirtMem* vm = nullptr;
+  MemError err = vmem_init_ex(&vm,  make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess, .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+  err = vmem_lock(vm, KILOBYTES(12));
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+  err = vmem_unlock(vm, KILOBYTES(12));
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+  err = vmem_destroy(vm);
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+  
+}
+
+void vmap_marker_and_remap(void) {
+
+  VirtMem* vm = nullptr;
+  MemError err = vmem_init_ex(&vm, vmem_opts_default_new(MEGABYTES(128)));
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+  for (i32 i = 0; i < 25; i++) {
+    i32* x = vmem_allocate(vm, mlayout_new(i32));
+    TEST_ASSERT_NOT_NULL(x);
+    *x = i * i;
+  }
+
+  const VMarker marker = vmem_mark(vm);
+
+  TEST_ASSERT(marker >= 0);
+
+
+  for (i32 i = 0; i < 25; i++) {
+    i32* x = vmem_allocate(vm, mlayout_new(i32));
+    TEST_ASSERT_NOT_NULL(x);
+    *x = i * i;
+  }
+
+  vmem_reset_to( vm, marker);
+  
+
+  VAddrOffset offset = 0;
+  Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
+
+  
+  for (i32 i = 0; i < 8; i++ ) {
+    x->counter = i * i;
+  }
+
+  const i32 pre = x[2].counter;
+
+  err = vmem_remap(&vm, MEGABYTES(255), VRemap__ExpandInPlace);
+
+  if (err == MemError__CannotExpandInPlace) {
+    err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
+  }
+
+  TEST_ASSERT_EQUAL(MemError__Ok, err);
+
+
+  vmem_update_ptr(vm, (void**)&x, offset);
+
+
+  TEST_ASSERT_EQUAL(x[2].counter, pre);
+
+  
+}
+
+
 void block_allocator_works(void) {
-  BlockAllocator* ba = ba_owned_new(4);
+  BlockAllocator* ba = ba_owned_new(MEGABYTES(24));
   TEST_ASSERT_NOT_NULL(ba);
 
   Stuff* ss[50] = {};
@@ -90,7 +164,7 @@ void block_allocator_works(void) {
 }
 
 void block_allocator_relcaims_memory(void) {
-  BlockAllocator* ba = ba_owned_new(4);
+  BlockAllocator* ba = ba_owned_new(MEGABYTES(4));
   TEST_ASSERT_NOT_NULL(ba);
 
   Stuff* s =  ba_allocate(ba, mlayout_new(Stuff));
@@ -158,25 +232,6 @@ void block_allocator_relcaims_memory(void) {
 
   
 }
-
-/// we can put a global allocator in an [Allocator]
-/// struct and everything works just fine
-// void global_allocator_trait(void) {
-//   const Allocator g = global_allocator();
-
-//   TEST_ASSERT_NULL(g.ctx);
-//   TEST_ASSERT_NOT_NULL(g.vtable);
-
-//   TEST_ASSERT_NOT_NULL(g.vtable->allocate);
-
-//   u8* mem = allocator_allocate(g, 64, alignof(u8[64]));
-//   TEST_ASSERT_NOT_NULL(mem);
-
-//   TEST_ASSERT_NOT_NULL(g.vtable->free);
-
-//   allocator_free(g, mem);
-// }
-
 i32 main(void) {
   UNITY_BEGIN();
 
@@ -184,6 +239,8 @@ i32 main(void) {
   RUN_TEST(arena_heap_from_vmem);
   RUN_TEST(block_allocator_works);
   RUN_TEST(block_allocator_relcaims_memory);
+  RUN_TEST(vmap_ex_lock_and_commit);
+  RUN_TEST(vmap_marker_and_remap);
 
   return UNITY_END();
 }

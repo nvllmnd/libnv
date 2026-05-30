@@ -26,6 +26,7 @@ typedef enum MemError : error {
   MemError__VMapInvalidMapFlags,
   MemError__FailedToPreloadOOM,
   MemError__VMapCannotLockToRAM,
+  MemError__CannotUnlockRAM,
   MemError__VMapCannotShrink,
   MemError__VMapCannotGrow,
   MemError__VMapCannotBeMoved,
@@ -33,6 +34,9 @@ typedef enum MemError : error {
   MemError__FailedMemUnmap,
   MemError__NotEnoughPhysicalRAMAavailable,
   MemError__VMemLimitReached,
+  MemError__MAdviseWillNeedFailed,
+  MemError__FailedRemap,
+  MemError__CannotExpandInPlace,
   MemError__BufferNeedsResize = -300,
   MemError__VirtMemOutOfMemory = -500,
   /// Not enough space/cannot allocate memory (POSIX.1-2001).
@@ -92,6 +96,12 @@ static inline const char* memerr_string(MemError err) {
       return STRINGIFY(MemError__NotEnoughPhysicalRAMAavailable);
     case MemError__VMemLimitReached:
       return STRINGIFY(MemError__VMemLimitReached);
+      break;
+    case MemError__CannotUnlockRAM: return STRINGIFY(MemError__CannotUnlockRAM);
+    case MemError__MAdviseWillNeedFailed: return STRINGIFY(MemError__MAdviseWillNeedFailed);
+      break;
+    case MemError__FailedRemap: return STRINGIFY(MemError__FailedRemap);
+    case MemError__CannotExpandInPlace: return STRINGIFY(MemError__CannotExpandInPlace);
       break;
   }
 

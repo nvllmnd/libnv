@@ -39,7 +39,7 @@ static constexpr const isize BA_BACKING_VIRTMEM_SIZE_MB = 4;
 /// Creates a new BlockAllocator, that exclusively owns its backing VirtMem. Given parameter is
 /// size in megabytes of the backing virtmem virtual memory reservation size
 RETURNS_RESOURCE
-BlockAllocator* ba_owned_new(isize vm_mb);
+BlockAllocator* ba_owned_new(i32 vm_bytes);
 
 /// Initializes new Block Allocator from a backing [VirtMem] poitner.
 /// Backing VirtMem pointer is optional, if passed as null, This block allocator will create a new one and

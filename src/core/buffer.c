@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "nv/core/algo.h"
+#include "nv/core/attributes.h"
 #include "nv/core/log.h"
 #include "nv/core_types.h"
 #include "nv/iter/buff.h"
@@ -19,6 +20,8 @@ struct Buffer {
   i32 capacity;
   /// element size of each element appended to this buffer in bytes, used for Vecs,
   i32 elem_size;
+
+  ATTR_COUNTED_BY(len)
   u8 start[];
 };
 alias(Buffer);
