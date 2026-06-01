@@ -92,7 +92,7 @@ void vmap_ex_lock_and_commit(void) {
 void vmap_marker_and_remap(void) {
 
   VirtMem* vm = nullptr;
-  MemError err = vmem_init_ex(&vm, vmem_opts_default_new(MEGABYTES(128)));
+  MemError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve, .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
   TEST_ASSERT_EQUAL(MemError__Ok, err);
 
   for (i32 i = 0; i < 25; i++) {
@@ -125,9 +125,10 @@ void vmap_marker_and_remap(void) {
 
   const i32 pre = x[2].counter;
 
-  err = vmem_remap(&vm, MEGABYTES(255), VRemap__ExpandInPlace);
+  err = vmem_remap(&vm, MEGABYTES(101), VRemap__ExpandInPlace);
 
   if (err == MemError__CannotExpandInPlace) {
+    LOG("Could not expand in place, trying to relocate!");
     err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
   }
 

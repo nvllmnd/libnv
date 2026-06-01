@@ -1,6 +1,7 @@
 #include "nv/core/algo.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #include "nv/core_types.h"
 #include "nv/core/log.h"
@@ -174,3 +175,27 @@ u8* ptr_alignin(u8* ptr, i32* space, MemLayout layout) {
   return aligned;
 
 }
+
+i32 fstring_length(const char* fmt, ...) {
+  va_list args = {};
+  va_start(args);
+
+  const i32 len = vfstring_length(fmt, args);
+
+  va_end(args);
+
+  return len;
+  
+}
+
+i32 vfstring_length(const char* fmt, va_list args) {
+  va_list cpy = {};
+  va_copy(cpy, args);
+
+  const i32 len =  vsnprintf(nullptr, 0, fmt, cpy);
+
+  va_end(cpy);
+  return len;
+  
+}
+

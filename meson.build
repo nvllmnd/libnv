@@ -58,6 +58,7 @@ core_lib = static_library(
     'src/core/log.c',
     'src/core/buffer.c',
     'src/core/algo.c',
+    'src/core/spad.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

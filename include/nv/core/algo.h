@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include <stdarg.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
@@ -93,6 +94,7 @@ isize str_len(const char* string, isize max_len);
 
 /// Same as [stringlen], forwards @param (string) to [stringlen], passing
 /// [STRLEN_UPPER_BOUND]([INT32_MAX -1]) as the second parameter
+/// @details reutrns number of characters in string, not including null terminator
 PURE_FUNC
 static inline isize stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
 
@@ -152,4 +154,13 @@ static inline void* move_exchange(void** obj, void** new_value) {
 #define move_exchange(from, to) (move_exchange((void**)&from, (void**)&to))
 
 
+/// @brief Determines printf-style format string resulting length
+HEDLEY_PRINTF_FORMAT(1, 2)
+PURE_FUNC
+i32 fstring_length(const char* fmt, ...);
+
+/// @brief Determines printf-style format string resulting length
+/// @details does not modify va_list args
+PURE_FUNC
+i32 vfstring_length(const char* fmt, va_list args);
 

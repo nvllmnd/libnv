@@ -1,9 +1,11 @@
 #pragma once
+#include <stdarg.h>
 #include <stdint.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
+#include "nv/core/sslice.h"
 #include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
@@ -328,3 +330,33 @@ MemError vmem_unlock(VirtMem* self, i32 nbytes);
 
 /// @brief calls [madvise] with [MADV_WILLNEED] on up to n bytes
 MemError vmem_commit(VirtMem* self, i32 nbytes);
+
+
+
+/// @brief format allocates a string slice in printf style
+HEDLEY_PRINTF_FORMAT(2, 3)
+METHOD
+sslice vmem_fstr(VirtMem* self, const char* fmt, ...);
+
+
+/// @brief format allocates a string slice in printf style
+METHOD
+sslice vmem_vfstr(VirtMem* self, const char* fmt, va_list args);
+
+
+/// @brief format allocates a string in printf style
+/// @details you can pass an optional pointer to i32 to also get the allocated string's length
+/// @param (VirtMem* self) - selfptr
+/// @param (i32* len_out) - optional length out parameter
+HEDLEY_PRINTF_FORMAT(3, 4)
+RETURNS_NON_NULL
+METHOD
+char* vmem_fstring(VirtMem* self, i32* len_out, const char* fmt, ...);
+
+/// @brief format allocates a string in printf style
+/// @details you can pass an optional pointer to i32 to also get the allocated string's length
+METHOD
+RETURNS_NON_NULL
+char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args);
+
+

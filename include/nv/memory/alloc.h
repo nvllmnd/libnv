@@ -90,7 +90,7 @@ typedef void (*const VTableFree)(void* self, void* ptr);
 /// Returns true if @param (void* ptr) was successfully expanded in place
 typedef bool (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
 
-typedef enum AllocVTableMask : u8 {
+typedef enum HEDLEY_FLAGS AllocVTableMask : u8 {
   VT__Allocate = 1,
   VT__Reallocate = 1 << 1,
   VT__Zallocate = 1 << 2,
