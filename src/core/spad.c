@@ -155,6 +155,8 @@ char spad_putchar(StringPad* self, char c) {
 
   *ch = c;
 
+  self->size+= 1;
+
   return c;
 }
 
@@ -167,6 +169,9 @@ u8 spad_putbyte(StringPad* self, u8 byte) {
 
   u8* by = punwrap(vmem_allocate(self->vm, mlayout_bytes(1)));
   *by = byte;
+
+  self->size += 1;
+
   return byte;
 }
 
