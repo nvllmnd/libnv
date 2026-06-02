@@ -169,3 +169,28 @@ u8 spad_putbyte(StringPad* self, u8 byte) {
   *by = byte;
   return byte;
 }
+
+void spad_clear(StringPad* self) {
+  assert(self);
+
+  self->end = self->begin + 1; 
+  self->size = 0;
+  
+
+  vmem_reset_to(self->vm, self->mark);
+
+}
+
+void spad_clear_zeroed(StringPad* self) {
+  assert(self);
+
+
+  self->end = self->begin + 1; 
+  self->size = 0;
+  
+
+  vmem_reset_zeroed(self->vm, self->mark);
+
+  
+}
+

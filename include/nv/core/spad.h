@@ -111,6 +111,13 @@ METHOD
 u8 spad_putbyte(StringPad* self, u8 byte);
 
 
+METHOD
+void spad_clear(StringPad* self);
+
+METHOD
+void spad_clear_zeroed(StringPad* self);
+
+
 /// @brief CLeans up memory used by this StringPad to the VirtMem it allocated out of
 /// @details zeroes StringPad to prevent further use by it
 void spad_destroy(StringPad* self);
