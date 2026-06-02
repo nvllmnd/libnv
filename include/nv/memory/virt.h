@@ -367,6 +367,7 @@ char* vmem_fstring(VirtMem* self, i32* len_out, const char* fmt, ...);
 METHOD
 char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args);
 
+
 METHOD
 /// @brief 'deletes' n most recently allocated bytes.
 /// @details This is a constant time function, all it does it subtract given count of bytes

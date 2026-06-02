@@ -101,6 +101,16 @@ METHOD
 /// @brief same as [spad_fappend] but takes a [va_list] instead of var_args
 sslice spad_vfappend(StringPad* self, const char* fmt, va_list args);
 
+
+/// @brief Adds character to back of this StringPad
+METHOD
+char spad_putchar(StringPad* self, char c);
+
+/// @brief adds byte to back of this StringPad
+METHOD
+u8 spad_putbyte(StringPad* self, u8 byte);
+
+
 /// @brief CLeans up memory used by this StringPad to the VirtMem it allocated out of
 /// @details zeroes StringPad to prevent further use by it
 void spad_destroy(StringPad* self);

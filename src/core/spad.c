@@ -143,3 +143,29 @@ void spad_destroy(StringPad* self) {
     memset(self, 0, sizeof(StringPad));
   }
 }
+
+char spad_putchar(StringPad* self, char c) {
+  assert(self);
+
+  if UNLIKELY (vmem_available(self->vm) < 1) {
+    return -1;
+  }
+
+  char* ch = punwrap(vmem_allocate(self->vm, mlayout_bytes(1)));
+
+  *ch = c;
+
+  return c;
+}
+
+u8 spad_putbyte(StringPad* self, u8 byte) {
+  assert(self);
+
+  if UNLIKELY (vmem_available(self->vm) < 1) {
+    return UINT8_MAX;
+  }
+
+  u8* by = punwrap(vmem_allocate(self->vm, mlayout_bytes(1)));
+  *by = byte;
+  return byte;
+}
