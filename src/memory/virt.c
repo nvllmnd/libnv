@@ -263,8 +263,23 @@ VMarker vmem_mark(const VirtMem* self) {
 
 void vmem_reset_to(VirtMem* self, VMarker marker) {
   assert(marker >= 0 && marker <= vmem_size(self));
+
   u8* const ntop = (&self->storage[marker]);
+
   assert(ntop <= self->top);
+
+  self->top = ntop;
+}
+
+void vmem_reset_zeroed(VirtMem* self, VMarker marker) {
+  assert(marker >= 0 && marker <= vmem_size(self));
+
+  u8* const ntop = (&self->storage[marker]);
+  const i32 delta_size = self->top - ntop;
+
+  assert(ntop <= self->top);
+  memset(ntop, 0, delta_size);
+
   self->top = ntop;
 }
 

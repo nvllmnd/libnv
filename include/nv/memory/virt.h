@@ -311,6 +311,10 @@ METHOD
 /// and should be considered invalid after this function returns
 void vmem_reset_to(VirtMem* self, VMarker marker);
 
+/// @brief Same as [vmem_reset_to], but zeroes the memory that was backtracked/reset
+METHOD
+void vmem_reset_zeroed(VirtMem* self, VMarker marker);
+
 /// @brief calls [mlock] on up to n bytes
 ///
 /// @details pages remain locked in physical memory until [vmem_unlock] is called
