@@ -112,23 +112,19 @@ static inline VirtMemOpts vmem_opts_default_new(i32 size_bytes) {
 /// brief Calls [mmap]/[VirtualAlloc] to request memory of @param (size_in_mb)
 /// megabytes of virtual paged memory.
 ///
-/// Pointer pointing to virutal memory inside [VirtMem] struct is gauranteed to
-/// be aligned, and therefor subsequent allocations will be naturally aligned
-/// (therefore allocation methods lack an alignment parameter)
-///
-/// @param (size_in_mb) :: See [MEMSIZE_MAX_MB] and [MEMSIZE_MIN_MB] for limits
-/// on the values that are accepted
+/// @param (i32 size_bytes) :: Minimum size allowed is the size returned by [os_page_size]. Smaller values are ignored
+/// and [os_page_size] is used instead
 ///
 /// Returns error if virtual allocation fails due to system error or OOM. @param
 /// (self) will be zeroed on error and no allocations are made
 ///
 ///
 METHOD
-MemError vmem_init(VirtMem** self, i32 size_in_mb);
+NvError vmem_init(VirtMem** self, i32 size_bytes);
 
 /// @brief same as [vmem_init], but with extended initialization params!
 // METHOD
-MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts);
+NvError vmem_init_ex(VirtMem** self, VirtMemOpts opts);
 
 METHOD
 /// returns next available location in memory and increments used counter.
@@ -195,7 +191,7 @@ void* vmem_zalloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset);
 /// @brief updates a pointer to a relative address.
 /// @remarks use this to update a poitner and ensure its correctly poiting to the right location in memory (this is how
 /// you get away with relocatable remaps, after which you can still refer to all your memory through VAddrOffset)
-PARAMS_NONNULL(1,2)
+PARAMS_NONNULL(1, 2)
 void vmem_update_ptr(VirtMem* self, void** ptr, VAddrOffset rel_address);
 
 /// @brief looks up a pointer at a relative address.
@@ -213,7 +209,7 @@ void* vmem_lookup_offset(VirtMem* self, VAddrOffset rel_address);
 /// Returns error if underlying implementation fails to release memory back to
 /// system
 METHOD
-MemError vmem_destroy(VirtMem* self);
+NvError vmem_destroy(VirtMem* self);
 
 // #define vmem_destroy(self) ({\
 //   const MemError _err = vmem_destroy((self)); \
@@ -297,7 +293,7 @@ i32 os_page_size(void);
 ///
 /// @returns pointer to new remapped [VirtMem]
 METHOD
-MemError vmem_remap(VirtMem** self, i32 size_bytes, VRemapMode mode);
+NvError vmem_remap(VirtMem** self, i32 size_bytes, VRemapMode mode);
 /// @brief A memory location marker returned from [vmem_mark].
 /// @details can later be passed to [vmem_reset_to] to set back its internal used counter back to where it was when
 /// [vmem_mark] was first called This allows you to clear sections of virtual memory to be reused by later
@@ -321,42 +317,65 @@ void vmem_reset_to(VirtMem* self, VMarker marker);
 /// pages locked begin from start of virtual memory up to n pages
 /// @returns an error associated with inner [mlock] call
 ///
-MemError vmem_lock(VirtMem* self, i32 nbytes);
+NvError vmem_lock(VirtMem* self, i32 nbytes);
 
 /// @brief calls [munlock] on up to n bytes
 /// @details reverses the effects of [vmem_lock]
 /// @returns an error associated with inner [munlock] call
-MemError vmem_unlock(VirtMem* self, i32 nbytes);
+NvError vmem_unlock(VirtMem* self, i32 nbytes);
 
 /// @brief calls [madvise] with [MADV_WILLNEED] on up to n bytes
-MemError vmem_commit(VirtMem* self, i32 nbytes);
+NvError vmem_commit(VirtMem* self, i32 nbytes);
 
-
-
-/// @brief format allocates a string slice in printf style
+/// @brief format allocates a null-terminated string slice in printf style
+///@remarks If the expanded formatted string is larger than available memory,
+/// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
+/// remaps!)
 HEDLEY_PRINTF_FORMAT(2, 3)
 METHOD
-sslice vmem_fstr(VirtMem* self, const char* fmt, ...);
+sslice vmem_fslice(VirtMem* self, const char* fmt, ...);
 
+/// @brief format allocates a null-terminated string slice in printf style
+///@remarks If the expanded formatted string is larger than available memory,
+/// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
+/// remaps!)
 
-/// @brief format allocates a string slice in printf style
 METHOD
-sslice vmem_vfstr(VirtMem* self, const char* fmt, va_list args);
+sslice vmem_vfslice(VirtMem* self, const char* fmt, va_list args);
 
-
-/// @brief format allocates a string in printf style
+/// @brief format allocates a null-terminated string in printf style
 /// @details you can pass an optional pointer to i32 to also get the allocated string's length
 /// @param (VirtMem* self) - selfptr
-/// @param (i32* len_out) - optional length out parameter
+/// @param (i32* len_out) - optional length out parameter, excluding null character
+/// @remarks If the expanded formatted string is larger than available memory,
+/// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
+/// remaps!)
 HEDLEY_PRINTF_FORMAT(3, 4)
-RETURNS_NON_NULL
 METHOD
 char* vmem_fstring(VirtMem* self, i32* len_out, const char* fmt, ...);
 
-/// @brief format allocates a string in printf style
+/// @brief format allocates a null-terminated string in printf style
+///
 /// @details you can pass an optional pointer to i32 to also get the allocated string's length
+/// @remarks If the expanded formatted string is larger than available memory,
+/// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
+/// remaps!)
 METHOD
-RETURNS_NON_NULL
 char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args);
 
+METHOD
+/// @brief 'deletes' n most recently allocated bytes.
+/// @details This is a constant time function, all it does it subtract given count of bytes
+/// from its inner used counter(or pointer if it doesnt use a counter), effectively deleting
+/// byte from the most recent allocation (and prior allocations before that if large enough)
+/// @warning Use this function with care! treat memory that has been deleted this way as if you no longer own it!
+/// allocation made after this call will use the bytes that were most deleted by this function as new memory!
+/// To be really sure/safe you can call [vmem_delzero_back], which does the exact same thing as this function, but
+/// zeroes the bytes it deletes
+/// @returns Bytes available after this function completes (or [vmem_available](prior to call ing this function) -
+/// nbytes)
+i32 vmem_delete_back(VirtMem* self, i32 nbytes);
 
+/// @brief same as [vmem_delete_back] but zeroes its memory
+METHOD
+i32 vmem_delzero_back(VirtMem* self, i32 nbytes);

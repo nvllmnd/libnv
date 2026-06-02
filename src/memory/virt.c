@@ -59,7 +59,10 @@ i32 os_page_size(void) {
   return size;
 }
 
-MemError vmem_init(VirtMem** self, i32 size_bytes) {
+NvError vmem_init(VirtMem** self, i32 size_bytes) {
+  ///
+  ///
+  ///
   assert(self);
   assert(size_bytes > 0);
 
@@ -72,20 +75,20 @@ MemError vmem_init(VirtMem** self, i32 size_bytes) {
 
     switch (errno) {
       case ENOMEM: {
-        return MemError__OOM;
+        return Error__OOM;
       } break;
       case EOVERFLOW: {
-        return MemError__ValTooLargeFoDataType;
+        return Error__ValTooLargeFoDataType;
       } break;
       case EAGAIN: {
-        return MemError__ResourceTempUnavail;
+        return Error__ResourceTempUnavail;
         default: {
-          return MemError__FailedMemMap;
+          return Error__FailedMemMap;
         } break;
       } break;
     }
 
-    return MemError__FailedMemMap;
+    return Error__FailedMemMap;
   }
 
   ptr->size = size;
@@ -93,7 +96,7 @@ MemError vmem_init(VirtMem** self, i32 size_bytes) {
   ptr->end = ptr->top + size;
   *self = ptr;
 
-  return MemError__Ok;
+  return Error__Ok;
 }
 
 void* vmem_allocate(VirtMem* self, MemLayout layout) {
@@ -129,7 +132,7 @@ void* vmem_zallocate(VirtMem* self, MemLayout layout) {
   return nullptr;
 }
 
-MemError vmem_destroy(VirtMem* self) {
+NvError vmem_destroy(VirtMem* self) {
   assert(self);
 
   const isize size = self->size;
@@ -142,22 +145,22 @@ MemError vmem_destroy(VirtMem* self) {
 
     switch (errno) {
       case ENOMEM: {
-        return MemError__OOM;
+        return Error__OOM;
       } break;
       case EOVERFLOW: {
-        return MemError__ValTooLargeFoDataType;
+        return Error__ValTooLargeFoDataType;
       } break;
       case EAGAIN: {
-        return MemError__ResourceTempUnavail;
+        return Error__ResourceTempUnavail;
         default: {
-          return MemError__FailedMemMap;
+          return Error__FailedMemMap;
         } break;
       } break;
     }
 
-    return MemError__FailedMemMap;
+    return Error__FailedMemMap;
   }
-  return MemError__Ok;
+  return Error__Ok;
 }
 
 void vmem_clear(VirtMem* self) {
@@ -176,7 +179,7 @@ error vmem_zero_range(VirtMem* self, isize index) {
   }
 
   memset(&self->storage[0], 0, index);
-  return MemError__Ok;
+  return Error__Ok;
 }
 
 i32 vmem_size(const VirtMem* self) {
@@ -232,7 +235,7 @@ const AllocVTable* vmem_vtable(void) {
   return &VT;
 }
 
-Allocator vmem_allocator(VirtMem* self) { return make(Allocator, .ctx = self, .vtable = vmem_vtable()); }
+Allocator vmem_allocator(VirtMem* self) { return (Allocator){.ctx = self, .vtable = vmem_vtable()}; }
 
 bool vmem_contains(const VirtMem* self, const void* p) {
   assert(self);
@@ -245,8 +248,11 @@ bool vmem_contains(const VirtMem* self, const void* p) {
 }
 
 VirtMemView vmem_view(const VirtMem* self) {
-  return make(VirtMemView, .start = &self->storage[0], .end = self->end, .avail_bytes = vmem_available(self),
-              .used_bytes = vmem_used_bytes(self), .size_bytes = self->size);
+  return (VirtMemView){.start = &self->storage[0],
+                       .end = self->end,
+                       .avail_bytes = vmem_available(self),
+                       .used_bytes = vmem_used_bytes(self),
+                       .size_bytes = self->size};
 }
 
 VMarker vmem_mark(const VirtMem* self) {
@@ -257,12 +263,12 @@ VMarker vmem_mark(const VirtMem* self) {
 
 void vmem_reset_to(VirtMem* self, VMarker marker) {
   assert(marker >= 0 && marker <= vmem_size(self));
-  u8* const ntop = (&self->storage[0]) + marker;
+  u8* const ntop = (&self->storage[marker]);
   assert(ntop <= self->top);
   self->top = ntop;
 }
 
-MemError vmem_lock(VirtMem* self, i32 nbytes) {
+NvError vmem_lock(VirtMem* self, i32 nbytes) {
   assert(self);
   assert(nbytes > 0);
   const i32 err = mlock(self, nbytes);
@@ -271,12 +277,12 @@ MemError vmem_lock(VirtMem* self, i32 nbytes) {
 
   if (err != 0) {
     ELOG_DBG("Called to mlock with %d bytes Failed!", nbytes);
-    return MemError__VMapCannotLockToRAM;
+    return Error__VMapCannotLockToRAM;
   }
-  return MemError__Ok;
+  return Error__Ok;
 }
 
-MemError vmem_unlock(VirtMem* self, i32 nbytes) {
+NvError vmem_unlock(VirtMem* self, i32 nbytes) {
   assert(self);
   assert(nbytes > 0);
   const i32 err = munlock(self, nbytes);
@@ -285,12 +291,12 @@ MemError vmem_unlock(VirtMem* self, i32 nbytes) {
 
   if (err != 0) {
     ELOG_DBG("Called to munlock with %d bytes Failed!", nbytes);
-    return MemError__CannotUnlockRAM;
+    return Error__CannotUnlockRAM;
   }
-  return MemError__Ok;
+  return Error__Ok;
 }
 
-MemError vmem_commit(VirtMem* self, i32 nbytes) {
+NvError vmem_commit(VirtMem* self, i32 nbytes) {
   assert(self);
   assert(nbytes > 0);
   const i32 err = madvise(self, nbytes, MADV_WILLNEED);
@@ -298,12 +304,12 @@ MemError vmem_commit(VirtMem* self, i32 nbytes) {
 
   if (err != 0) {
     ELOG_DBG("Called to madvise with %d bytes and flag MADV_WILLNEED Failed!", nbytes);
-    return MemError__MAdviseWillNeedFailed;
+    return Error__MAdviseWillNeedFailed;
   }
-  return MemError__Ok;
+  return Error__Ok;
 }
 
-MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
+NvError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
   assert(self);
   assert(opts.size_bytes > 0);
 
@@ -338,20 +344,20 @@ MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
 
     switch (errno) {
       case ENOMEM: {
-        return MemError__OOM;
+        return Error__OOM;
       } break;
       case EOVERFLOW: {
-        return MemError__ValTooLargeFoDataType;
+        return Error__ValTooLargeFoDataType;
       } break;
       case EAGAIN: {
-        return MemError__ResourceTempUnavail;
+        return Error__ResourceTempUnavail;
         default: {
-          return MemError__FailedMemMap;
+          return Error__FailedMemMap;
         } break;
       } break;
     }
 
-    return MemError__FailedMemMap;
+    return Error__FailedMemMap;
   }
 
   // NOTE: set size right away before we access storage to take advantage of the counted_by attribute
@@ -370,7 +376,7 @@ MemError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
     return vmem_lock(*self, bytes);
   }
 
-  return MemError__Ok;
+  return Error__Ok;
 }
 
 VAddrOffset vmem_offset(const VirtMem* self, const void* ptr) {
@@ -430,7 +436,7 @@ void* vmem_lookup_offset(VirtMem* self, VAddrOffset rel_address) {
   return pcast(void, &self->storage[rel_address]);
 }
 
-MemError vmem_remap(VirtMem** s, i32 size_bytes, VRemapMode mode) {
+NvError vmem_remap(VirtMem** s, i32 size_bytes, VRemapMode mode) {
   assert(s);
 
   VirtMem* self = *s;
@@ -448,35 +454,35 @@ MemError vmem_remap(VirtMem** s, i32 size_bytes, VRemapMode mode) {
     if (mode == VRemap__AllowRelocate) {
       ELOG_DBG("Virtual Mapping allows reloction, but failed to remap from size: %d bytes to %d bytes", self->size,
                size_bytes);
-      return MemError__FailedRemap;
+      return Error__FailedRemap;
     }
 
     // NOTE: This isnt exactly an error, user may respond to this error by calling this function again, but with
     // VRemap__AllowRelocate
     ELOG_DBG("Virtual Mapping failed to expand in place!");
-    return MemError__CannotExpandInPlace;
+    return Error__CannotExpandInPlace;
   }
 
   *s = new_self;
 
-  return MemError__Ok;
+  return Error__Ok;
 }
 
-sslice vmem_fstr(VirtMem* self, const char* fmt, ...) {
+sslice vmem_fslice(VirtMem* self, const char* fmt, ...) {
   assert(self);
   assert(fmt);
 
   va_list args;
   va_start(args);
 
-  const sslice str = vmem_vfstr(self, fmt, args);
+  const sslice str = vmem_vfslice(self, fmt, args);
 
   va_end(args);
 
   return str;
 }
 
-sslice vmem_vfstr(VirtMem* self, const char* fmt, va_list args) {
+sslice vmem_vfslice(VirtMem* self, const char* fmt, va_list args) {
   assert(self);
   assert(fmt);
 
@@ -500,9 +506,13 @@ char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args) 
   assert(self);
   assert(fmt);
 
-  const i32 avail = vmem_available(self) - 1;
+  const i32 avail = vmem_available(self);
 
-  const i32 len = min(avail, vfstring_length(fmt, args) + 1);
+  if UNLIKELY (avail <= 0) {
+    return nullptr;
+  }
+
+  const i32 len = min(avail, vfstring_length(fmt, args) + 1);  // + 1 for null-terminator
 
   char* str = punwrap(vmem_allocate(self, mlayout_bytes(len)));
   // NOTE: Since we limit this string to the available memory in this virtmem, the above [vmem_allocate] call should
@@ -511,8 +521,35 @@ char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args) 
   vsnprintf(str, len, fmt, args);
 
   if (len_out) {
-    *len_out = len;
+    *len_out = len - 1;  // dont include terminal null character in the length we report!
   }
 
   return str;
+}
+
+i32 vmem_delete_back(VirtMem* self, i32 nbytes) {
+  assert(self);
+  const i32 used = vmem_used_bytes(self);
+
+  if (nbytes > used) {
+    nbytes = used;
+  }
+
+  self->top -= nbytes;
+  return vmem_available(self);
+}
+
+i32 vmem_delzero_back(VirtMem* self, i32 nbytes) {
+  assert(self);
+  const i32 used = vmem_used_bytes(self);
+  i32 n = used - nbytes;
+
+  if (n < 0) {
+    n = used;
+  }
+
+  self->top -= n;
+
+  memset(self->top, 0, n);
+  return vmem_available(self);
 }

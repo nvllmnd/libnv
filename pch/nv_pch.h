@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdalign.h>
+#include <stdarg.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -14,6 +15,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
 #include "nv/core/debug.h"
+#include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/core/sslice.h"
 #include "nv/core_types.h"

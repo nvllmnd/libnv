@@ -6,6 +6,7 @@
 #include "nv/core/algo.h"
 #include "nv/core/log.h"
 
+/// @brief Header used inside
 struct StaticAlloc {
   u8* top;
   u8* end;
@@ -68,7 +69,7 @@ void* salloc_allocate(StaticAlloc* self, MemLayout layout) {
 
 // static VTABLE_ADAPTER_ALLOC(StaticAlloc, salloc_allocate)
 
-    void* salloc_zallocate(StaticAlloc* self, MemLayout layout) {
+void* salloc_zallocate(StaticAlloc* self, MemLayout layout) {
   void* ptr = salloc_allocate(self, layout);
   if (is_null(ptr)) {
     return nullptr;
@@ -110,23 +111,21 @@ void* salloc_reallocate(StaticAlloc* self, void* ptr, MemLayout old_layout, MemL
     return salloc_expand(self, ptr, old_layout, new_layout);
   }
 
-
   void* next = salloc_allocate(self, new_layout);
   if UNLIKELY (is_null(next)) {
-    LOG_DBG("Ran out of available space in StaticAlloc while trying to reallocate memory of size %d bytes to %d bytes!", old_layout.size, new_layout.size);
-    return  ptr;
+    LOG_DBG("Ran out of available space in StaticAlloc while trying to reallocate memory of size %d bytes to %d bytes!",
+            old_layout.size, new_layout.size);
+    return ptr;
   }
 
   memcpy(next, ptr, old_layout.size);
   return next;
-  
 }
 
 char* salloc_strndup(StaticAlloc* self, const char* string, i32 n) {
   assert(self);
   assert(string);
   assert(n > 0);
-
 
   char* res = salloc_allocate(self, mlayout_bytes(n + 1));
   if UNLIKELY (is_null(res)) {
@@ -137,5 +136,4 @@ char* salloc_strndup(StaticAlloc* self, const char* string, i32 n) {
   strncpy(res, string, n);
 
   return res;
-  
 }

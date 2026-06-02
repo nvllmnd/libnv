@@ -51,7 +51,7 @@ i32 buff_set_len(Buff* s, i32 new_len) {
   return self->len;
 }
 
-MemError buff_putchar(Buff* self, char c) {
+NvError buff_putchar(Buff* self, char c) {
   assert(self);
 
   Buffer* s = asbuff(self);
@@ -61,10 +61,10 @@ MemError buff_putchar(Buff* self, char c) {
     return OK;
   }
 
-  return MemError__BufferNeedsResize;
+  return Error__BufferNeedsResize;
 }
 
-MemError buff_putbyte(Buff* self, u8 b) {
+NvError buff_putbyte(Buff* self, u8 b) {
   assert(self);
   Buffer* s = asbuff(self);
 
@@ -74,7 +74,7 @@ MemError buff_putbyte(Buff* self, u8 b) {
     return OK;
   }
 
-  return MemError__BufferNeedsResize;
+  return Error__BufferNeedsResize;
 }
 
 static inline const u8* buff_ctop(const Buff* self) {

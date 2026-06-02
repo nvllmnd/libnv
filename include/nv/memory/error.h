@@ -14,98 +14,102 @@ typedef enum ApiError : error {
   ApiError__ValueOutOfRange,
 } ApiError;
 
-typedef enum MemError : error {
+typedef enum NvError : error {
 
   /// Ok, No Error!
-  MemError__Ok = 0,
+  Error__Ok = 0,
 
   /// mmap errors...
-  MemError__FailedMemMap = -100,
-  MemError__VMapCannotBeResized,
-  MemError__VMapInvalidRemapFlags,
-  MemError__VMapInvalidMapFlags,
-  MemError__FailedToPreloadOOM,
-  MemError__VMapCannotLockToRAM,
-  MemError__CannotUnlockRAM,
-  MemError__VMapCannotShrink,
-  MemError__VMapCannotGrow,
-  MemError__VMapCannotBeMoved,
-  MemError__VMapCannotExpandInPlace,
-  MemError__FailedMemUnmap,
-  MemError__NotEnoughPhysicalRAMAavailable,
-  MemError__VMemLimitReached,
-  MemError__MAdviseWillNeedFailed,
-  MemError__FailedRemap,
-  MemError__CannotExpandInPlace,
-  MemError__BufferNeedsResize = -300,
-  MemError__VirtMemOutOfMemory = -500,
+  Error__FailedMemMap = -100,
+  Error__VMapCannotBeResized,
+  Error__VMapInvalidRemapFlags,
+  Error__VMapInvalidMapFlags,
+  Error__FailedToPreloadOOM,
+  Error__VMapCannotLockToRAM,
+  Error__CannotUnlockRAM,
+  Error__VMapCannotShrink,
+  Error__VMapCannotGrow,
+  Error__VMapCannotBeMoved,
+  Error__VMapCannotExpandInPlace,
+  Error__FailedMemUnmap,
+  Error__NotEnoughPhysicalRAMAavailable,
+  Error__VMemLimitReached,
+  Error__MAdviseWillNeedFailed,
+  Error__FailedRemap,
+  Error__CannotExpandInPlace,
+  Error__BufferNeedsResize = -300,
+  Error__VirtMemOutOfMemory = -500,
   /// Not enough space/cannot allocate memory (POSIX.1-2001).
-  MemError__OOM = -ENOMEM,
-  MemError__ValTooLargeFoDataType = -EOVERFLOW,
-  MemError__ResourceTempUnavail = -EAGAIN,
+  Error__OOM = -ENOMEM,
+  Error__ValTooLargeFoDataType = -EOVERFLOW,
+  Error__ResourceTempUnavail = -EAGAIN,
 
-} MemError;
+} NvError;
 
 CONST_FUNC
 RETURNS_NON_NULL
-static inline const char* memerr_string(MemError err) {
+static inline const char* memerr_string(NvError err) {
   switch (err) {
-    case MemError__Ok: {
-      return STRINGIFY(MemError__Ok) " :: Ok! no error.";
+    case Error__Ok: {
+      return STRINGIFY(Error__Ok) " :: Ok! no error.";
     } break;
-    case MemError__FailedMemMap: {
-      return STRINGIFY(MemError__FailedMemMap) " :: mmap returned MAP_FAILED";
+    case Error__FailedMemMap: {
+      return STRINGIFY(Error__FailedMemMap) " :: mmap returned MAP_FAILED";
     } break;
-    case MemError__FailedMemUnmap: {
-      return STRINGIFY(MemError__FailedMemUnmap) " :: munmap returned -1, check errno for more info";
+    case Error__FailedMemUnmap: {
+      return STRINGIFY(Error__FailedMemUnmap) " :: munmap returned -1, check errno for more info";
     } break;
-    case MemError__BufferNeedsResize: {
-      return STRINGIFY(MemError__BufferNeedsResize) " :: Buff must be resized in order to append a given layout!";
+    case Error__BufferNeedsResize: {
+      return STRINGIFY(Error__BufferNeedsResize) " :: Buff must be resized in order to append a given layout!";
     } break;
-    case MemError__VirtMemOutOfMemory: {
-      return STRINGIFY(MemError__VirtMemOutOfMemory) " :: Virtual Memory owned by VirtMem does not have enough memory for a given MemLayout!";
+    case Error__VirtMemOutOfMemory: {
+      return STRINGIFY(Error__VirtMemOutOfMemory) " :: Virtual Memory owned by VirtMem does not have enough memory for a given MemLayout!";
     } break;
-    case MemError__OOM: {
-      return STRINGIFY(MemError__OOM) " :: General/Unspecified Out of Memory Error.";
+    case Error__OOM: {
+      return STRINGIFY(Error__OOM) " :: General/Unspecified Out of Memory Error.";
     } break;
-    case MemError__ValTooLargeFoDataType: {
-      return STRINGIFY(MemError__ValTooLargeForDataType) " :: Alias for ERRNO: EOVERFLOW";
+    case Error__ValTooLargeFoDataType: {
+      return STRINGIFY(Error__ValTooLargeForDataType) " :: Alias for ERRNO: EOVERFLOW";
     } break;
-    case MemError__ResourceTempUnavail: {
-      return STRINGIFY(MemError__ResourceTempUnavail) " :: Alias for ERRNO: EAGAIN";
+    case Error__ResourceTempUnavail: {
+      return STRINGIFY(Error__ResourceTempUnavail) " :: Alias for ERRNO: EAGAIN";
     } break;
-    case MemError__VMapCannotBeResized:
-      return STRINGIFY(MemError__VMapCannotBeResized);
-    case MemError__VMapInvalidRemapFlags:
-      return STRINGIFY(MemError__VMapInvalidRemapFlags);
-    case MemError__VMapInvalidMapFlags:
-      return STRINGIFY(MemError__VMapInvalidMapFlags);
-    case MemError__FailedToPreloadOOM:
-      return STRINGIFY(MemError__FailedToPreloadOOM);
-    case MemError__VMapCannotLockToRAM:
-      return STRINGIFY(MemError__VMapCannotLockToRAM);
-    case MemError__VMapCannotShrink:
-      return STRINGIFY(MemError__VMapCannotShrink);
-    case MemError__VMapCannotGrow:
-      return STRINGIFY(MemError__VMapCannotGrow);
-    case MemError__VMapCannotBeMoved:
-      return STRINGIFY(MemError__VMapCannotBeMoved);
-    case MemError__VMapCannotExpandInPlace:
-      return STRINGIFY(MemError__VMapCannotExpandInPlace);
-    case MemError__NotEnoughPhysicalRAMAavailable:
-      return STRINGIFY(MemError__NotEnoughPhysicalRAMAavailable);
-    case MemError__VMemLimitReached:
-      return STRINGIFY(MemError__VMemLimitReached);
+    case Error__VMapCannotBeResized:
+      return STRINGIFY(Error__VMapCannotBeResized);
+    case Error__VMapInvalidRemapFlags:
+      return STRINGIFY(Error__VMapInvalidRemapFlags);
+    case Error__VMapInvalidMapFlags:
+      return STRINGIFY(Error__VMapInvalidMapFlags);
+    case Error__FailedToPreloadOOM:
+      return STRINGIFY(mError__FailedToPreloadOOM);
+    case Error__VMapCannotLockToRAM:
+      return STRINGIFY(Error__VMapCannotLockToRAM);
+    case Error__VMapCannotShrink:
+      return STRINGIFY(Error__VMapCannotShrink);
+    case Error__VMapCannotGrow:
+      return STRINGIFY(Error__VMapCannotGrow);
+    case Error__VMapCannotBeMoved:
+      return STRINGIFY(Error__VMapCannotBeMoved);
+    case Error__VMapCannotExpandInPlace:
+      return STRINGIFY(Error__VMapCannotExpandInPlace);
+    case Error__NotEnoughPhysicalRAMAavailable:
+      return STRINGIFY(Error__NotEnoughPhysicalRAMAavailable);
+    case Error__VMemLimitReached:
+      return STRINGIFY(Error__VMemLimitReached);
       break;
-    case MemError__CannotUnlockRAM: return STRINGIFY(MemError__CannotUnlockRAM);
-    case MemError__MAdviseWillNeedFailed: return STRINGIFY(MemError__MAdviseWillNeedFailed);
+    case Error__CannotUnlockRAM:
+      return STRINGIFY(Error__CannotUnlockRAM);
+    case Error__MAdviseWillNeedFailed:
+      return STRINGIFY(Error__MAdviseWillNeedFailed);
       break;
-    case MemError__FailedRemap: return STRINGIFY(MemError__FailedRemap);
-    case MemError__CannotExpandInPlace: return STRINGIFY(MemError__CannotExpandInPlace);
+    case Error__FailedRemap:
+      return STRINGIFY(Error__FailedRemap);
+    case Error__CannotExpandInPlace:
+      return STRINGIFY(Error__CannotExpandInPlace);
       break;
   }
 
-  return "Invalid MemError Value!";
+  return "Invalid NvError Value!";
 }
 
 // typedef enum NvError {

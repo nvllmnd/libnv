@@ -4,9 +4,9 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
-#include "nv/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
+#include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/arena.h"
 #include "nv/memory/block_alloc.h"
@@ -29,7 +29,6 @@ struct Stuff {
   i64 counter;
 };
 alias(Stuff);
-
 
 void arena_heap_exclusive(void) {
   Arena* ah = arena_new(MEGABYTES(4), MEGABYTES(2));
@@ -70,30 +69,27 @@ void arena_heap_from_vmem(void) {
   arena_destroy(ah);
 }
 
-
 void vmap_ex_lock_and_commit(void) {
-  
   VirtMem* vm = nullptr;
-  MemError err = vmem_init_ex(&vm,  make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess, .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
+  NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess,
+                                       .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
   err = vmem_lock(vm, KILOBYTES(12));
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
   err = vmem_unlock(vm, KILOBYTES(12));
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
   err = vmem_destroy(vm);
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
-
-  
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 }
 
 void vmap_marker_and_remap(void) {
-
   VirtMem* vm = nullptr;
-  MemError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve, .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
+  NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve,
+                                       .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
   for (i32 i = 0; i < 25; i++) {
     i32* x = vmem_allocate(vm, mlayout_new(i32));
@@ -105,21 +101,18 @@ void vmap_marker_and_remap(void) {
 
   TEST_ASSERT(marker >= 0);
 
-
   for (i32 i = 0; i < 25; i++) {
     i32* x = vmem_allocate(vm, mlayout_new(i32));
     TEST_ASSERT_NOT_NULL(x);
     *x = i * i;
   }
 
-  vmem_reset_to( vm, marker);
-  
+  vmem_reset_to(vm, marker);
 
   VAddrOffset offset = 0;
   Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
 
-  
-  for (i32 i = 0; i < 8; i++ ) {
+  for (i32 i = 0; i < 8; i++) {
     x->counter = i * i;
   }
 
@@ -127,22 +120,17 @@ void vmap_marker_and_remap(void) {
 
   err = vmem_remap(&vm, MEGABYTES(101), VRemap__ExpandInPlace);
 
-  if (err == MemError__CannotExpandInPlace) {
+  if (err == Error__CannotExpandInPlace) {
     LOG("Could not expand in place, trying to relocate!");
     err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
   }
 
-  TEST_ASSERT_EQUAL(MemError__Ok, err);
-
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
   vmem_update_ptr(vm, (void**)&x, offset);
 
-
   TEST_ASSERT_EQUAL(x[2].counter, pre);
-
-  
 }
-
 
 void block_allocator_works(void) {
   BlockAllocator* ba = ba_owned_new(MEGABYTES(24));
@@ -153,7 +141,7 @@ void block_allocator_works(void) {
   for (i32 i = 0; i < 50; i++) {
     Stuff* s = ba_allocate(ba, mlayout_new(Stuff));
     TEST_ASSERT_NOT_NULL(s);
-    *s = make(Stuff, .buf = {}, .points = {}, .counter =  69);
+    *s = make(Stuff, .buf = {}, .points = {}, .counter = 69);
     ss[i] = s;
   }
 
@@ -168,56 +156,43 @@ void block_allocator_relcaims_memory(void) {
   BlockAllocator* ba = ba_owned_new(MEGABYTES(4));
   TEST_ASSERT_NOT_NULL(ba);
 
-  Stuff* s =  ba_allocate(ba, mlayout_new(Stuff));
+  Stuff* s = ba_allocate(ba, mlayout_new(Stuff));
   TEST_ASSERT_NOT_NULL(s);
 
   ba_free(ba, s);
 
-  
   struct Point* ps = ba_allocate(ba, mlayout_array(struct Point, 20));
   TEST_ASSERT_NOT_NULL(ps);
 
-  
   struct Point* ps2 = ba_allocate(ba, mlayout_array(struct Point, 32));
   TEST_ASSERT_NOT_NULL(ps2);
 
-
-  
   struct Point* ps3 = ba_allocate(ba, mlayout_array(struct Point, 10));
   TEST_ASSERT_NOT_NULL(ps3);
 
-  
   struct Point* ps4 = ba_allocate(ba, mlayout_array(struct Point, 64));
   TEST_ASSERT_NOT_NULL(ps4);
-
 
   ba_free(ba, ps2);
   ps2 = nullptr;
 
-  
   ba_free(ba, ps3);
   ps3 = nullptr;
-
 
   struct Point* ps5 = ba_allocate(ba, mlayout_array(struct Point, 200));
   TEST_ASSERT_NOT_NULL(ps5);
 
-  
   struct Point* ps6 = ba_allocate(ba, mlayout_array(struct Point, 120));
   TEST_ASSERT_NOT_NULL(ps6);
 
   ba_free(ba, ps5);
   ps5 = nullptr;
 
-
-  
   struct Point* ps7 = ba_allocate(ba, mlayout_array(struct Point, 10));
   TEST_ASSERT_NOT_NULL(ps7);
 
-  
   ba_free(ba, ps7);
   ps7 = nullptr;
-
 
   ba_free(ba, ps4);
   ps4 = nullptr;
@@ -225,13 +200,10 @@ void block_allocator_relcaims_memory(void) {
   ba_free(ba, ps6);
   ps6 = nullptr;
 
-
   ba_free(ba, ps);
   ps = nullptr;
 
   ba_destroy(ba);
-
-  
 }
 i32 main(void) {
   UNITY_BEGIN();

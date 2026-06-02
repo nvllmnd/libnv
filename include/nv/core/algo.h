@@ -1,7 +1,7 @@
 #pragma once
 
-#include <stddef.h>
 #include <stdarg.h>
+#include <stddef.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
@@ -17,10 +17,8 @@ PURE_FUNC
 PARAMS_NONNULL(1)
 u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
 
-
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
-
 
 // CLANG_NON_NULL_BEGIN
 
@@ -39,7 +37,7 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 // CLANG_NON_NULL_END
 
-#define ptr_nonnull(_ptr) cast(typeof_ptr(_ptr), ptr_nonnull_((const void*)(_ptr))) 
+#define ptr_nonnull(_ptr) cast(typeof_ptr(_ptr), ptr_nonnull_((const void*)(_ptr)))
 
 #if !defined(punwrap) && !defined(LIBNV_NO_USE_SHORT_NAMES)
 #define punwrap ptr_nonnull
@@ -48,16 +46,15 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 /// Same as [ptr_nonnull], but fails with a user provided, message.
 /// NOTE: Because this function is inteded to be used in hot paths, the user
 /// must build error messages themselves. if this function were a printf-style function, it
-/// would at the very worst, pass a bunch of parameters onto the stack that will never be used most the time, callers are also
-/// encouraged to keep messages light (no formatting, just as simple string literal)
+/// would at the very worst, pass a bunch of parameters onto the stack that will never be used most the time, callers
+/// are also encouraged to keep messages light (no formatting, just as simple string literal)
 RETURNS_NON_NULL
 PURE_FUNC
 void* ptr_expect_(const void* ptr, const char* msg);
 
 #if !defined(pexpect) && (!defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0)
-#define pexpect(_p, _msg) cast(typeof_ptr(_p), ptr_expect_((const void*)(_p), (_msg))) 
+#define pexpect(_p, _msg) cast(typeof_ptr(_p), ptr_expect_((const void*)(_p), (_msg)))
 #endif
-
 
 #ifndef STRLEN_UPPER_BOUND
 
@@ -100,7 +97,6 @@ static inline isize stringlen(const char* string) { return str_len(string, STRLE
 
 PURE_FUNC
 bool stringeq(const char* left, const char* right);
-
 
 PARAMS_NONNULL(1)
 isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
@@ -153,14 +149,12 @@ static inline void* move_exchange(void** obj, void** new_value) {
 }
 #define move_exchange(from, to) (move_exchange((void**)&from, (void**)&to))
 
-
-/// @brief Determines printf-style format string resulting length
+/// @brief Determines printf-style format string resulting length, excluding null-terminator
 HEDLEY_PRINTF_FORMAT(1, 2)
 PURE_FUNC
 i32 fstring_length(const char* fmt, ...);
 
-/// @brief Determines printf-style format string resulting length
+/// @brief Determines printf-style format string resulting length excluding, null-terminator
 /// @details does not modify va_list args
 PURE_FUNC
 i32 vfstring_length(const char* fmt, va_list args);
-

@@ -102,7 +102,7 @@ BlockAllocator* ba_owned_new(i32 vm_bytes) {
   return ba_new(vm, true);
 }
 
-MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
+NvError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   assert(out);
   if (is_null(backing)) {
     exclusive = true;
@@ -116,7 +116,7 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
         "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %d "
         "bytes of available memory and cannot acommidate an allocation of size: %d",
         __func__, vmem_available(backing), mlayout_new(BlockAllocator).size);
-    return MemError__VirtMemOutOfMemory;
+    return Error__VirtMemOutOfMemory;
   }
 
   self->exclusive = exclusive;
@@ -276,7 +276,7 @@ void ba_free(BlockAllocator* self, void* ptr) {
   }
 }
 
-MemError ba_destroy(BlockAllocator* self) {
+NvError ba_destroy(BlockAllocator* self) {
   // TODO: Might want to add the ability to zero out memory used by this BlockAllocator entirely if
   // it does not exclusively own its backing VirtMem. For now im just going to zero out the BlockAllocator header to
   // prevent it from being used to allocate after this function returns
@@ -296,7 +296,6 @@ Allocator ba_allocator(BlockAllocator* self);
 
 Block* ba_next_free_block(BlockAllocator* self, isize size) {
   assert(self);
-
 
   if (size > BA_FREE_LIST_MAX_SIZE) {
     return nullptr;
@@ -342,10 +341,9 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
 
     if UNLIKELY (is_null(b)) {
       ELOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len 1, but popped element was null!",
-              klass->class_size);
+               klass->class_size);
       EXIT_FATAL();
     }
-
 
     klass->len -= 1;
     self->free_list.blocks_free -= 1;
@@ -397,7 +395,6 @@ bool fl_push(FreeList* self, Block* val) {
     assert(klass);
     UNREACHABLE();
   }
-
 
   if (klass->len >= SIZE_CLASS_LIST_LEN) {
     LOG_DBG(

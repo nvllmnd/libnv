@@ -1,6 +1,5 @@
 #pragma once
 
-
 /// A Buffer of bytes. Must be manually resized. If created with an allocator ([buff_new]), then it must be resized and
 /// destroyed with the same allocator. This is to save metadata space, plus this is how its done in Zig so i think im
 /// going to try it out finally  lol A Buff can also be created from caller memory ([buff_from_mem]), and if it is, the
@@ -54,8 +53,6 @@ Buff* buff_from_mem(u8* start, u8* end);
 METHOD
 void* buff_append(Buff* self, MemLayout layout);
 
-
-
 /// Appends given string to back of this Buff. Returns a non-empty [sslice] if there is enough capacity for given
 /// string up to n bytes.
 METHOD
@@ -67,10 +64,10 @@ METHOD
 sslice buff_append_str(Buff* self, const char* string);
 
 METHOD
-MemError buff_putchar(Buff* self, char c);
+NvError buff_putchar(Buff* self, char c);
 
 METHOD
-MemError buff_putbyte(Buff* self, u8 b);
+NvError buff_putbyte(Buff* self, u8 b);
 
 /// Resizes given Buff in @param (Allocator alloc).
 /// @param (Allocator alloc) MUST BE the SAME allocator used to create this Buff [buff_new], not doing so
@@ -123,7 +120,6 @@ METHOD
 PURE_FUNC
 i32 buff_elem_size(const Buff* self);
 
-
 /// Returns true if this Buffer needs to be resized to fit a @param (Memlayout layout)
 METHOD
 PURE_FUNC
@@ -174,4 +170,3 @@ the loop index variable name. [vec_foreach] uses i' by default */               
   for (const __typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < buff_end((_self_)); _iter_name_++)
 
 #define buff_foreach_const(_self_) buff_foreach_iter_const(_self_, iter)
-

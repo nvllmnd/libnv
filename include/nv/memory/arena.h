@@ -1,8 +1,8 @@
 #pragma once
 
 #include "nv/core/attributes.h"
-#include "nv/core_types.h"
 #include "nv/core/intdefs.h"
+#include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 
 typedef struct Arena Arena;
@@ -17,12 +17,14 @@ typedef struct VirtMem VirtMem;
 
 /// Creates a new ArenaHeap with @param (isize init_capacity) of initial allocated space into a newly
 /// allocated virtual memory page of size @param (isize vmem_size_in_mb)
-/// Returned ArenaHeap exclusively owns its backing VirtMem, and will be released after a matching call to [arena_heap_destroy] or [arena_heap_cleanup]
+/// Returned ArenaHeap exclusively owns its backing VirtMem, and will be released after a matching call to
+/// [arena_heap_destroy] or [arena_heap_cleanup]
 RETURNS_RESOURCE
 Arena* arena_new(isize vmem_size_in_mb, isize init_capacity);
 
 /// Creates a new ArenaHeap with @param (isize capacity) initial allocated space into given @param (VirtMem* vm).
-/// If @param (bool exclusive) is true, the returned ArenaHeap will be deallocated/released after a matching call to [arena_heap_destroy] or [arena_heap_cleanup]
+/// If @param (bool exclusive) is true, the returned ArenaHeap will be deallocated/released after a matching call to
+/// [arena_heap_destroy] or [arena_heap_cleanup]
 RETURNS_RESOURCE
 PARAMS_NONNULL(1)
 Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive);
@@ -49,11 +51,12 @@ const char* arena_strndup(Arena* self, const char* string, i32 string_len);
 METHOD
 bool arena_destroy(Arena* self);
 
-/// Same as [arena_heap_destroy], but does nothing in the case this ArenaHeap does not exclusively own its backing VirtMem
+/// Same as [arena_heap_destroy], but does nothing in the case this ArenaHeap does not exclusively own its backing
+/// VirtMem
 METHOD
 void arena_cleanup(Arena* self);
 
-/// Returns allocation statistics gathered by use of this ArenaHeap. 
+/// Returns allocation statistics gathered by use of this ArenaHeap.
 PURE_FUNC
 METHOD
 ArenaStats arena_stats(Arena* self);
@@ -66,4 +69,3 @@ const AllocVTable* arena_alloc_vtable(void);
 /// Returns the Allocator interface struct associated with given ArenaHeap
 METHOD
 Allocator arena_allocator(Arena* self);
-

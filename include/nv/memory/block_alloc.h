@@ -17,14 +17,16 @@
 /// memory.
 ///
 /// This type internally keeps a statically sized array of pointers to blocks that are marked as free,
-/// the length of this free list can be modified by defining the BA_FL_SIZE macro. Currently a default value of 1024 is used.
-/// If the FreeList is filled up when trying to add a new freed block to it, it overwrites the freed block that has remained inside the FreeList the longest.
-/// This can techincally lead to memory leaks (though any 'leaked' memory will be cleaned up when a destroying BlockAllocator), but since we are
-/// removing the oldest freed allocation, its likely that old allocation is not meant to be freed until BlockAllocator is destroyed. After all, if you end up allocating 1024 objects,
-/// the oldest free block in that list most likely is staying around for a lot longer lol.
+/// the length of this free list can be modified by defining the BA_FL_SIZE macro. Currently a default value of 1024 is
+/// used. If the FreeList is filled up when trying to add a new freed block to it, it overwrites the freed block that
+/// has remained inside the FreeList the longest. This can techincally lead to memory leaks (though any 'leaked' memory
+/// will be cleaned up when a destroying BlockAllocator), but since we are removing the oldest freed allocation, its
+/// likely that old allocation is not meant to be freed until BlockAllocator is destroyed. After all, if you end up
+/// allocating 1024 objects, the oldest free block in that list most likely is staying around for a lot longer lol.
 ///
-/// All this in mind, this Allocator works best and is most efficient for frequent allcoations and frees, or at least if you throw a free in here and there, there is less chance of
-/// ending up in a situtation where memory is leaked, unable to be reused/freed until this instance is destroyed
+/// All this in mind, this Allocator works best and is most efficient for frequent allcoations and frees, or at least if
+/// you throw a free in here and there, there is less chance of ending up in a situtation where memory is leaked, unable
+/// to be reused/freed until this instance is destroyed
 ///
 ///
 typedef struct BlockAllocator BlockAllocator;
@@ -52,7 +54,7 @@ BlockAllocator* ba_owned_new(i32 vm_bytes);
 /// else, UB may happen if [ba_destroy] is called, as [ba_destroy] releases/decommits its backing VirtMem if it
 /// exclusively owns it, similar to [ArenaHeap]
 HANDLE_ERROR
-MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive);
+NvError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive);
 
 /// Same as [ba_init], but returns a nullptr in the case of any errors.
 ///
@@ -95,7 +97,7 @@ void ba_free(BlockAllocator* self, void* ptr);
 /// system. As such if any references to that backing [VirtMem] still exist, they should be considered invalid
 ///
 METHOD
-MemError ba_destroy(BlockAllocator* self);
+NvError ba_destroy(BlockAllocator* self);
 
 /// Const function, gets VTable associated for any BlockAllocator. Required for implementing the [Allocator] interface
 /// struct
@@ -114,4 +116,3 @@ Allocator ba_allocator(BlockAllocator* self);
 PURE_FUNC
 METHOD
 bool ba_contains(const BlockAllocator* self, const void* ptr);
-
