@@ -36,3 +36,23 @@ static inline MemLayout mlayout_bytes(i32 nbytes) {
   assert(nbytes > 0);
   return make(MemLayout, .size = nbytes, .align = 1);
 }
+
+/// @brief exteneds MemLayout by count. (if MemLayout represents a single element of a typed array, then MemLayout * count is the MemLayout of that typed array)
+CONST_FUNC
+static inline MemLayout mlayout_extend(MemLayout self, i32 count) {
+  assert(count > 0);
+  return (MemLayout){.size = self.size * count, .align = self.align};
+}
+
+/// @brief Creates a new MemLayout calculated as such: multiplies self.size * count and adds the rhs.size to the result, takes max of self and rhs alignment
+CONST_FUNC
+static inline MemLayout mlayout_extend_with(MemLayout self, i32 count, MemLayout rhs) {
+  assert(count > 0);
+  return (MemLayout){.size = (self.size * count) + rhs.size, .align = max(self.align, rhs.align)};
+}
+
+/// @brief lhs.size + rhs.size, align = max(lhs.align, rhs.align)
+CONST_FUNC
+static inline MemLayout mlayout_add(MemLayout lhs, MemLayout rhs) {
+  return (MemLayout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
+}

@@ -57,6 +57,7 @@ core_lib = static_library(
   files(
     'src/core/log.c',
     'src/core/buffer.c',
+    'src/core/vec.c',
     'src/core/algo.c',
     'src/core/spad.c',
   ),
