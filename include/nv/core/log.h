@@ -8,32 +8,42 @@
 #include "nv/core/intdefs.h"
 #include "nv/core/sslice.h"
 
-
-
 typedef enum FormatError { Format__Error = -1, Format__Ok = 0 } FormatError;
-
 
 FORMAT_FUNC(3, 4)
 RETURNS_ERROR
 FormatError format_with(char* dst, isize dst_len, const char* fmt, ...);
 
-#define fdprint(fd, fmt, ...) (fprintf(fd, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define print_fd(fd, fmt, ...) (fprintf(fd, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define println_fd(fd, fmt, ...) (print_fd(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
+
+#ifndef NV_LOG_FILE
+#define NV_LOG_FILE 0
+#endif
+
+#if NV_LOG_FILE == 1
+
+extern FILE* NV_LOG_STREAM;
+extern FILE* NV_ERR_STREAM;
+
+#define print(fmt, ...) (print_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define eprint(fmt, ...) (fprintf(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define println(fmt, ...) (println_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define eprintln(fmt, ...) (println_fd(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#else
 
 #define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define fprintln(fd, fmt, ...) (fdprint(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
+#define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+#define eprintln(fmt, ...) (println_fd(stderr, fmt, __VA_ARGS__))
 
-// #define fprintln(fd, fmt, ...) (fprintf(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
-
-#define println(fmt, ...) (fprintln(stdout, fmt, __VA_ARGS__))
-// (fprintf(stdout, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
-
-#define eprintln(fmt, ...) (fprintln(stderr, fmt, __VA_ARGS__))
+#endif
 
 /// Prints a given string [sslice] to
-/// a file. This is a verstion of [fdprint] that does not require
+/// a file. This is a verstion of [print_fd] that does not require
 /// null-terminated strings. However this function does not
-/// do any formatting. If you need to print a formatted string. see [fdprint] and others
+/// do any formatting. If you need to print a formatted string. see [print_fd] and others
 ///
 PARAMS_NONNULL(1)
 void sfprint(FILE* fd, sslice str);
@@ -42,9 +52,9 @@ void sfprint(FILE* fd, sslice str);
 /// give string [sslice]
 ///
 /// Prints a given string [sslice] to
-/// a file. This is a verstion of [fdprint] that does not require
+/// a file. This is a verstion of [print_fd] that does not require
 /// null-terminated strings. However this function does not
-/// do any formatting. If you need to print a formatted string. see [fdprint] and others
+/// do any formatting. If you need to print a formatted string. see [print_fd] and others
 ///
 PARAMS_NONNULL(1)
 void sfprintln(FILE* fd, sslice str);
@@ -98,8 +108,7 @@ void log_fatal(const char* fmt, ...);
 HEDLEY_NO_RETURN
 void vlog_fatal(const char* fmt, va_list args);
 
-
-#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL!! __VA_OPT__(,) __VA_ARGS__)))
+#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!__VA_OPT__(, ) __VA_ARGS__)))
 
 #define TODO_MSG(_msg, ...) (log_fatal((_msg)__VA_OPT__(, ) __VA_ARGS__))
 

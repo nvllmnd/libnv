@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-
 FormatError format_with(char* dst, isize len, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
@@ -50,5 +49,3 @@ void log_fatal(const char* fmt, ...) {
 
   vlog_fatal(fmt, args);
 }
-
-

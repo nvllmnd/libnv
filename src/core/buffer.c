@@ -160,7 +160,6 @@ void* buff_append(Buff* self, MemLayout layout) {
   assert(self);
   assert(layout.size > 0);
   assert(IS_POWER_OF_2(layout.align));
-  LOG_DBG("appending layout of size: %d and alignment: %d", layout.size, layout.align);
 
   Buffer* s = asbuff(self);
   u8* next_top = buff_aligned_top(self, layout);
