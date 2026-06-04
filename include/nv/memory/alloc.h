@@ -21,6 +21,7 @@ typedef void* (*const VTableAllocate)(void* self, MemLayout layout);
 /// void* ptr      - Pointer to begging of block of memory to be reallocated
 /// isize new_size - Size of requested reallocation in bytes
 /// isize align - Alignment of allocation requested. Must be a power of 2!
+/// @returns Implementations should return nullptr on failure, otherewise a poitner to the start of reallocated memory
 typedef void* (*const VTableReallocate)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] zallocate method

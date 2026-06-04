@@ -2,22 +2,18 @@
 
 #include "nv/iter/vec.h"
 
-#include "nv/iter/string.h"
-#include "nv/core/algo.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/memory/arena.h"
 #include "nv/memory/virt.h"
 #include "unity.h"
 
-static VirtMem* VM = nullptr;
 static Arena* ARENA = nullptr;
 
 static Allocator ALLOC;
 
 void setUp(void) {
-  assert(vmem_init(&VM, MEGABYTES(16)) == OK);
-  ARENA = arena_in_vmem(VM, KILOBYTES(24), true);
+  ARENA = arena_new(GIGABYTES(1), os_page_size());
   ALLOC = arena_allocator(ARENA);
 
   assert(ARENA);
@@ -26,7 +22,8 @@ void setUp(void) {
 }
 
 void tearDown(void) {
-  vmem_destroy(VM);
+  arena_destroy(ARENA);
+  ARENA = nullptr;
 }
 
 void buffs_works(void) {
@@ -60,6 +57,7 @@ void vecs_works(void) {
   TEST_ASSERT_EQUAL(100, vec_capacity(v));
 
   vec_push(v, 50);
+  TEST_ASSERT_EQUAL(1, vec_len(v));
 
   TEST_ASSERT_EQUAL(50, v[0]);
 

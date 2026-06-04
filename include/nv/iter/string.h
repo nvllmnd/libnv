@@ -3,14 +3,13 @@
 #include <stdarg.h>
 #include "nv/core/attributes.h"
 #include "nv/iter/buff.h"
-#include "nv/iter/vec.h"
 
 
 
 /// A manually resizable String that may or may not be null terminated
-typedef Vec(char) String;
+typedef Buff* String;
 
-static HEDLEY_ALWAYS_INLINE String string_new(i32 capacity, Allocator alloc) { return vec_new(char, capacity, alloc); }
+static HEDLEY_ALWAYS_INLINE String string_new(i32 capacity, Allocator alloc) { return buff_new(capacity, alloc); }
 
 METHOD
 static HEDLEY_ALWAYS_INLINE sslice string_npush(String self, const char* string, i32 n) {
@@ -34,13 +33,13 @@ static HEDLEY_ALWAYS_INLINE char string_putbyte(String self, u8 b) {
 
 METHOD
 PURE_FUNC
-static HEDLEY_ALWAYS_INLINE i32 string_len(const String self) { return vec_len(self); }
+static HEDLEY_ALWAYS_INLINE i32 string_len(const String self) { return buff_len(self); }
 
 METHOD
 PURE_FUNC
 static  HEDLEY_ALWAYS_INLINE sslice string_slice(const String self) {
   const i32 len = string_len(self); 
-  return sslice_new(.begin = self, .len = len);
+  return sslice_new(.begin = (const char*)self, .len = len);
 }
 
 METHOD
@@ -49,7 +48,7 @@ static HEDLEY_ALWAYS_INLINE sslice string_subslice(const String self, i32 from, 
   const i32 len = string_len(self);
   const i32 in_len = to - from;
   if LIKELY (in_len >= 0 && in_len < len) {
-    return sslice_from_range(self,  from,  to);
+    return sslice_from_range((const char*)self,  from,  to);
   }
   return sslice_empty();
 }
@@ -57,14 +56,14 @@ static HEDLEY_ALWAYS_INLINE sslice string_subslice(const String self, i32 from, 
 
 METHOD
 PURE_FUNC
-static HEDLEY_ALWAYS_INLINE i32 string_capacity(const String self) { return vec_capacity(self); }
+static HEDLEY_ALWAYS_INLINE i32 string_capacity(const String self) { return buff_capacity((Buff*)self); }
 
 METHOD
-static HEDLEY_ALWAYS_INLINE char* string_end(String self) { return vec_end(self); }
+static HEDLEY_ALWAYS_INLINE char* string_end(String self) { return (char*)buff_end(pcast(Buff, self)); }
 
 METHOD
 PURE_FUNC
-static HEDLEY_ALWAYS_INLINE const char* string_cend(const String self) { return vec_cend(self); }
+static HEDLEY_ALWAYS_INLINE const char* string_cend(const String self) { return (const char*)buff_cend(self); }
 
 METHOD
 PURE_FUNC
@@ -90,11 +89,11 @@ static HEDLEY_ALWAYS_INLINE String string_from_mem(char* start, char* end) {
 
 PURE_FUNC
 METHOD
-static HEDLEY_ALWAYS_INLINE bool string_is_full(const String self) { return vec_is_full(self); }
+static HEDLEY_ALWAYS_INLINE bool string_is_full(const String self) { return buff_is_full(pcast(u8, self)); }
 
 PURE_FUNC
 METHOD
-static HEDLEY_ALWAYS_INLINE bool string_is_empty(const String self) { return vec_is_empty(self); }
+static HEDLEY_ALWAYS_INLINE bool string_is_empty(const String self) { return buff_is_empty(pcast(u8, self)); }
 
 HEDLEY_PRINTF_FORMAT(3, 4)
 METHOD
@@ -113,19 +112,19 @@ sslice string_fpush_null(String self, const char* fmt, ...);
 
 #define string_min_size buff_min_size
 
-#define string_for_i(_self_, _index_name_) /* convienence macro for iterating over a vec. second parameter is just \
-the loop index variable name. [vec_foreach] uses i' by default */                                                  \
-  for (int _index_name_ = 0; _index_name_ < vec_len((_self_)); _index_name_++)
+#define string_for_i(_self_, _index_name_) /* convienence macro for iterating over a string. second parameter is just \
+the loop index variable name. [string_foreach] uses i' by default */                                                  \
+  for (int _index_name_ = 0; _index_name_ < string_len((_self_)); _index_name_++)
 
-#define string_for(_self_) /* same as [vec_for_i] macro, but sets _index_name_ = i*/ vec_for_i(_self_, i)
+#define string_for(_self_) /* same as [string_for_i] macro, but sets _index_name_ = i*/ string_for_i(_self_, i)
 
 #define string_foreach_iter(_self_, _iter_name_) \
-  for (__typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < vec_end((_self_)); _iter_name_++)
+  for (__typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < string_end((_self_)); _iter_name_++)
 
-#define string_foreach(_self_) vec_foreach_iter(_self_, iter)
+#define string_foreach(_self_) string_foreach_iter(_self_, iter)
 
 #define string_foreach_iter_const(_self_, _iter_name_) \
-  for (const __typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < vec_end((_self_)); _iter_name_++)
+  for (const __typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < string_end((_self_)); _iter_name_++)
 
-#define string_foreach_const(_self_) vec_foreach_iter_const(_self_, iter)
+#define string_foreach_const(_self_) string_foreach_iter_const(_self_, iter)
 

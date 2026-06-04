@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nv/core/intdefs.h"
-#include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 
 #define Vec(T) __typeof(T)*
@@ -15,15 +14,22 @@ VecAny vec_new_(MemLayout tlayout, i32 capacity, Allocator alloc);
 METHOD
 void* vec_insert_back(VecAny self);
 
-#define vec_push(_self, _val)                                          \
-  do {                                                                 \
-    const auto _v = (_val);                                     \
-    static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_v))); \
-    auto _elem = vec_insert_back((_self));                      \
-    if (_elem) {                                                       \
-      memcpy(_elem, &_v, sizeof(__typeof(_v)));                        \
-    }                                                                  \
-  } while (0)
+// #define vec_push(_self, _val)                                          \
+//   do {                                                                 \
+//     const auto _v = (_val);                                     \
+//     static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_v))); \
+//     auto _elem = vec_insert_back((_self));                      \
+//     if (_elem) {                                                       \
+//       memcpy(_elem, &_v, sizeof(__typeof(_v)));                        \
+//     }                                                                  \
+//   } while (0)
+
+METHOD
+RETURNS_NON_NULL
+void* vec_index_(VecAny self, i32 index);
+#define vec_index(_self, _index) ((__typeof(*(_self))*)vec_index_((_self), (_index)))
+
+
 
 PURE_FUNC
 METHOD
@@ -35,11 +41,12 @@ i32 vec_capacity(const VecAny self);
 
 METHOD
 PURE_FUNC
+RETURNS_NON_NULL
 const void* vec_cend_(const VecAny self);
 #define vec_cend(_self) ((__typeof(*(_self))*)vec_cend_((_self)))
 
 METHOD
-PURE_FUNC
+RETURNS_NON_NULL
 void* vec_end_(VecAny self);
 #define vec_end(_self) ((__typeof(*(_self))*)vec_end_((_self)))
 
@@ -96,3 +103,18 @@ the loop index variable name. [vec_foreach] uses i' by default */               
   for (const __typeof(*(_self_))* _iter_name_ = _self_; _iter_name_ < vec_cend((_self_)); _iter_name_++)
 
 #define vec_foreach_const(_self_) vec_foreach_iter_const(_self_, iter)
+
+
+
+#define vec_push(_self, _val)                                          \
+  do {                                                                 \
+    const auto _v = (_val);                                     \
+    static_assert(sizeof(__typeof(*(_self))) == sizeof(__typeof(_v))); \
+    if (!vec_is_full((_self))) { \
+      const i32 i = vec_len((_self));\
+      (_self)[i] = _v;\
+      vec_set_len((_self), i + 1);\
+    }\
+  } while (0)
+
+

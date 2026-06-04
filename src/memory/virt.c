@@ -60,9 +60,6 @@ i32 os_page_size(void) {
 }
 
 NvError vmem_init(VirtMem** self, i32 size_bytes) {
-  ///
-  ///
-  ///
   assert(self);
   assert(size_bytes > 0);
 
