@@ -7,6 +7,7 @@
 
 /// @brief main typedef for Vec.
 typedef void* VecAny;
+typedef const void* ConstVecAny;
 
 VecAny vec_new_(MemLayout tlayout, i32 capacity, Allocator alloc);
 #define vec_new(T, _cap, _alloc) ((__typeof(T)*)vec_new_(mlayout_new(T), (_cap), (_alloc)))
@@ -33,16 +34,16 @@ void* vec_index_(VecAny self, i32 index);
 
 PURE_FUNC
 METHOD
-i32 vec_len(const VecAny self);
+i32 vec_len(ConstVecAny s);
 
 PURE_FUNC
 METHOD
-i32 vec_capacity(const VecAny self);
+i32 vec_capacity(ConstVecAny self);
 
 METHOD
 PURE_FUNC
 RETURNS_NON_NULL
-const void* vec_cend_(const VecAny self);
+const void* vec_cend_(ConstVecAny self);
 #define vec_cend(_self) ((__typeof(*(_self))*)vec_cend_((_self)))
 
 METHOD
@@ -59,24 +60,24 @@ i32 vec_grow_to_cap(VecAny self);
 /// @brief returns number of free elements before reaching capacity
 PURE_FUNC
 METHOD
-i32 vec_available(const VecAny self);
+i32 vec_available(ConstVecAny self);
 
 /// @brief same as [vec_available], but returns size in bytes
 PURE_FUNC
 METHOD
-i32 vec_avail_bytes(const VecAny self);
+i32 vec_avail_bytes(ConstVecAny self);
 
 PURE_FUNC
 METHOD
-bool vec_is_full(const VecAny self);
+bool vec_is_full(ConstVecAny self);
 
 PURE_FUNC
 METHOD
-bool vec_is_empty(const VecAny self);
+bool vec_is_empty(ConstVecAny self);
 
 PURE_FUNC
 METHOD
-f32 vec_load_factor(const VecAny self);
+f32 vec_load_factor(ConstVecAny self);
 
 
 METHOD

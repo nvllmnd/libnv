@@ -32,7 +32,7 @@ static inline Vector* asvec(VecAny s) { return prefix_offset(s, Vector); }
 PARAMS_NONNULL(1)
 RETURNS_NON_NULL
 PURE_FUNC
-static inline const Vector* asvecc(const VecAny s) { return prefix_offset(s, Vector); }
+static inline const Vector* asvecc(ConstVecAny s) { return prefix_offset(s, Vector); }
 
 METHOD
 PURE_FUNC
@@ -113,21 +113,21 @@ void* vec_insert_back(VecAny s) {
 
 PURE_FUNC
 METHOD
-i32 vec_len(const VecAny s) {
+i32 vec_len(ConstVecAny s) {
   assert(s);
   return asvecc(s)->len;
 }
 
 PURE_FUNC
 METHOD
-i32 vec_capacity(const VecAny s) {
+i32 vec_capacity(ConstVecAny s) {
   assert(s);
   return asvecc(s)->capacity;
 }
 
 METHOD
 PURE_FUNC
-const void* vec_cend_(const VecAny self) {
+const void* vec_cend_(ConstVecAny self) {
   assert(self);
   const Vector* v = asvecc(self);
   return (&v->data[v->size]);
@@ -157,7 +157,7 @@ i32 vec_grow_to_cap(VecAny s) {
 /// @brief returns number of free elements before reaching capacity
 PURE_FUNC
 METHOD
-i32 vec_available(const VecAny s) {
+i32 vec_available(ConstVecAny s) {
   assert(s);
   const Vector* self = asvecc(s);
   return self->capacity - self->len;
@@ -166,7 +166,7 @@ i32 vec_available(const VecAny s) {
 /// @brief same as [vec_available], but returns size in bytes
 PURE_FUNC
 METHOD
-i32 vec_avail_bytes(const VecAny s) {
+i32 vec_avail_bytes(ConstVecAny s) {
   assert(s);
   const Vector* self = asvecc(s);
 
@@ -180,7 +180,7 @@ i32 vec_avail_bytes(const VecAny s) {
 
 PURE_FUNC
 METHOD
-bool vec_is_full(const VecAny s) {
+bool vec_is_full(ConstVecAny s) {
   assert(s);
   const Vector* self = asvecc(s);
   return self->len >= self->capacity;
@@ -188,7 +188,7 @@ bool vec_is_full(const VecAny s) {
 
 PURE_FUNC
 METHOD
-bool vec_is_empty(const VecAny s) {
+bool vec_is_empty(ConstVecAny s) {
   assert(s);
   const Vector* self = asvecc(s);
 
@@ -197,7 +197,7 @@ bool vec_is_empty(const VecAny s) {
 
 PURE_FUNC
 METHOD
-f32 vec_load_factor(const VecAny s) {
+f32 vec_load_factor(ConstVecAny s) {
   assert(s);
   const Vector* self = asvecc(s);
 
