@@ -4,6 +4,8 @@
 #error __FILE__ " is only intended to be included by external projects that depend on libnv"
 #endif
 
+#include "nv/core/spad.h"
+#include "nv/core/stb_sprintf.h"
 #include "nv/core_types.h"
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
