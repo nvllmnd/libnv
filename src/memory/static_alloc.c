@@ -127,13 +127,15 @@ char* salloc_strndup(StaticAlloc* self, const char* string, i32 n) {
   assert(string);
   assert(n > 0);
 
-  char* res = salloc_allocate(self, mlayout_bytes(n + 1));
+  n += 1;
+  char* res = salloc_allocate(self, mlayout_bytes(n));
   if UNLIKELY (is_null(res)) {
     LOG_DBG("StaticAlloc did not have enough available space to dup string: %.*s of len: %d", n, string, n);
     return nullptr;
   }
-  res[n + 1] = '\0';
-  strncpy(res, string, n);
+
+  strncpy(res, string, n - 1);
+  res[n] = '\0';
 
   return res;
 }
