@@ -17,7 +17,6 @@
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
-
 #include "nv/core/stb_sprintf.h"
 #include "nv/core_types.h"
 #include "nv/memory/alloc.h"
@@ -65,12 +64,13 @@ NvError vmem_init(VirtMem** self, i32 size_bytes) {
   assert(self);
   assert(size_bytes > 0);
 
-  const isize size = sizeof(VirtMem) + max(size_bytes, os_page_size());
+  const i32 storage_size = max(size_bytes, os_page_size());
+  const i32 full_size = sizeof(VirtMem) + storage_size;
 
-  VirtMem* ptr = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  VirtMem* ptr = mmap(0, full_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   if UNLIKELY (ptr == MAP_FAILED) {
-    LOG_DBG("Failed to map virtual memory of size: %li (%dMB). ERRNO(%d) :: %s", size, size_bytes, errno,
-            strerror(errno));
+    LOG_DBG("Failed to map virtual memory of size: %d from requested size: %d ERRNO(%d) :: %s", storage_size,
+            size_bytes, errno, strerror(errno));
 
     switch (errno) {
       case ENOMEM: {
@@ -90,9 +90,9 @@ NvError vmem_init(VirtMem** self, i32 size_bytes) {
     return Error__FailedMemMap;
   }
 
-  ptr->size = size;
+  ptr->size = storage_size;
   ptr->top = &ptr->storage[0];
-  ptr->end = ptr->top + size;
+  ptr->end = ptr->top + storage_size;
   *self = ptr;
 
   return Error__Ok;
@@ -243,7 +243,7 @@ bool vmem_contains(const VirtMem* self, const void* p) {
 
   const u8* ptr = p;
 
-  return ptr >= &self->storage[0] && ptr <= self->end;
+  return ptr >= &self->storage[0] && ptr < self->end;
 }
 
 VirtMemView vmem_view(const VirtMem* self) {
@@ -556,14 +556,12 @@ i32 vmem_delete_back(VirtMem* self, i32 nbytes) {
 i32 vmem_delzero_back(VirtMem* self, i32 nbytes) {
   assert(self);
   const i32 used = vmem_used_bytes(self);
-  i32 n = used - nbytes;
-
-  if (n < 0) {
-    n = used;
+  if (nbytes > used) {
+    nbytes = used;
   }
 
-  self->top -= n;
+  self->top -= nbytes;
 
-  memset(self->top, 0, n);
+  memset(self->top, 0, nbytes);
   return vmem_available(self);
 }
