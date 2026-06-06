@@ -5,6 +5,7 @@
 #include <string.h>
 #include "nv/core_types.h"
 #include "nv/core/log.h"
+#include "nv/core/stb_sprintf.h"
 #include "nv/core/algo.h"
 
 void* ptr_expect_(const void* ptr, const char* msg) {
@@ -192,7 +193,7 @@ i32 vfstring_length(const char* fmt, va_list args) {
   va_list cpy = {};
   va_copy(cpy, args);
 
-  const i32 len =  vsnprintf(nullptr, 0, fmt, cpy);
+  const i32 len =  stbsp_vsnprintf(nullptr, 0, fmt, cpy);
 
   va_end(cpy);
   return len;

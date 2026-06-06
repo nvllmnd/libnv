@@ -6,6 +6,7 @@
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
+#include "nv/core/stb_sprintf.h"
 #include "nv/core_types.h"
 #include "nv/iter/buff.h"
 #include "nv/iter/string.h"
@@ -422,7 +423,7 @@ sslice string_vfpush(String self, char terminal, const char* fmt, va_list args) 
 
   Buff* b = pcast(Buff, self);
   char* top = pcast(char, buff_top(b));
-  const i32 len = vsnprintf(top, avail, fmt, args);
+  const i32 len = stbsp_vsnprintf(top, avail, fmt, args);
 
   /// vsnprintf already copies a null terminator into the resulting formatted string, so
   // we dont need to do this if given terminal is a null character
