@@ -1,13 +1,14 @@
-#include "memory/block_alloc.h"
+#include "nv/memory/block_alloc.h"
 
 #include <assert.h>
 
-#include "attributes.h"
-#include "core_types.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/error.h"
-#include "memory/virt.h"
+#include "nv/core/attributes.h"
+#include "nv/core/debug.h"
+#include "nv/core/log.h"
+#include "nv/core_types.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
+#include "nv/memory/virt.h"
 
 #define asblock(bl) (&((Block*)(bl))[-1])
 
@@ -93,29 +94,29 @@ alias(BlockAllocator);
 METHOD
 static Block* ba_next_free_block(BlockAllocator* self, isize size);
 
-BlockAllocator* ba_owned_new(isize vm_mb) {
+BlockAllocator* ba_owned_new(i32 vm_bytes) {
   VirtMem* vm = nullptr;
-  if UNLIKELY (vmem_init(&vm, vm_mb) != OK) {
+  if UNLIKELY (vmem_init(&vm, vm_bytes) != OK) {
     return nullptr;
   }
   return ba_new(vm, true);
 }
 
-MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
+NvError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   assert(out);
   if (is_null(backing)) {
     exclusive = true;
-    tryerr(vmem_init(&backing, BA_BACKING_VIRTMEM_SIZE_MB));
+    tryerr(vmem_init(&backing, MEGABYTES(BA_BACKING_VIRTMEM_SIZE_MB)));
   }
 
   const MemLayout layout = mlayout_new(BlockAllocator);
   BlockAllocator* self = vmem_allocate(backing, layout);
   if UNLIKELY (is_null(self)) {
     LOG_DBG(
-        "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %li "
+        "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %d "
         "bytes of available memory and cannot acommidate an allocation of size: %d",
         __func__, vmem_available(backing), mlayout_new(BlockAllocator).size);
-    return MemError__VirtMemOutOfMemory;
+    return Error__VirtMemOutOfMemory;
   }
 
   self->exclusive = exclusive;
@@ -127,7 +128,6 @@ MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
     SizeClass* sc = &self->free_list.sclasses[i];
     sc->class_size = SIZE_CLASS_SIZES[i];
-    LOG_DBG("Creating Size class of size: %d", sc->class_size);
     sc->start = &sc->list[0];
     sc->end = sc->start;
   }
@@ -153,7 +153,6 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
 
   if (self->free_list.blocks_free > 0) {
-
     Block* next_free = ba_next_free_block(self, layout.size);
 
     if (next_free) {
@@ -169,7 +168,7 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   Block* next = vmem_allocate(self->vm, block_layout);
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
-        "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
+        "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %d bytes of "
         "available memory and cannot accomidate an allocation of size %d bytes!",
         __func__, vmem_available(self->vm), block_layout.size);
 
@@ -234,34 +233,28 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
     return bl_begin(bptr);
   }
 
-  if (new_layout.size > old_layout.size) {
-    u8* new_end = &bptr->storage[new_layout.size - 1];
-    // we can grow in place!
-    if UNLIKELY (new_end <= bptr->end) {
-      bptr->end = new_end;
+  u8* new_end = &bptr->storage[new_layout.size - 1];
+  // we can grow in place!
+  if UNLIKELY (new_end <= bptr->end) {
+    bptr->end = new_end;
 
-      return bl_begin(bptr);
-    }
-
-    const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
-
-    Block* next = vmem_allocate(self->vm, block_layout);
-    if UNLIKELY (is_null(next)) {
-      LOG_DBG(
-          "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-          "available memory and cannot accomadate an allocation of size %d bytes!",
-          __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
-      return nullptr;
-    }
-
-    memcpy(next, bptr, bl_full_size(bptr));
-    ba_free(self, bptr);
-    return bl_begin(next);  //&next->storage[0];
+    return bl_begin(bptr);
   }
 
-  // should never reach this point. as we have check if new.size == old.size, new.size < old.size and finally new.size <
-  // old.size
-  HEDLEY_UNREACHABLE();
+  const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
+
+  Block* next = vmem_allocate(self->vm, block_layout);
+  if UNLIKELY (is_null(next)) {
+    LOG_DBG(
+        "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %d bytes of "
+        "available memory and cannot accomadate an allocation of size %d bytes!",
+        __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
+    return nullptr;
+  }
+
+  memcpy(next, bptr, bl_full_size(bptr));
+  ba_free(self, bptr);
+  return bl_begin(next);  //&next->storage[0];
 }
 
 void ba_free(BlockAllocator* self, void* ptr) {
@@ -283,7 +276,7 @@ void ba_free(BlockAllocator* self, void* ptr) {
   }
 }
 
-MemError ba_destroy(BlockAllocator* self) {
+NvError ba_destroy(BlockAllocator* self) {
   // TODO: Might want to add the ability to zero out memory used by this BlockAllocator entirely if
   // it does not exclusively own its backing VirtMem. For now im just going to zero out the BlockAllocator header to
   // prevent it from being used to allocate after this function returns
@@ -303,8 +296,6 @@ Allocator ba_allocator(BlockAllocator* self);
 
 Block* ba_next_free_block(BlockAllocator* self, isize size) {
   assert(self);
-
-  LOG_DBG("About to search for next free block");
 
   if (size > BA_FREE_LIST_MAX_SIZE) {
     return nullptr;
@@ -349,12 +340,10 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
     klass->start++;
 
     if UNLIKELY (is_null(b)) {
-      LOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len 1, but popped element was null!",
-              klass->class_size);
-      assert(b);
+      ELOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len 1, but popped element was null!",
+               klass->class_size);
+      EXIT_FATAL();
     }
-
-    LOG_DBG("poping block of size: %li bytes from Size Class of %d bytes!", bl_size(b), klass->class_size);
 
     klass->len -= 1;
     self->free_list.blocks_free -= 1;
@@ -367,16 +356,12 @@ Block* ba_next_free_block(BlockAllocator* self, isize size) {
       "size class, but did not.",
       size);
 
-  assert(klass);
-
-  HEDLEY_UNREACHABLE();
+  EXIT_FATAL();
 }
 
 bool fl_push(FreeList* self, Block* val) {
   assert(self);
   assert(val);
-
-
 
   const i32 size = bl_size(val);
 
@@ -391,7 +376,6 @@ bool fl_push(FreeList* self, Block* val) {
   }
 
   SizeClass* klass = nullptr;
-
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
     SizeClass* const sc = &self->sclasses[i];
@@ -411,8 +395,6 @@ bool fl_push(FreeList* self, Block* val) {
     assert(klass);
     UNREACHABLE();
   }
-
-  LOG_DBG("Pushing Block of size %d bytes into Size Class of %d bytes", size, klass->class_size);
 
   if (klass->len >= SIZE_CLASS_LIST_LEN) {
     LOG_DBG(

@@ -1,26 +1,57 @@
-#include "core/buffer.h"
-
 #include <assert.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 
-#include "core_types.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/cstr.h"
-#include "memory/error.h"
-#include "memory/layout.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/log.h"
+#include "nv/core_types.h"
+#include "nv/iter/buff.h"
+#include "nv/iter/string.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/error.h"
+#include "nv/memory/layout.h"
 
 struct Buffer {
+  /// Length of buffer in bytes
   i32 len;
+  /// capacity of buffer in bytes
   i32 capacity;
+  /// element size of each element appended to this buffer in bytes, used for Vecs,
+  i32 elem_size;
+
+  ATTR_COUNTED_BY(len)
   u8 start[];
 };
 alias(Buffer);
 
 #define asbuff(self) prefix_offset(self, Buffer)
+
 #define buff_start(self) (&((self)->start[0]))
 
-MemError buff_putchar(Buff* self, char c) {
+i32 buff_set_len(Buff* s, i32 new_len) {
+  assert(s);
+
+  Buffer* self = asbuff(s);
+  assert(self->elem_size >= 1);
+
+  const i32 len = self->len / self->elem_size;
+  const i32 cap = self->capacity / self->elem_size;
+
+  if (len == new_len) {
+    return len;
+  }
+
+  // clamp to capacity so we dont accidently trigger UB
+  new_len = clamp(new_len, 0, cap);
+
+  self->len = new_len * self->elem_size;
+
+  return self->len;
+}
+
+NvError buff_putchar(Buff* self, char c) {
   assert(self);
 
   Buffer* s = asbuff(self);
@@ -30,11 +61,10 @@ MemError buff_putchar(Buff* self, char c) {
     return OK;
   }
 
-  return MemError__BufferNeedsResize;
-  
+  return Error__BufferNeedsResize;
 }
 
-MemError buff_putbyte(Buff* self, u8 b) {
+NvError buff_putbyte(Buff* self, u8 b) {
   assert(self);
   Buffer* s = asbuff(self);
 
@@ -44,12 +74,8 @@ MemError buff_putbyte(Buff* self, u8 b) {
     return OK;
   }
 
-  return MemError__BufferNeedsResize;
-  
+  return Error__BufferNeedsResize;
 }
-
-
-
 
 static inline const u8* buff_ctop(const Buff* self) {
   assert(self);
@@ -78,12 +104,27 @@ bool buff_is_full(const Buff* self) {
   return s->len >= s->capacity;
 }
 
+Buff* buff_sized_new(i32 elem_size, i32 capacity, Allocator alloc) {
+  assert(vtmask_is_ok(alloc.vtable->mask));
+  assert(capacity > 1);
+  assert(capacity > 0);
+
+  const i32 cap = elem_size * capacity;
+
+  Buffer* self = allocator_allocate(alloc, mlayout_fma(Buffer, capacity * elem_size));
+  self->len = 0;
+  self->capacity = cap;
+  self->elem_size = elem_size;
+  return &self->start[0];
+}
+
 Buff* buff_new(i32 capacity, Allocator alloc) {
   assert(vtmask_is_ok(alloc.vtable->mask));
   assert(capacity > 0);
   Buffer* self = allocator_allocate(alloc, mlayout_fma(Buffer, capacity));
   self->len = 0;
   self->capacity = capacity;
+  self->elem_size = 1;
   return &self->start[0];
 }
 
@@ -103,7 +144,7 @@ Buff* buff_from_mem(u8* start, u8* end) {
 METHOD
 static inline u8* buff_aligned_top(Buff* self, MemLayout layout) {
   assert(self);
-  ptr(u8) top = align_ptr(buff_top(self), layout.align);
+  ptr(u8) top = ptr_alignup(buff_top(self), layout.align);
   ptr(u8) top_end = top + layout.size;
   ptr(u8) buffer_end = buff_end(self);
   if LIKELY (top_end <= buffer_end) {
@@ -119,13 +160,10 @@ void* buff_append(Buff* self, MemLayout layout) {
   assert(self);
   assert(layout.size > 0);
   assert(IS_POWER_OF_2(layout.align));
-  LOG_DBG("appending layout of size: %d and alignment: %d", layout.size, layout.align);
 
-
-    Buffer* s = asbuff(self);
+  Buffer* s = asbuff(self);
   u8* next_top = buff_aligned_top(self, layout);
   if LIKELY (is_not_null(next_top)) {
-
     const u8* top_end = next_top + layout.size;
     s->len = top_end - buff_start(s);
     return next_top;
@@ -142,6 +180,7 @@ sslice buff_append_nstr(Buff* self, const char* string, i32 n) {
   assert(self);
   assert(string);
   assert(n > 0);
+  assert(!buff_is_sized(self));
   char* str = buff_append(self, mlayout_bytes(n));
   if UNLIKELY (is_null(str)) {
     return sslice_empty();
@@ -157,6 +196,7 @@ METHOD
 sslice buff_append_str(Buff* self, const char* string) {
   assert(self);
   assert(string);
+  assert(!buff_is_sized(self));
   const i32 len = stringlen(string);
   return buff_append_nstr(self, string, len);
 }
@@ -170,21 +210,28 @@ Buff* buff_resize(Buff* s, i32 new_capacity, Allocator alloc) {
   assert(new_capacity > 0);
   assert(vtmask_is_ok(alloc.vtable->mask));
   Buffer* self = asbuff(s);
+
+  if (buff_is_sized(s)) {
+    new_capacity *= self->elem_size;
+  }
+
   const i32 curr_cap = self->capacity;
 
   if UNLIKELY (curr_cap == new_capacity) {
     return s;
   }
   if (new_capacity < curr_cap) {
-    self->len = new_capacity;
+    self->capacity = new_capacity;
+    if (new_capacity < self->len) {
+      self->len = new_capacity;
+    }
     return s;
   }
 
   const auto old = mlayout_fma(Buffer, self->capacity);
   const auto new_layout = mlayout_fma(Buffer, new_capacity);
   if (vtmask_has_expand(alloc.vtable->mask)) {
-    self = allocator_expand(alloc, self, old, new_layout);
-    if LIKELY (is_not_null(self)) {
+    if (allocator_expand(alloc, self, old, new_layout)) {
       return &self->start[0];
     }
   }
@@ -230,16 +277,12 @@ i32 buff_write(Buff* self, void* out, i32 out_len) {
   return size;
 }
 
-/// Clears Buff. Sets its inner field to 0
-METHOD
 void buff_clear(Buff* self) {
   assert(self);
   Buffer* s = asbuff(self);
   s->len = 0;
 }
 
-/// Same as [buff_clear], but also memsets this Buff to all zeroes
-METHOD
 void buff_clear_zeroed(Buff* self) {
   assert(self);
   Buffer* s = asbuff(self);
@@ -247,6 +290,55 @@ void buff_clear_zeroed(Buff* self) {
 
   buff_clear(self);
   memset(&s->start[0], 0, old_len);
+}
+
+i32 buff_grow_to_cap(Buff* s) {
+  assert(s);
+  Buffer* self = asbuff(s);
+
+  self->len = self->capacity;
+
+  return self->len;
+}
+
+const void* buff_cindex(const Buff* s, i32 index) {
+  assert(s);
+  const Buffer* self = asbuff(s);
+  if (index < 0 || index >= self->len) {
+    log_fatal(FILE_FMT "Attempted to index Buffer of length: %d with an index that is out of range!: %d",
+              FILE_FMT_ARGS(Buff, self->len, index));
+  }
+  return &self->start[index];
+}
+
+void* buff_index(Buff* s, i32 index) {
+  assert(s);
+  Buffer* self = asbuff(s);
+  if (index < 0 || index >= self->len) {
+    log_fatal(FILE_FMT "Attempted to index Buffer of length: %d with an index that is out of range!: %d",
+              FILE_FMT_ARGS(Buff, self->len, index));
+  }
+  return &self->start[index];
+}
+
+void buff_fatal_error(Buff* s, const char* fmt, ...) {
+  va_list args;
+  va_start(args);
+
+  Buffer* self = asbuff(s);
+  println(
+      "Buffer of size: %d bytes, and capacity %d bytes experienced an unrecoverable error when calling one of its "
+      "functions!",
+      self->len, self->capacity);
+
+  vlog_fatal(fmt, args);
+}
+
+void buff_clear_zeroed_cap(Buff* self) {
+  // set length to capacity so when we call [buff_clear_zeroed], it memsets the entire capacity of this Buff to 0 and
+  // then sets our length field to 0
+  buff_set_len(self, buff_capacity(self));
+  buff_clear_zeroed(self);
 }
 
 /// Releases memory used by this buffer back to the @param (Allocator alloc) that created it.
@@ -260,12 +352,22 @@ void buff_destroy(Buff* self, Allocator alloc) {
   allocator_free(alloc, s);
 }
 
+i32 buff_elem_size(const Buff* self) {
+  assert(self);
+  return asbuff(self)->elem_size;
+}
+
+bool buff_is_sized(const Buff* self) {
+  const i32 size = buff_elem_size(self);
+  return size > 1;
+}
+
 /// Returns true if this Buff has enough capacity to fit a @param (MemLayout layout), otherwise false.
 bool buff_has_space_for(const Buff* self, MemLayout layout) {
   assert(self);
   assert(IS_POWER_OF_2(layout.align));
   assert(layout.size > 0);
-  const ptr(u8) top = align_ptr(buff_ctop(self), layout.align);
+  const ptr(u8) top = ptr_alignup((void*)buff_ctop(self), layout.align);
   const ptr(u8) next_top = top + layout.size;
   const ptr(u8) end = buff_cend(self);
   return next_top <= end;
@@ -298,12 +400,77 @@ i32 buff_min_size(void) {
 
 i32 buff_len(const Buff* self) {
   assert(self);
+
   const ptr(Buffer) s = asbuff(self);
-  return s->len;
+  assert(s->elem_size > 0);
+
+  return s->len / s->elem_size;
 }
 
 i32 buff_capacity(const Buff* self) {
   assert(self);
   const ptr(Buffer) s = asbuff(self);
-  return s->capacity;
+  assert(s->elem_size > 0);
+  return s->capacity / s->elem_size;
+}
+
+sslice string_vfpush(String self, char terminal, const char* fmt, va_list args) {
+  assert(self);
+  assert(fmt);
+
+  const i32 avail = string_available(self);
+
+  Buff* b = pcast(Buff, self);
+  char* top = pcast(char, buff_top(b));
+  const i32 len = vsnprintf(top, avail, fmt, args);
+
+  /// vsnprintf already copies a null terminator into the resulting formatted string, so
+  // we dont need to do this if given terminal is a null character
+  if (terminal != '\0') {
+    top[len] = terminal;
+  }
+
+  return sslice_new(.begin = top, .len = len);
+}
+
+sslice string_fpush(String self, char terminal, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, terminal, fmt, args);
+
+  va_end(args);
+
+  return slice;
+}
+
+sslice string_fpush_nl(String self, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, '\n', fmt, args);
+
+  va_end(args);
+
+  return slice;
+}
+
+sslice string_fpush_null(String self, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice slice = string_vfpush(self, '\0', fmt, args);
+
+  va_end(args);
+
+  return slice;
 }

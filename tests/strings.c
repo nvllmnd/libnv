@@ -1,9 +1,12 @@
 
 #include <stdio.h>
 
-#include "core_types.h"
-#include "intdefs.h"
-#include "memory/cstr.h"
+#include "nv/core/algo.h"
+#include "nv/core/intdefs.h"
+#include "nv/core/log.h"
+#include "nv/core/spad.h"
+#include "nv/core_types.h"
+#include "nv/memory/virt.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -63,20 +66,17 @@ void move_memory_helpers(void) {
     TEST_ASSERT_EQUAL_STRING(b.buf, INPUT);
     TEST_ASSERT_NULL(a.buf);
   }
-
-
-
-  
 }
 
 void tagged_pointers(void) {
   typedef struct Point {
-    double x; double y;
+    double x;
+    double y;
   } Point;
 
   const Point val = make(Point, 1000., 0.5265236);
 
-  const Point* original = &val; 
+  const Point* original = &val;
 
   const Point* tptr = tptr_new(original, true);
   const Point* untagged = tptr_ptr(tptr);
@@ -85,33 +85,69 @@ void tagged_pointers(void) {
   const bool tag = tptr_tag(tptr);
 
   TEST_ASSERT_TRUE(tag);
-  
 }
 
+void stringpad_builds_string(void) {
+  VirtMem* vm = {};
+  NvError err = vmem_init(&vm, MEGABYTES(24));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
-void string_compare(void) {
-  static constexpr const char STR[] = "this is a test string!";
-  const cstr l = cstr_new(STR);
-  const cstr r = cstr_new(STR);
+  {
+    static constexpr const i32 BLEH_COUNT = 200;
+    // allocate random space so we can test building strings in the middle of using VirtMem for other stuff
+    i32* bleh = vmem_allocate_array(vm, i32, BLEH_COUNT);
+    TEST_ASSERT_NOT_NULL(bleh);
+    for (i32 i = 0; i < BLEH_COUNT; i++) {
+      bleh[i] = (i * i * i) ^ i;
+    }
+  }
 
-  TEST_ASSERT_TRUE_MESSAGE(cstr_eq(&l, &r), "cstr_cmp between 2 strings that should be the same failed!");
+  const i32 prev_avail = vmem_available(vm);
+  const i32 prev_used = vmem_used_bytes(vm);
 
-  const cstr diff = cstr_new("this is a different string!");
+  StringPad sp = spad_new(vm);
 
-  TEST_ASSERT_FALSE_MESSAGE(cstr_eq(&l, &diff), "Strings should be diff");
+  sslice sl = spad_fappend(&sp, "asdf ayooo %d ", 540);
 
-  const sslice slice_this = sslice_from_range(cstr_as_ptr(&diff), 0, 4);
-  const sslice slice_that = sslice_from_range(cstr_as_ptr(&l), 0, 4);
+  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 ", sl.begin, sl.len);
 
-  TEST_ASSERT_TRUE_MESSAGE(sslice_eq(slice_this, slice_that), "slices should match");
+  sl = spad_fappend(&sp, "%s", "interpolate!");
+
+  TEST_ASSERT_EQUAL_STRING_LEN("interpolate!", sl.begin, sl.len);
+
+  sl = spad_append(&sp, " we building!");
+
+  TEST_ASSERT_EQUAL_STRING_LEN(" we building!", sl.begin, sl.len);
+
+  char buf[255] = {};
+
+  spad_clone_into(&sp, buf, 255);
+
+  LOG("PREV_USED: %d, CURR_USED: %d", prev_used, vmem_used_bytes(vm));
+
+  LOG("PREV_AVAIL: %d, CURR_AVAIL: %d", prev_avail, vmem_available(vm));
+
+  spad_destroy(&sp);
+
+  const i32 avail = vmem_available(vm);
+  const i32 used = vmem_used_bytes(vm);
+
+  LOG("AVAIL: %d", avail);
+  LOG("USED: %d", used);
+
+  TEST_ASSERT_EQUAL(prev_avail, avail);
+  TEST_ASSERT_EQUAL(prev_used, used);
 }
+
+void spad_clones_into_arena(void) {}
 
 i32 main(void) {
   UNITY_BEGIN();
 
-  RUN_TEST(string_compare);
+  // RUN_TEST(string_compare);
   RUN_TEST(move_memory_helpers);
   RUN_TEST(tagged_pointers);
+  RUN_TEST(stringpad_builds_string);
 
   return UNITY_END();
 }

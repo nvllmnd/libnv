@@ -7,7 +7,8 @@ project(
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
     'werror=true',
     'b_ndebug=if-release',
-    # 'default_library=static',
+    'b_staticpic=false',
+    'default_library=static',
     'warning_level=3'
   ],
 )
@@ -38,6 +39,9 @@ else
 endif
 
 
+if not meson.is_subproject() 
+  cargs += '-DLIBNV_INTERNAL=1'
+endif
 
 
 dependencies = [
@@ -46,7 +50,6 @@ dependencies = [
 
 inc = include_directories(
   'include',
-  'include/core',
 )
 
 core_lib = static_library(
@@ -54,11 +57,13 @@ core_lib = static_library(
   files(
     'src/core/log.c',
     'src/core/buffer.c',
+    'src/core/vec.c',
+    'src/core/algo.c',
+    'src/core/spad.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
   install: true,
-  pic: true,
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
 )
@@ -70,37 +75,27 @@ core_dep = declare_dependency(
 
 dependencies += core_dep
 
-# if get_option('mimalloc-override').enabled()
-#   mimalloc_proj = subproject('mimalloc')
-#   mimalloc_dep = mimalloc_proj.get_variable('mi_dep')
-  
-#   dependencies += mimalloc_dep
-#   cargs += '-DUSE_MIMALLOC'
-# endif
-
-
-
 
 memory_lib = static_library(
   'nv_memory',
   files(
-    'src/memory/cstr.c',
     'src/memory/alloc.c',
     'src/memory/arena.c',
     'src/memory/virt.c',
     'src/memory/block_alloc.c',
+    'src/memory/static_alloc.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
   install: true,
-  pic: true,
+
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
 )
 
 memory_dep = declare_dependency(
   include_directories: inc,
-  link_with: memory_lib
+  link_with: memory_lib,
 )
 
 
@@ -123,6 +118,8 @@ nv_dep = declare_dependency(
 )
 
 meson.override_dependency('libnv', nv_dep)
+
+dependencies += nv_dep
 
 subdir('tests')
 

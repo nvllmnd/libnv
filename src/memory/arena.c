@@ -1,18 +1,20 @@
-#include "memory/arena.h"
+#include "nv/memory/arena.h"
 
 #include <assert.h>
 #include <string.h>
 
-#include "attributes.h"
-#include "core_types.h"
-#include "log.h"
-#include "memory/alloc.h"
-#include "memory/virt.h"
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/log.h"
+#include "nv/core_types.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/virt.h"
 
 struct Block {
   struct Block* prev;
   i64 used;
   i64 capacity;
+  ATTR_COUNTED_BY(capacity)
   u8 mem[];
 };
 typedef struct Block Block;
@@ -59,6 +61,7 @@ struct Arena {
   i64 mem_used;
   i64 mem_cap;
 
+  ATTR_COUNTED_BY(mem_cap)
   u8 mem[];
 };
 
@@ -69,7 +72,7 @@ static inline void* ah_try_inner_allocate(Arena* self, MemLayout layout) {
   const isize end = self->mem_used + size;
   if (end < self->mem_cap) {
     u8* start = &self->mem[self->mem_used];
-    u8* aligned_start = align_ptr(start, align);
+    u8* aligned_start = ptr_alignup(start, align);
 
     const u8* alloc_end = aligned_start + size;
 
@@ -97,7 +100,7 @@ static inline bool ah_alloc_in_block_ok(Arena* self, isize size, isize align) {
     }
 
     const u8* alloc_start = &root->mem[root->used];
-    const u8* aligned_start = align_ptr(alloc_start, align);
+    const u8* aligned_start = ptr_alignup((void*)alloc_start, align);
 
     const u8* alloc_end = aligned_start + size;
 
@@ -124,7 +127,7 @@ static inline void* ah_block_allocate(Arena* self, isize size, isize align) {
 
   Block* root = self->root;
   u8* start = &root->mem[root->used];
-  u8* aligned = align_ptr(start, align);
+  u8* aligned = ptr_alignup(start, align);
 
   const isize alloc_size = (size + (aligned - start));
   root->used += alloc_size;
@@ -138,22 +141,23 @@ static inline void* ah_expand(Arena* self, void* ptr, MemLayout old_layout, MemL
     return nullptr;
   }
   if (new_layout.size == old_layout.size) {
-    return ptr;
+    return nullptr;
   }
 
   if (self->last_alloc == ptr) {
     const u8* pend = pcast(const u8, ptr) + new_layout.size;
     const i32 delta = new_layout.size - old_layout.size;
     if (pend >= &self->mem[0] && pend <= &self->mem[self->mem_cap - 1]) {
-     self->mem_used += delta; 
-     return ptr;
+      self->mem_used += delta;
+      return ptr;
     }
-    if (self->root && pend >= &self->root->mem[0] && pend <= &self->root->mem[self->root->capacity - 1] ) {
+    if (self->root && pend >= &self->root->mem[0] && pend <= &self->root->mem[self->root->capacity - 1]) {
       self->root->used += delta;
       return ptr;
     }
 
-    // we cant expand in place. ): most likely because there is not enough room in the buffer this ptr lives at to expand any further
+    // we cant expand in place. ): most likely because there is not enough room in the buffer this ptr lives at to
+    // expand any further
     return nullptr;
   }
 
@@ -199,17 +203,16 @@ static void* arena_vtzalloc_impl(void* ctx, MemLayout layout) {
   return arena_zalloc(self, layout);
 }
 
-static void* arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+static bool arena_vtexpand_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
   Arena* self = pcast(Arena, ctx);
-  return ah_expand(self, ptr,  old_layout,  new_layout);
-
+  return ah_expand(self, ptr, old_layout, new_layout);
 }
 
-static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool exclusive) {
+static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_bytes, isize capacity, bool exclusive) {
   if (is_null(vm)) {
     exclusive = true;
 
-    if (vmem_init(&vm, vmem_mb) != OK) {
+    if (vmem_init(&vm, vmem_bytes) != OK) {
       LOG_DBG(
           "Call to vmem_init failed! Could not allocate virtual memory when attempting to create a new [ArenaHeap]!");
       return nullptr;
@@ -233,35 +236,36 @@ static inline Arena* ah_new_ex(VirtMem* vm, isize vmem_mb, isize capacity, bool 
 
 static void* arena_vtrealloc_impl(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) {
   if (old_layout.size == new_layout.size) {
-   return ptr; 
+    return ptr;
   }
 
   Arena* self = pcast(Arena, ctx);
   if (new_layout.size < old_layout.size) {
     const u8* p = pcast(const u8, ptr);
     const i32 delta = old_layout.size - new_layout.size;
-    if (p >= &self->mem[0] && p < &self->mem[self->mem_cap -1]) {
+    if (p >= &self->mem[0] && p < &self->mem[self->mem_cap - 1]) {
       self->mem_used -= delta;
       return ptr;
     }
 
     if (self->root && p >= &self->root->mem[0] && p <= &self->root->mem[self->root->capacity - 1]) {
       self->root->used -= delta;
-      return ptr; 
+      return ptr;
     }
 
-    // If we got to here, the pointer probably exists somewhere deeper in the linked list of blocks, and therefore most likley
-    // not eligible for a resize, as "resizing" an Arena is the same as the inverse of expand (shrink) and if caller truely desires to "shrink" their allocated memory, then they can
-    // simply decrement their capacity/length field that tracks the size of its span in memory
+    // If we got to here, the pointer probably exists somewhere deeper in the linked list of blocks, and therefore most
+    // likley not eligible for a resize, as "resizing" an Arena is the same as the inverse of expand (shrink) and if
+    // caller truely desires to "shrink" their allocated memory, then they can simply decrement their capacity/length
+    // field that tracks the size of its span in memory
     return ptr;
-
   }
   if (self->last_alloc == ptr) {
-    return ah_expand(self, ptr,  old_layout,  new_layout);
+    return ah_expand(self, ptr, old_layout, new_layout);
   }
-  // otherwise we just make more space for new allocation and memcpy contents over to new memory location. This is an arena, so leaking
-  // old data like this is not really undesireable, as all memory associated with this arena will be freed upon its destruction
-  void* res =  ah_allocate(self, new_layout);
+  // otherwise we just make more space for new allocation and memcpy contents over to new memory location. This is an
+  // arena, so leaking old data like this is not really undesireable, as all memory associated with this arena will be
+  // freed upon its destruction
+  void* res = ah_allocate(self, new_layout);
   if (is_not_null(res)) {
     memcpy(res, ptr, old_layout.size);
   }
@@ -271,12 +275,15 @@ static void* arena_vtrealloc_impl(void* ctx, void* ptr, MemLayout old_layout, Me
 
 void arena_vtfree_impl(void*, void*) {}
 
-static const AllocVTable HEAP_VTABLE =
-    alloc_vtable_new(.allocate = arena_vtalloc_impl, .zallocate = arena_vtzalloc_impl, .free = arena_vtfree_impl,
-                     .reallocate = arena_vtrealloc_impl, .expand = arena_vtexpand_impl, .mask = VT__Allocate | VT__Zallocate | VT__Free | VT__Expand);
+static const AllocVTable HEAP_VTABLE = (AllocVTable){.allocate = arena_vtalloc_impl,
+                                                     .zallocate = arena_vtzalloc_impl,
+                                                     .free = arena_vtfree_impl,
+                                                     .reallocate = arena_vtrealloc_impl,
+                                                     .expand = arena_vtexpand_impl,
+                                                     .mask = VT__All};
 
-Arena* arena_new(isize vmem_size_in_mb, isize init_capacity) {
-  return ah_new_ex(nullptr, vmem_size_in_mb, init_capacity, true);
+Arena* arena_new(isize vmem_size_bytes, isize init_capacity) {
+  return ah_new_ex(nullptr, vmem_size_bytes, init_capacity, true);
 }
 
 Arena* arena_in_vmem(VirtMem* vm, isize capacity, bool exclusive) {
@@ -332,3 +339,19 @@ const AllocVTable* arena_alloc_vtable(void) { return &HEAP_VTABLE; }
 Allocator arena_allocator(Arena* self) { return make(Allocator, .ctx = self, .vtable = &HEAP_VTABLE); }
 
 ArenaStats arena_stats(Arena* self) { return self->stats; }
+
+const char* arena_strndup(Arena* self, const char* string, i32 string_len) {
+  assert(self);
+  if (is_null(string) || string_len <= 0) {
+    return nullptr;
+  }
+  char* s = arena_alloc(self, mlayout_bytes(string_len + 1));
+  if UNLIKELY (is_null(s)) {
+    LOG_DBG(FILE_FMT " :: Failed to dup string: %.*s", FILE_FMT_ARGS(Arena, string_len, string));
+    return nullptr;
+  }
+  strncpy(s, string, string_len);
+
+  s[string_len] = 0;
+  return s;
+}
