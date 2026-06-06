@@ -114,33 +114,8 @@ nv_lib = library(
 
 nv_dep = declare_dependency(
   include_directories: inc,
-  link_whole: nv_lib,
+  link_with: nv_lib
 )
-
-# if not meson.is_subproject()
-  # install_headers(
-  #   'include/core_types.h',
-  #   subdir: meson.project_name() 
-  # )
-  # install_headers(
-  #   'include/core/attributes.h',
-  #   'include/core/constants.h',
-  #   'include/core/intdefs.h',
-  #   'include/core/sslice.h',
-  #   'include/core/algo.h',
-  #   subdir: meson.project_name() + '/core'
-  # )
-
-  # install_headers(
-  #   'include/memory/block_alloc.h',
-  #   'include/memory/error.h',
-  #   'include/memory/virt.h',
-  #   'include/memory/static_alloc.h',
-  #   subdir: meson.project_name() + '/memory'
-  # )
-
-  
-# endif
 
 meson.override_dependency('libnv', nv_dep)
 
