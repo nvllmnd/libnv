@@ -17,6 +17,8 @@
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
+
+#include "nv/core/stb_sprintf.h"
 #include "nv/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
@@ -530,7 +532,7 @@ char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args) 
   // NOTE: Since we limit this string to the available memory in this virtmem, the above [vmem_allocate] call should
   // never fail
 
-  vsnprintf(str, len, fmt, args);
+  stbsp_vsnprintf(str, len, fmt, args);
 
   if (len_out) {
     *len_out = len - 1;  // dont include terminal null character in the length we report!

@@ -4,12 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include "nv/core/stb_sprintf.h"
 
 FormatError format_with(char* dst, isize len, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
 
-  const i32 err = vsnprintf(dst, len, fmt, args);
+  const i32 err = stbsp_vsnprintf(dst, len, fmt, args);
 
   va_end(args);
 
