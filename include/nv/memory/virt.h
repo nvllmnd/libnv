@@ -340,7 +340,7 @@ NvError vmem_lock(VirtSelf self, i64 nbytes);
 NvError vmem_unlock(VirtSelf self, i64 nbytes);
 
 /// @brief calls [madvise] with [MADV_WILLNEED] on up to n bytes
-NvError vmem_commit(VirtSelf self, i64 nbytes);
+NvError vmem_will_need(VirtSelf self, i64 nbytes);
 
 /// @brief format allocates a null-terminated string slice in printf style
 ///@remarks If the expanded formatted string is larger than available memory,

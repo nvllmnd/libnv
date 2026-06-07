@@ -295,7 +295,7 @@ NvError vmem_unlock(VirtMem* self, i64 nbytes) {
   return Error__Ok;
 }
 
-NvError vmem_commit(VirtMem* self, i64 nbytes) {
+NvError vmem_will_need(VirtMem* self, i64 nbytes) {
   assert(self);
   assert(nbytes > 0);
   const i32 err = madvise(self, nbytes, MADV_WILLNEED);
@@ -367,7 +367,7 @@ NvError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
 
   if (bithas(opts.mode, VMap__CommitPages) && opts.commit_bytes != 0) {
     const i64 bytes = opts.commit_bytes < 0 ? size : opts.commit_bytes;
-    return vmem_commit(*self, bytes);
+    return vmem_will_need(*self, bytes);
   }
 
   if (bithas(opts.mode, VMap__LockPages) && opts.lock_bytes != 0) {
