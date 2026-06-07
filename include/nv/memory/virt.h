@@ -10,26 +10,18 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
-/// Integral type used for tracking bytes of virtual memory allocated
-typedef i32 MemSize;
-
-/// Represents memory that has been paged through mmap/VirtualAlloc. / Ideally
-/// you want to create these with significant sizes (2MB+), as this memory is
-/// paged on demand and therefore not fully mapped until a read or write into
-/// that region of memory is attempted This is not meant to 'resize' or
-/// 'relocate'. After there are no more available bytes to allocate, the only
-/// way to be able to allocate more is to clear/reset this through
-/// [virtmem_clear]/[virtmem_clear_zeroed]. and lets be honest, if your
-/// application is exhausting more than 2MB of memory, then you should consider
-/// increasing the size of this structure to accommidate the increased demand.
-///
-/// NOTE: I may eventually add a 'chained' version of this struct, so that when
-/// one region of virtual memory is exhausted, we can still keep allocating. OR
-/// i can try doing some kind of bookkeeping so that we can try to reuse memory
-/// that has been marked as no longer used (freed!), or a combo of both. for now
-/// im going to keep it simple, as this on top of [ArenaHeap] is sufficient for
-/// most applications methinks
+/// @brief opaque type representing demand-paged virtual memory
+/// @details This type is functionally similar to an Arena Allocator.
+/// NOTE: (06/07/2026) Due to the above observation (about this being functionally similar to an Arena Allocator), i
+/// have removed the Arena type in arena.c/arena.h, just doesnt seem needed, as most the time I reach for this type
+/// anyway lol
 typedef struct VirtMem VirtMem;
+
+/// @brief opaque pointer to [VirtMem]
+typedef VirtMem* VirtHndl;
+
+/// @brief descriptive alias for VirtMem method functions
+typedef VirtMem* VirtSelf;
 
 /// @brief Essentially a wrapper around flags passed to [mmap]
 /// @details This falls under the [VirtMem] API, so any mmap flags specific to memory mapping of files
@@ -45,14 +37,12 @@ typedef enum HEDLEY_FLAGS VMapMode {
 
   /// @brief default behavior
   /// @details passes MAP_PRIVATE|MAP_ANONYMOUS with no additional flags
-  VMap__Default = 0,
+  VMap__PrivAnon = 0,
   /// @brief passes [MAP_NORESERVE] to mmap.
   /// @details adds [MAP_NORESERVE] on top of the default flags
   ///
-  /// @remarks Im not sure exactly what, if anything, MAP_NORESERVE does, since we are already
-  /// passing MAP_PRIVATE|MAP_ANONYMOUS. From what i can gather, it seems [MAP_NORESERVE] just doesnt fall back to swap
-  /// storage if physical memory is all used up. But im not 100% sure on that, good chance i am misunderstanding and
-  /// have yet to fully grok.
+  /// @remarks Turns out this flag is pretty important if we plan on using overcommit, so this is added to the default
+  /// flags
   VMap__NoReserve = 1,
   /// @brief passes [MAP_LOCKED] to mmap
   /// @details adds [MAP_LOCKED] on top of the default flags
@@ -66,6 +56,9 @@ typedef enum HEDLEY_FLAGS VMapMode {
   VMap__LockPages = 1 << 3,
   /// @brief calls [madvise] with [MADV_WILLNEED] on caller given sizes after successful mmap
   VMap__CommitPages = 1 << 4,
+
+  /// @brief MAP_PRIVATE|MAP_ANONYMOUS|MAP_NORESERVE
+  VMap__Default = VMap__PrivAnon | VMap__NoReserve
 } VMapMode;
 
 /// @brief Remap flags for [vmem_remap].
@@ -80,20 +73,20 @@ typedef enum VRemapMode {
 /// @brief Initialization struct for initializing new [VirtMem] with extended options
 struct VirtMemOpts {
   /// @details count in bytes of requested virtual memory mapping
-  i32 size_bytes;
+  i64 size_bytes;
   /// @brief count bytes user wishes to be prefaulted.
   /// @details This value is ignored if [VMap__PrefaultSize] is not set.
   /// if value is negative, all pages are prefaulted and the behavior is equivalent to passing [VMap__PrefaultAll]. If
   /// value is 0, nothing is done if value is greater than the amount of pages this virtual mapping owns, then all pages
   /// are prefaulted just as if enabling the [VMap__PrefaultAll] flag
-  i32 commit_bytes;
+  i64 commit_bytes;
 
   /// @brief count of bytes user wishes to be locked into physical RAM.
   /// @details This value is ignored if [VMap__LockSize] is not set.
   /// if value is negative, all pages are locked and the behavior is equivalent to passing [VMap__LockAll]. If value is
   /// 0, nothing is done if value is greater than the amount of pages this virtual mapping owns, then all pages are
   /// locked just as if enabling the [VMap__LockAll] flag
-  i32 lock_bytes;
+  i64 lock_bytes;
   /// @brief a striped down version of POSIX mmap/unmap/mremap API
   /// @details We dont support mapping files or shared memory (yet) as well as some other <sys/mman.h> flags
   VMapMode mode;
@@ -104,15 +97,17 @@ alias(VirtMemOpts);
 
 /// @brief cretes new [VirtMemOpts] with given size and default flags
 CONST_FUNC
-static inline VirtMemOpts vmem_opts_default_new(i32 size_bytes) {
+static inline VirtMemOpts vmem_opts_default_new(i64 size_bytes) {
   return make(VirtMemOpts, .size_bytes = size_bytes, .commit_bytes = 0, .lock_bytes = 0, .mode = VMap__Default,
               .access = VMap__DefaultAccess);
 }
 
+static constexpr const i64 VMEM_MAX_SIZE_BYTES = INT64_MAX;
+
 /// brief Calls [mmap]/[VirtualAlloc] to request memory of @param (size_in_mb)
 /// megabytes of virtual paged memory.
 ///
-/// @param (i32 size_bytes) :: Minimum size allowed is the size returned by [os_page_size]. Smaller values are ignored
+/// @param (i64 size_bytes) :: Minimum size allowed is the size returned by [os_page_size]. Smaller values are ignored
 /// and [os_page_size] is used instead
 ///
 /// Returns error if virtual allocation fails due to system error or OOM. @param
@@ -120,28 +115,28 @@ static inline VirtMemOpts vmem_opts_default_new(i32 size_bytes) {
 ///
 ///
 METHOD
-NvError vmem_init(VirtMem** self, i32 size_bytes);
+NvError vmem_init(VirtHndl* self, i64 size_bytes);
 
 /// @brief same as [vmem_init], but with extended initialization params!
 // METHOD
-NvError vmem_init_ex(VirtMem** self, VirtMemOpts opts);
+NvError vmem_init_ex(VirtHndl* self, VirtMemOpts opts);
 
 METHOD
 /// returns next available location in memory and increments used counter.
 /// This function returns nullptr if there is not enough available space
 /// for requested allocation.
-void* vmem_allocate(VirtMem* self, MemLayout layout);
+void* vmem_allocate(VirtSelf self, MemLayout layout);
 
 /// Same as [vmem_allocate] but ensures that memory is zeroed before returning
 /// next poitner. This may be needed if [vmem_clear] is called, but otherwise
 /// should not be necessary as allocated vitual memory is zeroed upon
 /// successfull [vmem_new] call
 METHOD
-void* vmem_zallocate(VirtMem* self, MemLayout layout);
+void* vmem_zallocate(VirtSelf self, MemLayout layout);
 
 /// @brief Byte offset of an allocation
 /// @details Must always be a positive value, any negative values are treated as errors
-typedef i32 VAddrOffset;
+typedef i64 VAddrOffset;
 
 /// @brief calculates the byte offset of a pointer allocated by this allocator.
 /// @remarks You can use this to ensure you have
@@ -159,7 +154,7 @@ VAddrOffset vmem_offset(const VirtMem* self, const void* ptr);
 /// @param (VAddrOffset* offset_out) - if not-null, sets as the relative offset of the pointer returned by this
 /// function. Ignored if null
 METHOD
-void* vmem_alloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset_out);
+void* vmem_alloc_offset(VirtSelf self, MemLayout layout, VAddrOffset* offset_out);
 
 /// @brief Allocates and sets address offset if not null.
 /// @details Same as [vmem_allocate] followed by a call to [vmem_offset],
@@ -167,7 +162,7 @@ void* vmem_alloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset_out
 /// @param (VAddrOffset* offset_out) - if not-null, sets as the relative offset of the pointer returned by this
 /// function. Ignored if null//
 METHOD
-void* vmem_zalloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset);
+void* vmem_zalloc_offset(VirtSelf self, MemLayout layout, VAddrOffset* offset);
 
 #define vmem_allocate_tp(_self, T) ((__typeof(T)*)vmem_allocate((_self), mlayout_new(T)))
 #define vmem_zallocate_tp(_self, T) ((__typeof(T)*)vmem_zallocate((_self), mlayout_new(T)))
@@ -192,13 +187,13 @@ void* vmem_zalloc_offset(VirtMem* self, MemLayout layout, VAddrOffset* offset);
 /// @remarks use this to update a poitner and ensure its correctly poiting to the right location in memory (this is how
 /// you get away with relocatable remaps, after which you can still refer to all your memory through VAddrOffset)
 PARAMS_NONNULL(1, 2)
-void vmem_update_ptr(VirtMem* self, void** ptr, VAddrOffset rel_address);
+void vmem_update_ptr(VirtSelf self, void** ptr, VAddrOffset rel_address);
 
 /// @brief looks up a pointer at a relative address.
 /// @remarks This function will terminate execution if rel_address is out of range or negative
 METHOD
 RETURNS_NON_NULL
-void* vmem_lookup_offset(VirtMem* self, VAddrOffset rel_address);
+void* vmem_lookup_offset(VirtSelf self, VAddrOffset rel_address);
 
 /// Releases (decommits) virtual memory back to operating system.
 /// Note that after this function returns, the structure is zeroed and must be
@@ -208,8 +203,11 @@ void* vmem_lookup_offset(VirtMem* self, VAddrOffset rel_address);
 ///
 /// Returns error if underlying implementation fails to release memory back to
 /// system
+/// NOTE: This function does not take a pointer to a pointer (so it can automatically be set to nullptr),
+/// because a common patter is to store a poitner to VirtMem in a child allocations header data, so
+/// when we set that pointer to nullptr after destroying the VirtMem, we get a segfault because we just wrote nullptr to a memory that was just freed!
 METHOD
-NvError vmem_destroy(VirtMem* self);
+NvError vmem_destroy(VirtSelf self);
 
 // #define vmem_destroy(self) ({\
 //   const MemError _err = vmem_destroy((self)); \
@@ -221,40 +219,40 @@ NvError vmem_destroy(VirtMem* self);
 /// memory, however any pointers allocated by this [VirtMem] should be
 /// considered invalid after calling this function
 METHOD
-void vmem_clear(VirtMem* self);
+void vmem_clear(VirtSelf self);
 
 /// Resets allocation used counter back to zero and memsets all virtual memory
 /// from the beginning of it to given byte index. You can call this instead of
 /// [vmem_clear_zeroed] so as to avoid the runtime cost of zeroing 2MB+ of
 /// memory,
 METHOD
-error vmem_zero_range(VirtMem* self, isize index);
+error vmem_zero_range(VirtSelf self, isize index);
 
 /// Same as [vmem_clear], but memsets the entirety of virtual memory to 0.
 /// for a version that only clears from the start of virtual memory to a given
 /// byte index, see [vmem_zero_range]
 METHOD
-void vmem_clear_zeroed(VirtMem* self);
+void vmem_clear_zeroed(VirtSelf self);
 
 /// Returns the size in bytes of the size of virtual memory allocated (not including the header size)
 PURE_FUNC
 METHOD
-i32 vmem_size(const VirtMem* self);
+i64 vmem_size(const VirtMem* self);
 
 /// Same as [vmem_size] but returns the full size of allocation (including the header size)
 PURE_FUNC
 METHOD
-i32 vmem_full_size(const VirtMem* self);
+i64 vmem_full_size(const VirtMem* self);
 
 /// Returns the number of bytes currently in use
 PURE_FUNC
 METHOD
-i32 vmem_used_bytes(const VirtMem* self);
+i64 vmem_used_bytes(const VirtMem* self);
 
 /// Returns number of bytes available for allocation
 PURE_FUNC
 METHOD
-i32 vmem_available(const VirtMem* self);
+i64 vmem_available(const VirtMem* self);
 
 /// Checks if given poitner is a pointer that was allocated from this VirtMem
 /// returns true if given pointer lies within the range of virtual memory, owned by [VirtMem]
@@ -266,14 +264,14 @@ CONST_FUNC
 RETURNS_NON_NULL
 const AllocVTable* vmem_vtable(void);
 
-Allocator vmem_allocator(VirtMem* self);
+Allocator vmem_allocator(VirtSelf self);
 
 struct VirtMemView {
   const void* start;
   const void* end;
-  i32 size_bytes;
-  i32 used_bytes;
-  i32 avail_bytes;
+  i64 size_bytes;
+  i64 used_bytes;
+  i64 avail_bytes;
 };
 alias(VirtMemView);
 
@@ -287,18 +285,31 @@ METHOD
 VirtMemView vmem_view(const VirtMem* self);
 
 CONST_FUNC
-i32 os_page_size(void);
+i64 os_page_size(void);
 
 /// @brief remaps virtual memory used by self to given new size in megabytes
 ///
 /// @returns pointer to new remapped [VirtMem]
 METHOD
-NvError vmem_remap(VirtMem** self, i32 size_bytes, VRemapMode mode);
+NvError vmem_remap(VirtHndl* self, i64 size_bytes, VRemapMode mode);
+
+/// @brief same as @see [vmem_remap], but always passes [VRemap__ExpandInPlace] as mode parameter
+METHOD
+static inline NvError vmem_expand(VirtHndl* self, i64 size_bytes) {
+  return vmem_remap(self, size_bytes, VRemap__ExpandInPlace);
+}
+
+/// @brief same as @see [vmem_remap], but always passes [VRemap__AllowRelocate] as mode parameter
+METHOD
+static inline NvError vmem_remap_move(VirtHndl* self, i64 new_size) {
+  return vmem_remap(self, new_size, VRemap__AllowRelocate);
+}
+
 /// @brief A memory location marker returned from [vmem_mark].
 /// @details can later be passed to [vmem_reset_to] to set back its internal used counter back to where it was when
 /// [vmem_mark] was first called This allows you to clear sections of virtual memory to be reused by later
 /// allocations, while still keeping allocations before first call to [vmem_mark] intact and valid
-typedef i32 VMarker;
+typedef i64 VMarker;
 
 METHOD
 PURE_FUNC
@@ -309,11 +320,11 @@ METHOD
 /// @details a [VMarker] can be returned from a call to [vmem_mark], which is a memory
 /// location to 'reset' to. All allocations made after given marker are considered freed for reuse
 /// and should be considered invalid after this function returns
-void vmem_reset_to(VirtMem* self, VMarker marker);
+void vmem_reset_to(VirtSelf self, VMarker marker);
 
 /// @brief Same as [vmem_reset_to], but zeroes the memory that was backtracked/reset
 METHOD
-void vmem_reset_zeroed(VirtMem* self, VMarker marker);
+void vmem_reset_zeroed(VirtSelf self, VMarker marker);
 
 /// @brief calls [mlock] on up to n bytes
 ///
@@ -321,15 +332,15 @@ void vmem_reset_zeroed(VirtMem* self, VMarker marker);
 /// pages locked begin from start of virtual memory up to n pages
 /// @returns an error associated with inner [mlock] call
 ///
-NvError vmem_lock(VirtMem* self, i32 nbytes);
+NvError vmem_lock(VirtSelf self, i64 nbytes);
 
 /// @brief calls [munlock] on up to n bytes
 /// @details reverses the effects of [vmem_lock]
 /// @returns an error associated with inner [munlock] call
-NvError vmem_unlock(VirtMem* self, i32 nbytes);
+NvError vmem_unlock(VirtSelf self, i64 nbytes);
 
 /// @brief calls [madvise] with [MADV_WILLNEED] on up to n bytes
-NvError vmem_commit(VirtMem* self, i32 nbytes);
+NvError vmem_commit(VirtSelf self, i64 nbytes);
 
 /// @brief format allocates a null-terminated string slice in printf style
 ///@remarks If the expanded formatted string is larger than available memory,
@@ -337,7 +348,7 @@ NvError vmem_commit(VirtMem* self, i32 nbytes);
 /// remaps!)
 HEDLEY_PRINTF_FORMAT(2, 3)
 METHOD
-sslice vmem_fslice(VirtMem* self, const char* fmt, ...);
+sslice vmem_fslice(VirtSelf self, const char* fmt, ...);
 
 /// @brief format allocates a null-terminated string slice in printf style
 ///@remarks If the expanded formatted string is larger than available memory,
@@ -345,28 +356,27 @@ sslice vmem_fslice(VirtMem* self, const char* fmt, ...);
 /// remaps!)
 
 METHOD
-sslice vmem_vfslice(VirtMem* self, const char* fmt, va_list args);
+sslice vmem_vfslice(VirtSelf self, const char* fmt, va_list args);
 
 /// @brief format allocates a null-terminated string in printf style
-/// @details you can pass an optional pointer to i32 to also get the allocated string's length
+/// @details you can pass an optional pointer to i64 to also get the allocated string's length
 /// @param (VirtMem* self) - selfptr
-/// @param (i32* len_out) - optional length out parameter, excluding null character
+/// @param (i64* len_out) - optional length out parameter, excluding null character
 /// @remarks If the expanded formatted string is larger than available memory,
 /// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
 /// remaps!)
 HEDLEY_PRINTF_FORMAT(3, 4)
 METHOD
-char* vmem_fstring(VirtMem* self, i32* len_out, const char* fmt, ...);
+char* vmem_fstring(VirtSelf self, i64* len_out, const char* fmt, ...);
 
 /// @brief format allocates a null-terminated string in printf style
 ///
-/// @details you can pass an optional pointer to i32 to also get the allocated string's length
+/// @details you can pass an optional pointer to i64 to also get the allocated string's length
 /// @remarks If the expanded formatted string is larger than available memory,
 /// string is truncated by the available size. After which any allocations made wil result in a nullptr (unless caller
 /// remaps!)
 METHOD
-char* vmem_vfstring(VirtMem* self, i32* len_out, const char* fmt, va_list args);
-
+char* vmem_vfstring(VirtSelf self, i64* len_out, const char* fmt, va_list args);
 
 METHOD
 /// @brief 'deletes' n most recently allocated bytes.
@@ -379,8 +389,19 @@ METHOD
 /// zeroes the bytes it deletes
 /// @returns Bytes available after this function completes (or [vmem_available](prior to call ing this function) -
 /// nbytes)
-i32 vmem_delete_back(VirtMem* self, i32 nbytes);
+i64 vmem_delete_back(VirtSelf self, i64 nbytes);
 
 /// @brief same as [vmem_delete_back] but zeroes its memory
 METHOD
-i32 vmem_delzero_back(VirtMem* self, i32 nbytes);
+i64 vmem_delzero_back(VirtSelf self, i64 nbytes);
+
+#ifndef NV_ALIAS_VIRTMEM_AS_ARENA
+#define NV_ALIAS_VIRTMEM_AS_ARENA 0
+#endif
+
+// NOTE: The following typedef is to minimize the work needed to replace code already using the Arena type,
+#if defined(NV_ALIAS_VIRTMEM_AS_ARENA) && NV_ALIAS_VIRTMEM_AS_ARENA == 1
+
+typedef VirtMem Arena;
+
+#endif

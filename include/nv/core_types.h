@@ -3,7 +3,6 @@
 #include <math.h>
 #include <stdint.h>
 
-
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
 
@@ -11,13 +10,15 @@
 #define CONCAT3(a, b, c) CONCAT3_(a, b, c)
 
 // NOTE: Ngl, i got this from duckduckgo Claude Haiku ai chat lmao. This is literally the first piece of code ive
-// taken from any kind of AI. Which, would you lookie here, not even 5 min of searching on internet, Claude stole this code from here:
-// https://github.com/donmccaughey/va_args_count/blob/master/va_args_count.h
-// 11 years ago!!! I gotta give credit where credit is due. Fuck AI. Fuck Claude.
-#define VA_ARGS_LEN(...) VA_ARGS_LEN_(__VA_ARGS__, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+// taken from any kind of AI. Which, would you lookie here, not even 5 min of searching on internet, Claude stole this
+// code from here: https://github.com/donmccaughey/va_args_count/blob/master/va_args_count.h 11 years ago!!! I gotta
+// give credit where credit is due. Fuck AI. Fuck Claude.
+#define VA_ARGS_LEN(...) \
+  VA_ARGS_LEN_(__VA_ARGS__, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
 
-#define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, ...) N
-
+#define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, \
+                     ...)                                                                                          \
+  N
 
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
@@ -166,16 +167,42 @@
                     write out the struct name 3 times*/                       \
   typedef struct T T
 
-#define tryerr(_expr)                                                        \
+#define bailerr_with(_expr, _retval)                                           \
   /* evaluates given expression that returns [error] (int), and returns from \
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
     const error _err = (_expr);                                              \
     if (_err != 0) {                                                         \
-      return _err;                                                           \
+      return (_retval);                                                      \
     }                                                                        \
   } while (0)
+
+#define bailerr_withv(_expr)                                                   \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (_expr);                                              \
+    if (_err != 0) {                                                         \
+      return;                                                                \
+    }                                                                        \
+  } while (0)
+
+
+#define bailerr(_expr)                                                   \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (_expr);                                              \
+    if (_err != 0) {                                                         \
+      return _err;                                                                \
+    }                                                                        \
+  } while (0)
+
+
+#define tryerr bailerr
 
 // #define tryerr_or(expr, orelse) do {\
 //     const error _err = (expr); \
@@ -232,4 +259,3 @@
 
 #define bithasall(_set, _flags) (((_set) & (_flags)) == (_flags))
 #define bithasany(_set, _flags) ((_set) & (_flags))
-

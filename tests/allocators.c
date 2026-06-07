@@ -8,7 +8,6 @@
 #include "nv/core/log.h"
 #include "nv/core_types.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/arena.h"
 #include "nv/memory/block_alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/virt.h"
@@ -30,30 +29,31 @@ struct Stuff {
 };
 alias(Stuff);
 
+
 void arena_heap_exclusive(void) {
-  Arena* ah = arena_new(MEGABYTES(4), MEGABYTES(2));
+  VirtMem* ah = nullptr;
+  bailerr_withv(vmem_init(&ah, GB(64)));
   TEST_ASSERT_NOT_NULL(ah);
 
-  Stuff* s = arena_zalloc(ah, mlayout_new(Stuff));
+  Stuff* s = vmem_zallocate(ah, mlayout_new(Stuff));
   TEST_ASSERT_NOT_NULL(s);
 
   *s = make(Stuff, .buf = {}, .points = {}, .counter = 5);
 
-  arena_destroy(ah);
+  vmem_destroy(ah);
 }
 
 void arena_heap_from_vmem(void) {
-  VirtMem* vm = nullptr;
+  VirtMem* vm = {};
 
   TEST_ASSERT_EQUAL(OK, vmem_init(&vm, MEGABYTES(16)));
 
   TEST_ASSERT_NOT_NULL(vm);
 
-  Arena* ah = arena_in_vmem(vm, MEGABYTES(2), true);
 
   for (i32 i = 0; i < 50; i++) {
-    char* b1 = arena_zalloc(ah, mlayout_bytes(1024));
-    char* b2 = arena_zalloc(ah, mlayout_bytes(2048));
+    char* b1 = vmem_zallocate(vm, mlayout_bytes(1024));
+    char* b2 = vmem_zallocate(vm, mlayout_bytes(2048));
 
     TEST_ASSERT_NOT_NULL(b1);
     TEST_ASSERT_NOT_NULL(b2);
@@ -63,10 +63,9 @@ void arena_heap_from_vmem(void) {
     TEST_ASSERT_EQUAL_STRING(b1, "ayooo");
   }
 
-  const ArenaStats stats = arena_stats(ah);
-  println("TOTAL ALLOCATED IN BYTES : %li", stats.total_used);
 
-  arena_destroy(ah);
+
+  vmem_destroy(vm);
 }
 
 void vmap_ex_lock_and_commit(void) {

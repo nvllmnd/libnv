@@ -123,9 +123,9 @@ void stringpad_builds_string(void) {
 
   spad_clone_into(&sp, buf, 255);
 
-  LOG("PREV_USED: %d, CURR_USED: %d", prev_used, vmem_used_bytes(vm));
+  LOG("PREV_USED: %d, CURR_USED: %li", prev_used, vmem_used_bytes(vm));
 
-  LOG("PREV_AVAIL: %d, CURR_AVAIL: %d", prev_avail, vmem_available(vm));
+  LOG("PREV_AVAIL: %d, CURR_AVAIL: %li", prev_avail, vmem_available(vm));
 
   spad_destroy(&sp);
 

@@ -113,7 +113,7 @@ NvError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   BlockAllocator* self = vmem_allocate(backing, layout);
   if UNLIKELY (is_null(self)) {
     LOG_DBG(
-        "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %d "
+        "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %li "
         "bytes of available memory and cannot acommidate an allocation of size: %d",
         __func__, vmem_available(backing), mlayout_new(BlockAllocator).size);
     return Error__VirtMemOutOfMemory;
@@ -168,7 +168,7 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   Block* next = vmem_allocate(self->vm, block_layout);
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
-        "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %d bytes of "
+        "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
         "available memory and cannot accomidate an allocation of size %d bytes!",
         __func__, vmem_available(self->vm), block_layout.size);
 
@@ -246,7 +246,7 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
   Block* next = vmem_allocate(self->vm, block_layout);
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
-        "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %d bytes of "
+        "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
         "available memory and cannot accomadate an allocation of size %d bytes!",
         __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
     return nullptr;
