@@ -134,6 +134,12 @@ void* vmem_allocate(VirtSelf self, MemLayout layout);
 METHOD
 void* vmem_zallocate(VirtSelf self, MemLayout layout);
 
+METHOD
+void* vmem_reallocate(VirtSelf self, void* ptr, MemLayout old, MemLayout nlayout);
+
+METHOD
+bool vmem_expand(VirtSelf self, void* ptr, MemLayout old, MemLayout nlayout);
+
 /// @brief Byte offset of an allocation
 /// @details Must always be a positive value, any negative values are treated as errors
 typedef i64 VAddrOffset;
@@ -296,7 +302,7 @@ NvError vmem_remap(VirtHndl* self, i64 size_bytes, VRemapMode mode);
 
 /// @brief same as @see [vmem_remap], but always passes [VRemap__ExpandInPlace] as mode parameter
 METHOD
-static inline NvError vmem_expand(VirtHndl* self, i64 size_bytes) {
+static inline NvError vmem_remap_expand(VirtHndl* self, i64 size_bytes) {
   return vmem_remap(self, size_bytes, VRemap__ExpandInPlace);
 }
 
@@ -439,7 +445,11 @@ i64 vmem_delzero_back(VirtSelf self, i64 nbytes);
 // };
 
 // alias(Slabocator);
+//
 
+
+
+/// TODO: Need to finish this implementation
 /// @brief a simple Arena Allocator
 /// @details Allocates out of either a [VirtMem], or backing [Allocator]. it is the caller's responsibility to manage
 /// the backing memory of this allocator If more space is required after creation. If you need an Arena style allocator

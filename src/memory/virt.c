@@ -78,23 +78,19 @@ static inline VMarker wm_pop(Watermark* self) {
   return res;
 }
 
-
-
 static inline VMarker wm_peekn(const Watermark* self, i32 offset) {
   const i32 i = self->i + offset;
 
   if (i >= VMEM_WATERMARK_MAX) {
-   return self->data[i % VMEM_WATERMARK_MAX];
-  } else if (i < 0 ) {
+    return self->data[i % VMEM_WATERMARK_MAX];
+  } else if (i < 0) {
     return -1;
   }
   return self->data[i];
-
 }
 
 static inline VMarker wm_peek(const Watermark* self) {
   assert(self);
-
 
   return wm_peekn(self, 0);
 }
@@ -138,6 +134,31 @@ i64 os_page_size(void) {
   return size;
 }
 
+static inline void vmem_resize_in_place(VirtHndl self, void* ptr, MemLayout old, MemLayout new_layout) {
+  assert(self);
+  assert(ptr);
+
+  if UNLIKELY (ptr != self->last_alloc) {
+    LOG_FATAL("Cannot call vmem_expand_in_place with pointer not equal to last allocated pointer!");
+  }
+
+  const i32 delta = new_layout.size - old.size;
+
+#if LIBNV_DEBUG
+  if (delta < 0) {
+    LOG_DBG("Shrinking memory of size %d bytes to %d bytes! decrementing top pointer by %d bytes!", old.size,
+            new_layout.size, delta);
+  } else if (delta > 0) {
+    LOG_DBG("Expanding memory in place from size %d bytes to %d bytes! incrementing top pointer by %d bytes!", old.size,
+            new_layout.size, delta);
+  } else {
+    LOG_DBG("Old size: %d and new size: %d are equal! no need to shrink or resize!", old.size, new_layout.size);
+  }
+#endif
+
+  self->top += delta;
+}
+
 NvError vmem_init(VirtMem** self, i64 size_bytes) {
   assert(self);
   assert(size_bytes > 0);
@@ -176,6 +197,50 @@ NvError vmem_init(VirtMem** self, i64 size_bytes) {
   *self = ptr;
 
   return Error__Ok;
+}
+
+void* vmem_reallocate(VirtMem* self, void* ptr, MemLayout old, MemLayout nlayout) {
+  assert(self);
+  assert(ptr);
+
+  if (self->last_alloc == ptr) {
+    vmem_resize_in_place(self, ptr, old, nlayout);
+    return ptr;
+  }
+
+  void* dst = vmem_allocate(self, nlayout);
+  if (dst) {
+    memcpy(dst, ptr, old.size);
+    return dst;
+  }
+
+  return nullptr;
+}
+
+bool vmem_expand(VirtMem* self, void* ptr, MemLayout old, MemLayout nlayout) {
+  assert(self);
+  assert(ptr);
+
+  if (nlayout.size <= old.size) {
+    LOG_DBG(
+        "Tried to expand a pointer, but new size: %d is smaller than (or equal to) old size: %d Allocator::expand is "
+        "ment for "
+        "in-place growing of memory!, use Allocator::reallocate to shrink!",
+        nlayout.size, old.size);
+    return false;
+  }
+
+  if (self->last_alloc == ptr) {
+    vmem_resize_in_place(self, ptr, old, nlayout);
+    return true;
+  }
+
+  LOG_DBG(
+      "Cannot expand pointer of size: %d bytes to size %d bytes, as it was not the most recent allocation in this "
+      "particular VirtMem! expansion currently not possible!",
+      old.size, nlayout.size);
+
+  return false;
 }
 
 void* vmem_allocate(VirtMem* self, MemLayout layout) {
@@ -268,31 +333,6 @@ i64 vmem_available(const VirtMem* self) {
   return self->end - self->top;
 }
 
-static inline void vmem_expand_in_place(VirtHndl self, void* ptr, MemLayout old, MemLayout new_layout) {
-  assert(self);
-  assert(ptr);
-
-  if UNLIKELY (ptr != self->last_alloc) {
-    LOG_FATAL("Cannot call vmem_expand_in_place with pointer not equal to last allocated pointer!");
-  }
-
-  const i32 delta = new_layout.size - old.size;
-
-#if LIBNV_DEBUG
-  if (delta < 0) {
-    LOG_DBG("Shrinking memory of size %d bytes to %d bytes! decrementing top pointer by %d bytes!", old.size,
-            new_layout.size, delta);
-  } else if (delta > 0) {
-    LOG_DBG("Expanding memory in place from size %d bytes to %d bytes! incrementing top pointer by %d bytes!", old.size,
-            new_layout.size, delta);
-  } else {
-    LOG_DBG("Old size: %d and new size: %d are equal! no need to shrink or resize!", old.size, new_layout.size);
-  }
-#endif
-
-  self->top += delta;
-}
-
 void vmem_clear_zeroed(VirtMem* self) { vmem_zero_range(self, vmem_size(self)); }
 
 static void vmem_vtable_free(void*, void*) {}
@@ -302,36 +342,11 @@ static void* vmem_vtable_alloc(void* self, MemLayout layout) { return vmem_alloc
 static void* vmem_vtable_zalloc(void* self, MemLayout layout) { return vmem_zallocate(self, layout); }
 
 static bool vmem_vtable_expand(void* ctx, void* ptr, MemLayout old, MemLayout nlayout) {
-  assert(ctx);
-  assert(ptr);
-  VirtMem* self = ctx;
-
-  if (self->last_alloc == ptr) {
-    vmem_expand_in_place(self, ptr, old, nlayout);
-    return true;
-  }
-
-  return false;
+  return vmem_expand(ctx, ptr, old, nlayout);
 }
 
 static void* vmem_vtable_realloc(void* ctx, void* ptr, MemLayout old, MemLayout newlayout) {
-  assert(ctx);
-  assert(ptr);
-
-  VirtMem* self = ctx;
-
-  if (self->last_alloc == ptr) {
-    vmem_expand_in_place(self, ptr, old, newlayout);
-    return ptr;
-  }
-
-  void* dst = vmem_allocate(self, newlayout);
-  if (dst) {
-    memcpy(dst, ptr, old.size);
-    return dst;
-  }
-
-  return nullptr;
+  return vmem_reallocate(ctx, ptr,  old,  newlayout);
 }
 
 const AllocVTable* vmem_vtable(void) {
@@ -368,7 +383,6 @@ VMarker vmem_watermark(const VirtMem* self) {
   assert(self);
 
   return wm_peek(&self->wm);
-
 }
 
 VMarker vmem_pop_delete(VirtSelf self, VMarker marker) {
@@ -393,7 +407,7 @@ VMarker vmem_pop_zeroed(VirtSelf self, VMarker marker) {
     return top;
   }
 
-  vmem_reset_zeroed(self,  marker);
+  vmem_reset_zeroed(self, marker);
   return wm_pop_peek(&self->wm);
 }
 
@@ -771,4 +785,3 @@ char* vmem_strdup(VirtSelf self, const char* str) {
 
   return res;
 }
-
