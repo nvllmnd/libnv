@@ -105,7 +105,6 @@ isize ptr_align_offset(const void* ptr, isize align) {
 
   const u64ptr mask = align - 1;
   return cast(isize, cast(u64ptr, ptr) & mask);
-  return 0;
 }
 
 bool ptr_is_aligned(const void* ptr, isize align) {
