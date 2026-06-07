@@ -24,6 +24,12 @@
 #include "nv/memory/layout.h"
 #include "nv/memory/virt.h"
 
+#if defined(LIBNV_VMEM_WATERMARK_MAX) && LIBNV_VMEM_WATERMARK_MAX > 0
+static constexpr const i32 VMEM_WATERMARK_MAX = LIBNV_VMEM_WATERMARK_MAX;
+#else
+static constexpr const i32 VMEM_WATERMARK_MAX = 8;
+#endif
+
 #if SYSTEM_POSIX
 
 #endif
@@ -33,6 +39,72 @@
 //  TODO: Support windows VirtualAlloc(Ex)/VirtualFree(Ex)
 #error "Windows not currently supported. TODO: Support windows VirtualAlloc(Ex)/VirtualFree(Ex)"
 #endif
+
+struct Watermark {
+  i32 i;
+  VMarker data[VMEM_WATERMARK_MAX];
+};
+
+alias(Watermark);
+
+CONST_FUNC
+static inline Watermark wm_new(void) { return (Watermark){.i = 0, .data = {}}; }
+
+METHOD
+static inline void wm_push(Watermark* self, VMarker val) {
+  assert(self);
+  if (self->i >= VMEM_WATERMARK_MAX || self->i < 0) {
+    LOG_DBG("Watermark limit: %d reached! Wrapping around!", VMEM_WATERMARK_MAX);
+    self->i = 0;
+  }
+
+  self->data[self->i] = val;
+  self->i += 1;
+}
+
+static inline VMarker wm_pop(Watermark* self) {
+  if (self->i == 0) {
+    return -1;
+  } else if (self->i < 0) {
+    self->i = 0;
+    return -1;
+  }
+
+  if UNLIKELY (self->i > VMEM_WATERMARK_MAX) {
+    self->i = VMEM_WATERMARK_MAX;
+  }
+  const VMarker res = self->data[self->i - 1];
+  self->i -= 1;
+  return res;
+}
+
+
+
+static inline VMarker wm_peekn(const Watermark* self, i32 offset) {
+  const i32 i = self->i + offset;
+
+  if (i >= VMEM_WATERMARK_MAX) {
+   return self->data[i % VMEM_WATERMARK_MAX];
+  } else if (i < 0 ) {
+    return -1;
+  }
+  return self->data[i];
+
+}
+
+static inline VMarker wm_peek(const Watermark* self) {
+  assert(self);
+
+
+  return wm_peekn(self, 0);
+}
+
+static inline VMarker wm_pop_peek(Watermark* self) {
+  if (wm_pop(self) >= 0) {
+    return wm_peek(self);
+  }
+  return -1;
+}
 
 struct VirtMem {
   // VModeFlags flags;
@@ -47,6 +119,12 @@ struct VirtMem {
   u8* top;
   /// pointer to the absolute end of this region of virtual memory
   u8* end;
+
+  /// @brief highest (most recent) value returned by [vmem_mark]
+  /// if [vmem_mark] has not yet been called, this value is -1
+  Watermark wm;
+
+  void* last_alloc;
 
   ATTR_COUNTED_BY(size)
   u8 storage[];
@@ -90,6 +168,8 @@ NvError vmem_init(VirtMem** self, i64 size_bytes) {
     return Error__FailedMemMap;
   }
 
+  ptr->last_alloc = nullptr;
+  ptr->wm = wm_new();
   ptr->size = storage_size;
   ptr->top = &ptr->storage[0];
   ptr->end = ptr->top + storage_size;
@@ -118,6 +198,8 @@ void* vmem_allocate(VirtMem* self, MemLayout layout) {
   self->top = ptr + layout.size;
 
   assert(self->top <= self->end);
+
+  self->last_alloc = ptr;
 
   return ptr;
 }
@@ -186,6 +268,31 @@ i64 vmem_available(const VirtMem* self) {
   return self->end - self->top;
 }
 
+static inline void vmem_expand_in_place(VirtHndl self, void* ptr, MemLayout old, MemLayout new_layout) {
+  assert(self);
+  assert(ptr);
+
+  if UNLIKELY (ptr != self->last_alloc) {
+    LOG_FATAL("Cannot call vmem_expand_in_place with pointer not equal to last allocated pointer!");
+  }
+
+  const i32 delta = new_layout.size - old.size;
+
+#if LIBNV_DEBUG
+  if (delta < 0) {
+    LOG_DBG("Shrinking memory of size %d bytes to %d bytes! decrementing top pointer by %d bytes!", old.size,
+            new_layout.size, delta);
+  } else if (delta > 0) {
+    LOG_DBG("Expanding memory in place from size %d bytes to %d bytes! incrementing top pointer by %d bytes!", old.size,
+            new_layout.size, delta);
+  } else {
+    LOG_DBG("Old size: %d and new size: %d are equal! no need to shrink or resize!", old.size, new_layout.size);
+  }
+#endif
+
+  self->top += delta;
+}
+
 void vmem_clear_zeroed(VirtMem* self) { vmem_zero_range(self, vmem_size(self)); }
 
 static void vmem_vtable_free(void*, void*) {}
@@ -194,13 +301,31 @@ static void* vmem_vtable_alloc(void* self, MemLayout layout) { return vmem_alloc
 
 static void* vmem_vtable_zalloc(void* self, MemLayout layout) { return vmem_zallocate(self, layout); }
 
-static void* vmem_vtable_realloc(void* self, void* ptr, MemLayout old, MemLayout newlayout) {
-  assert(self);
+static bool vmem_vtable_expand(void* ctx, void* ptr, MemLayout old, MemLayout nlayout) {
+  assert(ctx);
+  assert(ptr);
+  VirtMem* self = ctx;
+
+  if (self->last_alloc == ptr) {
+    vmem_expand_in_place(self, ptr, old, nlayout);
+    return true;
+  }
+
+  return false;
+}
+
+static void* vmem_vtable_realloc(void* ctx, void* ptr, MemLayout old, MemLayout newlayout) {
+  assert(ctx);
   assert(ptr);
 
-  VirtMem* s = self;
+  VirtMem* self = ctx;
 
-  void* dst = vmem_allocate(s, newlayout);
+  if (self->last_alloc == ptr) {
+    vmem_expand_in_place(self, ptr, old, newlayout);
+    return ptr;
+  }
+
+  void* dst = vmem_allocate(self, newlayout);
   if (dst) {
     memcpy(dst, ptr, old.size);
     return dst;
@@ -210,12 +335,12 @@ static void* vmem_vtable_realloc(void* self, void* ptr, MemLayout old, MemLayout
 }
 
 const AllocVTable* vmem_vtable(void) {
-  static constexpr const AllocVTable VT =
-      (AllocVTable){.allocate = vmem_vtable_alloc,
-                    .reallocate = vmem_vtable_realloc,
-                    .zallocate = vmem_vtable_zalloc,
-                    .free = vmem_vtable_free,
-                    .mask = VT__Allocate | VT__Reallocate | VT__Zallocate | VT__Free};
+  static constexpr const AllocVTable VT = (AllocVTable){.allocate = vmem_vtable_alloc,
+                                                        .reallocate = vmem_vtable_realloc,
+                                                        .zallocate = vmem_vtable_zalloc,
+                                                        .free = vmem_vtable_free,
+                                                        .expand = vmem_vtable_expand,
+                                                        .mask = VT__All};
   return &VT;
 }
 
@@ -239,10 +364,48 @@ VirtMemView vmem_view(const VirtMem* self) {
                        .size_bytes = self->size};
 }
 
-VMarker vmem_mark(const VirtMem* self) {
+VMarker vmem_watermark(const VirtMem* self) {
+  assert(self);
+
+  return wm_peek(&self->wm);
+
+}
+
+VMarker vmem_pop_delete(VirtSelf self, VMarker marker) {
+  assert(self);
+
+  const VMarker wm = wm_peek(&self->wm);
+  if (marker != wm) {
+    LOG_DBG("Tried to pop delete marker: %li when most recent Watermark is (%li)", marker, wm);
+    return wm;
+  }
+
+  vmem_reset_to(self, marker);
+  return wm_pop_peek(&self->wm);
+}
+
+VMarker vmem_pop_zeroed(VirtSelf self, VMarker marker) {
+  assert(self);
+  const VMarker top = wm_peek(&self->wm);
+
+  if (top != VMARKER_NONE && marker != top) {
+    LOG_DBG("Tried to pop delete (zeroed) marker: %li when most recent Watermark is (%li)", marker, top);
+    return top;
+  }
+
+  vmem_reset_zeroed(self,  marker);
+  return wm_pop_peek(&self->wm);
+}
+
+VMarker vmem_mark(VirtMem* self) {
   assert(self);
   assert(self->top);
-  return self->top - &self->storage[0];
+  const VMarker m = self->top - &self->storage[0];
+
+  assert(m >= 0 && m < self->size);
+  wm_push(&self->wm, m);
+
+  return m;
 }
 
 void vmem_reset_to(VirtMem* self, VMarker marker) {
@@ -583,7 +746,7 @@ char* vmem_strdup(VirtSelf self, const char* str) {
   const i64 avail = vmem_available(self) - 1;  // -1 for null term
 
   if UNLIKELY (avail <= 0) {
-    LOG_DBG("String: %s cannot be allocated by VirtMem with 0 free bytes available!",  str);
+    LOG_DBG("String: %s cannot be allocated by VirtMem with 0 free bytes available!", str);
     return nullptr;
   }
 
@@ -608,3 +771,4 @@ char* vmem_strdup(VirtSelf self, const char* str) {
 
   return res;
 }
+
