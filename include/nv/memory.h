@@ -8,7 +8,6 @@
 #include "nv/memory/block_alloc.h"
 #include "nv/memory/static_alloc.h"
 
-#include "nv/memory/arena.h"
 #include "nv/memory/error.h"
 
 
