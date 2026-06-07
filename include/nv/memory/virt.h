@@ -378,6 +378,19 @@ char* vmem_fstring(VirtSelf self, i64* len_out, const char* fmt, ...);
 METHOD
 char* vmem_vfstring(VirtSelf self, i64* len_out, const char* fmt, va_list args);
 
+/// @brief duplicates given string of length into this VirtMem and appends a null character to the end
+/// @details if this VirtMem has less available free bytes than given length, string is truncated to fill the remaining space
+METHOD
+char* vmem_strndup(VirtSelf self, const char* str, i32 len);
+
+
+/// @brief duplicates given string of length into this VirtMem and appends a null character to the end
+/// @details if this VirtMem has less available free bytes than given length, string is truncated to fill the remaining space
+/// @see [vmem_strndup]
+METHOD
+char* vmem_strdup(VirtSelf self, const char* str);
+
+
 METHOD
 /// @brief 'deletes' n most recently allocated bytes.
 /// @details This is a constant time function, all it does it subtract given count of bytes

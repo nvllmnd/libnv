@@ -34,11 +34,8 @@
 #error "Windows not currently supported. TODO: Support windows VirtualAlloc(Ex)/VirtualFree(Ex)"
 #endif
 
-
-
 struct VirtMem {
   // VModeFlags flags;
-
 
   /// @brief lock size in bytes of this mappings [mlock]ed region (spanning from 0 - lsize)
   // i32 lsize;
@@ -137,7 +134,6 @@ void* vmem_zallocate(VirtMem* self, MemLayout layout) {
 NvError vmem_destroy(VirtHndl self) {
   assert(self);
 
-
   const isize size = self->size;
 
   const error err = munmap(self, size);
@@ -145,8 +141,6 @@ NvError vmem_destroy(VirtHndl self) {
   if UNLIKELY (err == -1) {
     LOG_DBG("Call to %s Failed! Unable to unmap virtual memory of size: %li at address %p. ERRNO(%d) :: %s", __func__,
             size, pcast(void, self), errno, strerror(errno));
-
-
 
     return Error__FailedMemMap;
   }
@@ -556,4 +550,61 @@ i64 vmem_delzero_back(VirtMem* self, i64 nbytes) {
 
   memset(self->top, 0, nbytes);
   return vmem_available(self);
+}
+
+char* vmem_strndup(VirtSelf self, const char* str, i32 len) {
+  assert(self);
+  assert(str);
+  assert(len > 0);
+
+  const i64 avail = vmem_available(self) - 1;  // -1 for null term!
+
+  if UNLIKELY (avail <= 0) {
+    LOG_DBG("String: %.*s of length: %d cannot be allocated by VirtMem with 0 free bytes available!", len, str, len);
+    return nullptr;
+  }
+
+  if UNLIKELY (len > avail) {
+    LOG_DBG("String: %.*s of length: %d will be truncated to: %.*s due to VirtMem only having %d bytes available!", len,
+            str, len, (i32)avail, str, (i32)avail);
+    len = avail;
+  }
+
+  // should always be non-null since we truncate string if its too large
+  char* res = punwrap(vmem_allocate(self, mlayout_bytes(len + 1)));
+
+  strncpy(res, str, len);
+  res[len] = '\0';
+
+  return res;
+}
+
+char* vmem_strdup(VirtSelf self, const char* str) {
+  const i64 avail = vmem_available(self) - 1;  // -1 for null term
+
+  if UNLIKELY (avail <= 0) {
+    LOG_DBG("String: %s cannot be allocated by VirtMem with 0 free bytes available!",  str);
+    return nullptr;
+  }
+
+  i32 len = stringlen(str) + 1;  // +1 so we copy the null terminator!
+
+  const bool truncate = len > avail;
+
+  if UNLIKELY (truncate) {
+    LOG_DBG("String: %.*s of length: %d will be truncated to: %.*s due to VirtMem only having %d bytes available!", len,
+            str, len, (i32)avail, str, (i32)avail);
+    len = avail;
+  }
+
+  // should always be non-null since we truncate string if its too large
+  char* res = punwrap(vmem_allocate(self, mlayout_bytes(len)));
+
+  strncpy(res, str, len);
+  // only need to append null term if we truncated
+  if UNLIKELY (truncate) {
+    res[len] = '\0';
+  }
+
+  return res;
 }
