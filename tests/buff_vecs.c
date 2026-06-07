@@ -1,20 +1,21 @@
+#include "nv/core/attributes.h"
+#include "nv/core_types.h"
 #include "nv/iter/buff.h"
 
 #include "nv/iter/vec.h"
 
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/memory/arena.h"
 #include "nv/memory/virt.h"
 #include "unity.h"
 
-static Arena* ARENA = nullptr;
+static VirtMem* ARENA = nullptr;
 
 static Allocator ALLOC;
 
 void setUp(void) {
-  ARENA = arena_new(GIGABYTES(1), os_page_size());
-  ALLOC = arena_allocator(ARENA);
+   bailerr_withv(vmem_init(&ARENA, GB(64)));
+  ALLOC = vmem_allocator(ARENA);
 
   assert(ARENA);
 
@@ -22,7 +23,7 @@ void setUp(void) {
 }
 
 void tearDown(void) {
-  arena_destroy(ARENA);
+  vmem_destroy(ARENA);
   ARENA = nullptr;
 }
 

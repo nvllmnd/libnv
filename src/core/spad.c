@@ -109,7 +109,7 @@ sslice spad_fappend(StringPad* self, const char* fmt, ...) {
 sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) {
   assert(self);
 
-  i32 slen = 0;
+  i64 slen = 0;
   const char* str = vmem_vfstring(self->vm, &slen, fmt, args);
 
   // NOTE: Here we delete the top most byte, so that the null character that
