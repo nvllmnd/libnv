@@ -291,7 +291,6 @@ PURE_FUNC
 METHOD
 VirtMemView vmem_view(const VirtMem* self);
 
-CONST_FUNC
 i64 os_page_size(void);
 
 /// @brief remaps virtual memory used by self to given new size in megabytes

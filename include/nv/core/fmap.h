@@ -4,6 +4,14 @@
 #include "nv/core/intdefs.h"
 #include "nv/memory/error.h"
 
+typedef enum HEDLEY_FLAGS FileAccess : i16 {
+  FAccess__None = 0,
+  FAccess__Read = 1, 
+  FAccess__Write = 1 << 1,
+  FAccess__ReadWrite = FAccess__Read | FAccess__Write,
+} FileAccess;
+
+
 struct FileChunk {
   const char* name;
   i64 offset;
@@ -22,6 +30,18 @@ struct FileChunkList {
 };
 
 alias(FileChunkList);
+
+struct SmallFile {
+  i16 size;
+  FileAccess access;
+
+  ATTR_COUNTED_BY(size)
+  u8 data[];
+};
+alias(SmallFile);
+
+
+static constexpr const i64 FMAP_SMALL_SIZE_MAX = 1024L;
 
 
 struct FileMap {
