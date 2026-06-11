@@ -5,7 +5,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/sslice.h"
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 #include "nv/memory/alloc.h"
 
 /// @brief A StringPad used for building Strings dynamically

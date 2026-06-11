@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
 struct MemLayout {

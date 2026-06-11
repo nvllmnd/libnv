@@ -57,13 +57,10 @@ core_lib = static_library(
   'nv_core',
   files(
     'src/core/log.c',
-    'src/core/buffer.c',
     'src/core/vec.c',
     'src/core/algo.c',
     'src/core/spad.c',
     'src/core/stb_sprintf.c',
-    'src/core/fs.c',
-    'src/core/internal.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
@@ -84,9 +81,6 @@ memory_lib = static_library(
   'nv_memory',
   files(
     'src/memory/alloc.c',
-    'src/memory/virt.c',
-    'src/memory/block_alloc.c',
-    'src/memory/runeset.c',
     'src/memory/static_alloc.c',
 
   ),

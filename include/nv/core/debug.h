@@ -21,7 +21,7 @@
 
 #else
 
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x

@@ -6,7 +6,7 @@
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/block_alloc.h"
 #include "nv/memory/error.h"

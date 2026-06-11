@@ -6,7 +6,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 #include "nv/memory/layout.h"
 
 /// Function pointer typedef for [Allocator] [AllocVTable] allocate method.

@@ -39,7 +39,7 @@
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/core/sslice.h"
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 #include "nv/iter/array.h"
 #include "nv/memory/error.h"
 #include "nv/memory/layout.h"

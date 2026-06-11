@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
 #include "nv/core/algo.h"
