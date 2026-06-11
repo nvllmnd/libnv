@@ -1,6 +1,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "nv/core/sslice.h"
 #define _GNU_SOURCE 1
@@ -146,13 +147,13 @@ static inline void vmem_resize_in_place(VirtHndl self, void* ptr, MemLayout old,
 
 #if LIBNV_DEBUG
   if (delta < 0) {
-    LOG_DBG("Shrinking memory of size %d bytes to %d bytes! decrementing top pointer by %d bytes!", old.size,
+    LOG_DBG("Shrinking memory of size %li bytes to %li bytes! decrementing top pointer by %d bytes!", old.size,
             new_layout.size, delta);
   } else if (delta > 0) {
-    LOG_DBG("Expanding memory in place from size %d bytes to %d bytes! incrementing top pointer by %d bytes!", old.size,
+    LOG_DBG("Expanding memory in place from size %li bytes to %li bytes! incrementing top pointer by %d bytes!", old.size,
             new_layout.size, delta);
   } else {
-    LOG_DBG("Old size: %d and new size: %d are equal! no need to shrink or resize!", old.size, new_layout.size);
+    LOG_DBG("Old size: %li and new size: %li are equal! no need to shrink or resize!", old.size, new_layout.size);
   }
 #endif
 
@@ -223,7 +224,7 @@ bool vmem_expand(VirtMem* self, void* ptr, MemLayout old, MemLayout nlayout) {
 
   if (nlayout.size <= old.size) {
     LOG_DBG(
-        "Tried to expand a pointer, but new size: %d is smaller than (or equal to) old size: %d Allocator::expand is "
+        "Tried to expand a pointer, but new size: %li is smaller than (or equal to) old size: %li Allocator::expand is "
         "ment for "
         "in-place growing of memory!, use Allocator::reallocate to shrink!",
         nlayout.size, old.size);
@@ -236,7 +237,7 @@ bool vmem_expand(VirtMem* self, void* ptr, MemLayout old, MemLayout nlayout) {
   }
 
   LOG_DBG(
-      "Cannot expand pointer of size: %d bytes to size %d bytes, as it was not the most recent allocation in this "
+      "Cannot expand pointer of size: %li bytes to size %li bytes, as it was not the most recent allocation in this "
       "particular VirtMem! expansion currently not possible!",
       old.size, nlayout.size);
 

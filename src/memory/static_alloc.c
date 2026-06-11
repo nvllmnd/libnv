@@ -55,7 +55,7 @@ void* salloc_allocate(StaticAlloc* self, MemLayout layout) {
   u8* aligned = ptr_alignto(self->top, self->end, layout);
 
   if (is_null(aligned)) {
-    LOG_DBG("StaticAllocator of size %d bytes does not have enough available space for object of size: %d!",
+    LOG_DBG("StaticAllocator of size %d bytes does not have enough available space for object of size: %li!",
             salloc_size(self), layout.size);
     return nullptr;
   }
@@ -113,7 +113,7 @@ void* salloc_reallocate(StaticAlloc* self, void* ptr, MemLayout old_layout, MemL
 
   void* next = salloc_allocate(self, new_layout);
   if UNLIKELY (is_null(next)) {
-    LOG_DBG("Ran out of available space in StaticAlloc while trying to reallocate memory of size %d bytes to %d bytes!",
+    LOG_DBG("Ran out of available space in StaticAlloc while trying to reallocate memory of size %li bytes to %li bytes!",
             old_layout.size, new_layout.size);
     return ptr;
   }

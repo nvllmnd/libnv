@@ -1,6 +1,7 @@
 #include "nv/memory/block_alloc.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/debug.h"
@@ -114,7 +115,7 @@ NvError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
   if UNLIKELY (is_null(self)) {
     LOG_DBG(
         "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %li "
-        "bytes of available memory and cannot acommidate an allocation of size: %d",
+        "bytes of available memory and cannot acommidate an allocation of size: %li",
         __func__, vmem_available(backing), mlayout_new(BlockAllocator).size);
     return Error__VirtMemOutOfMemory;
   }
@@ -169,7 +170,7 @@ void* ba_allocate(BlockAllocator* self, MemLayout layout) {
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
         "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-        "available memory and cannot accomidate an allocation of size %d bytes!",
+        "available memory and cannot accomidate an allocation of size %li bytes!",
         __func__, vmem_available(self->vm), block_layout.size);
 
     return nullptr;
@@ -247,7 +248,7 @@ void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLa
   if UNLIKELY (is_null(next)) {
     LOG_DBG(
         "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-        "available memory and cannot accomadate an allocation of size %d bytes!",
+        "available memory and cannot accomadate an allocation of size %li bytes!",
         __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
     return nullptr;
   }

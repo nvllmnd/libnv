@@ -10,9 +10,9 @@
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
 struct MemLayout {
   /// Size of requested allocation in bytes. Must be non-negative and greater than 0
-  i32 size;
+  isize size;
   /// Alignment of requested allocation. must be a multiple of 2 (or the value 1)
-  i32 align;
+  isize align;
 };
 typedef struct MemLayout MemLayout;
 

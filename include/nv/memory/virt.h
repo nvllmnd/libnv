@@ -325,19 +325,19 @@ VMarker vmem_mark(VirtMem* self);
 
 /// @brief similar to [vmem_reset_to], but only allowed in sequential order
 /// @details this function checks to see if there are any other active markers > than @param (VMarker marker) and if so,
-/// returns that most recent Marker immediately, otherwise this function 'free' or 'pop-deletes' (or resets) back to this marker and
-/// returns -1 unlike [vmem_reset_to], this function only modifies any [VirtMem] state if it returns a positive number. If this
-/// function returns a negative value, nothing is done to [VirtMem], but you can use the returend [VMarker] to call this  function again!
+/// returns that most recent Marker immediately, otherwise this function 'free' or 'pop-deletes' (or resets) back to
+/// this marker and returns -1 unlike [vmem_reset_to], this function only modifies any [VirtMem] state if it returns a
+/// positive number. If this function returns a negative value, nothing is done to [VirtMem], but you can use the
+/// returend [VMarker] to call this  function again!
 METHOD
 VMarker vmem_pop_delete(VirtSelf self, VMarker marker);
-
-
 
 /// @brief same as [vmem_pop_delete], but zeroes deleted memory
 METHOD
 VMarker vmem_pop_zeroed(VirtSelf self, VMarker marker);
 
-/// @brief top-most (value returned by most-recent call to [vmem_mark]), or [VMARKER_NONE] if [vmem_mark] has not yet been called
+/// @brief top-most (value returned by most-recent call to [vmem_mark]), or [VMARKER_NONE] if [vmem_mark] has not yet
+/// been called
 PURE_FUNC
 METHOD
 VMarker vmem_watermark(const VirtMem* self);
@@ -442,32 +442,5 @@ i64 vmem_delzero_back(VirtSelf self, i64 nbytes);
 //   VirtMem* vm;
 //   i32 count;
 // };
-
 // alias(Slabocator);
 //
-
-
-
-/// TODO: Need to finish this implementation
-/// @brief a simple Arena Allocator
-/// @details Allocates out of either a [VirtMem], or backing [Allocator]. it is the caller's responsibility to manage
-/// the backing memory of this allocator If more space is required after creation. If you need an Arena style allocator
-/// where memory backing size is of no concern, @see [VirtMem] (it uses mmap and overcommit, so it can theoretically
-/// allocate contiguously up to 8-9 Exabytes!)
-///
-/// It is also the callers responsibility to ensure that the backing [VirtMem]/[Allocator] used to create this Arena is
-/// alive for as long as this Arena is
-struct Arena {
-  /// @brief -1 if created by [Allocator], positive if created by [VirtMem]
-  /// @details if created by [arena_new], we call [vmem_mark] to fill this field,
-  VMarker marker;
-  /// @brief Pointer to start of memory used by this Arena
-  u8* begin;
-  u8* end;
-  i64 size;
-
-  i64 used;
-};
-
-alias(Arena);
-
