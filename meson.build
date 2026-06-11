@@ -61,7 +61,6 @@ core_lib = static_library(
     'src/core/vec.c',
     'src/core/algo.c',
     'src/core/spad.c',
-    'src/core/fmap.c',
     'src/core/stb_sprintf.c',
   ),
   include_directories: inc,
@@ -87,6 +86,8 @@ memory_lib = static_library(
     'src/memory/block_alloc.c',
     'src/memory/runeset.c',
     'src/memory/static_alloc.c',
+
+    'src/memory/fmap.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

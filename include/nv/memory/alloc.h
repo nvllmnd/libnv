@@ -204,3 +204,43 @@ PURE_FUNC
 static inline bool allocator_is_ok(Allocator self) {
   return !allocator_is_none(self) && (self.vtable->allocate && self.vtable->free);
 }
+
+// TODO: Decide if i want to do all this ish...
+// for now it seems a little to over-abstracted for me..
+// /// @brief a non-owning span of bytes
+// struct Span {};
+// alias(Span);
+
+// /// @details '(Chunk::begin + ChCursor::i) == ChCursor::iter' should be true at all times
+// struct ChCursor {
+//   i64 i;
+//   byte* iter;
+// };
+// alias(ChCursor);
+
+// /// @brief a non-owning span of bytes in memory
+// struct Chunk {
+//   /// @brief pointer to the first byte of this chunk
+//   byte* begin;
+//   /// @brief should always be pointing to the byte immediately after
+//   /// the last byte in this chunk
+//   byte* end;
+
+//   ChCursor cursor;
+// };
+// alias(Chunk);
+
+// Chunk chunk_new(byte* begin, i64 size) PARAMS_NONNULL(1);
+
+// void chunk_write(Chunk* self, const Chunk* other) PARAMS_NONNULL(1, 2);
+
+// void chunk_write_bytes(Chunk* self, byte* begin, i64 size) PARAMS_NONNULL(1, 2);
+
+// /// @brief Chunk [P]ush [Alloc]ate
+// void* chunk_palloc(Chunk* self, MemLayout layout) METHOD;
+
+// void* chunk_pzalloc(Chunk* self, MemLayout layout) METHOD;
+
+// Chunk chunk_clone(const Chunk* self, Allocator alloc) METHOD;
+
+// void chunk_clone_bytes(const Chunk* self, char* dest, i64 dest_len) PARAMS_NONNULL(1,2);

@@ -3,6 +3,7 @@
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 
+
 #define Vec(T) __typeof(T)*
 
 /// @brief main typedef for Vec.

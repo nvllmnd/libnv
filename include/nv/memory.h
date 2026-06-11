@@ -13,6 +13,10 @@
 
 #include "nv/memory/layout.h"
 #include "nv/memory/virt.h"
+#include "nv/memory/fmap.h"
+#include "nv/memory/runeset.h"
+#include "nv/memory/valloc.h"
+
 
 
 

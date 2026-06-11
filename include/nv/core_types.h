@@ -161,6 +161,9 @@
 #define offsetof(T, _m) ((isize) & ((T*)0)->_m)
 #endif
 
+
+#define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
+
 #define sizeof_field(T, _name_) (sizeof(__typeof(make_zeroed(T)._name_)))
 
 #define alias(T) /* conveinence macro for defining structs to avoid having to \

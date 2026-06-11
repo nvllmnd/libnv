@@ -15,7 +15,6 @@
 /// These slices are ment to be immutable, as in it is not typical to
 /// mutate strings through a [sslice]. As such these are treated like views
 ///
-#include <string.h>
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
