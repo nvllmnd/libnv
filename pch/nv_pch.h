@@ -1,8 +1,25 @@
 #pragma once
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 1
-#define __USE_POSIX 1
-#define __USE_MISC 1
+#endif
+
+
+// #define __USE_POSIX 1
+
+// #define __USE_MISC 1
+// #ifndef __USE_XOPEN_EXTENDED
+// #define __USE_XOPEN_EXTENDED 1
+
+// #endif
+// #define _POSIX_C_SOURCE 1
+
 
 #include <assert.h>
 #include <errno.h>

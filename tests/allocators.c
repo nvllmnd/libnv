@@ -29,7 +29,6 @@ struct Stuff {
 };
 alias(Stuff);
 
-
 void arena_heap_exclusive(void) {
   VirtMem* ah = nullptr;
   bailerr_withv(vmem_init(&ah, GB(64)));
@@ -50,7 +49,6 @@ void arena_heap_from_vmem(void) {
 
   TEST_ASSERT_NOT_NULL(vm);
 
-
   for (i32 i = 0; i < 50; i++) {
     char* b1 = vmem_zallocate(vm, mlayout_bytes(1024));
     char* b2 = vmem_zallocate(vm, mlayout_bytes(2048));
@@ -62,8 +60,6 @@ void arena_heap_from_vmem(void) {
 
     TEST_ASSERT_EQUAL_STRING(b1, "ayooo");
   }
-
-
 
   vmem_destroy(vm);
 }
@@ -96,17 +92,22 @@ void vmap_marker_and_remap(void) {
     *x = i * i;
   }
 
-  const VMarker marker = vmem_mark(vm);
+  const VMarker marker = vmem_checkpoint(vm);
 
   TEST_ASSERT(marker >= 0);
 
-  for (i32 i = 0; i < 25; i++) {
+  static constexpr const i64 INTCOUNT = 25;
+
+  for (i32 i = 0; i < INTCOUNT; i++) {
     i32* x = vmem_allocate(vm, mlayout_new(i32));
     TEST_ASSERT_NOT_NULL(x);
     *x = i * i;
   }
 
-  vmem_reset_to(vm, marker);
+  static constexpr const i64 ALLOCSIZE = INTCOUNT * sizeof(i32);
+
+  const i64 size = vmem_reset_to(vm, marker);
+  TEST_ASSERT_EQUAL(size, ALLOCSIZE);
 
   VAddrOffset offset = 0;
   Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
@@ -127,10 +128,7 @@ void vmap_marker_and_remap(void) {
   TEST_ASSERT_EQUAL(Error__Ok, err);
 
   vmem_update_ptr(vm, (void**)&x, offset);
-
-  TEST_ASSERT_EQUAL(x[2].counter, pre);
-}
-
+ TEST_ASSERT_EQUAL(x[2].counter, pre); }
 void block_allocator_works(void) {
   BlockAllocator* ba = ba_owned_new(MEGABYTES(24));
   TEST_ASSERT_NOT_NULL(ba);

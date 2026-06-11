@@ -1,9 +1,11 @@
 #pragma once
 
 #include <assert.h>
+#include <string.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
+#include "nv/core/log.h"
 #include "nv/core_types.h"
 #include "nv/memory/layout.h"
 
@@ -244,3 +246,63 @@ static inline bool allocator_is_ok(Allocator self) {
 // Chunk chunk_clone(const Chunk* self, Allocator alloc) METHOD;
 
 // void chunk_clone_bytes(const Chunk* self, char* dest, i64 dest_len) PARAMS_NONNULL(1,2);
+
+struct VirtMem;
+
+/// @brief a header-less version of [VArena]
+struct Arena {
+  /// @brief null if not created with [arena_new_in]
+  struct VirtMem* parent;
+  /// @brief for in-place expansion
+  void* last_alloc;
+  /// brief -1 if not created with [arena_new_in]
+  i64 marker;
+
+  i64 size;
+  byte* begin;
+  byte* end;
+  byte* cursor;
+};
+alias(Arena);
+
+/// @brief how was this arena created?
+typedef enum ArenaType {
+  /// @brief created with [arena_new]
+  Arena__Buffered = 0,
+  /// @brief created with [arena_new_in]
+  Arena__OwnedVirt,
+} ArenaType;
+
+PURE_FUNC
+static inline ArenaType arena_type(const Arena* self) {
+  return (self && self->parent && (self->marker >= 0)) ? Arena__OwnedVirt : Arena__Buffered;
+}
+
+static inline i64 arena_used_bytes(const Arena* self) {
+  assert(self);
+  return self->cursor - self->begin;
+}
+
+static inline i64 arena_available(const Arena* self) {
+  assert(self);
+  return self->size - arena_used_bytes(self);
+}
+
+static inline bool arena_is_owned(const Arena* self) { return arena_type(self) == Arena__OwnedVirt; }
+static inline bool arena_is_buffered(const Arena* self) { return arena_type(self) == Arena__Buffered; }
+
+static constexpr const Arena ARENA_EMPTY = {};
+
+static inline bool arena_is_empty(const Arena* self) { return memcmp(self, &ARENA_EMPTY, sizeof(Arena)) == 0; }
+
+Arena arena_new(byte* begin, i64 size_bytes) PARAMS_NONNULL(1);
+Arena arena_new_in(struct VirtMem* vm, i64 size_bytes);
+
+void* arena_allocate(Arena* self, MemLayout layout);
+void* arena_zallocate(Arena* self, MemLayout layout) METHOD;
+void* arena_reallocate(Arena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
+bool arena_expand(Arena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
+
+Allocator arena_allocator(Arena* self) METHOD;
+
+void arena_destroy(Arena* self);

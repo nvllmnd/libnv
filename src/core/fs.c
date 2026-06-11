@@ -1,18 +1,35 @@
-#define __USE_POSIX 1
+
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
+#endif
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 1
+#endif
+
+
+
 
 #include "nv/core/fs.h"
 
-#include <unistd.h>
-#include <sys/mman.h>
+#include <stdlib.h>
+#include <linux/limits.h>
+
+#include <limits.h>
+#include <stdio.h>
+
 
 #include <errno.h>
 #include <string.h>
-#include <stdio.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
-#include "nv/memory/alloc.h"
-#include "nv/memory/layout.h"
 
 #include "nv/core/log.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/layout.h"
 
 // TODO: Need to write tests for all this!
 
@@ -31,13 +48,13 @@ static inline i64 fsize(FILE* f) {
 
 CONST_FUNC
 static inline i64 fmap_full_size(i64 size, i64 entry_count) {
-  return size + sizeof(FileMap) + (sizeof(FileEntry) * entry_count);
+  return size + sizeof(FileMap) + (sizeof(FileEntry) * entry_count) + (FMAP_ENTRY_DELIM_SIZE * entry_count);
 }
 
 CONST_FUNC
 [[maybe_unused]]
 static inline i64 fent_full_size(i64 size) {
-  return sizeof(FileEntry) + size;
+  return sizeof(FileEntry) + size + (FMAP_ENTRY_DELIM_SIZE * sizeof(char));
 }
 
 static inline FileMap* load_from_info(const char* path, FileInfo info) {
@@ -52,14 +69,29 @@ static inline FileMap* load_from_info(const char* path, FileInfo info) {
   }
 
   ptr->size = size;
+  ptr->id = FID__FileMap;
   ptr->entry_count = 1;
 
   return ptr;
 }
 
-File* read_file(const char* filepath, Allocator alloc) {
-  FILE* f = fopen(filepath, "r");
+FileEntry* file_read_mem(const char* filepath, Allocator alloc) {
+  static char REALPATH[PATH_MAX] = {};
+  const char* rp = realpath(filepath, REALPATH);
+  if (is_null(rp)) {
+    LOG_FATAL("Failed to expand path: %s => %s", filepath, strerror(errno));
+  }
+
+
+
+  LOG_INFO("about to open file: %s", rp);
+  FILE* f = fopen(rp, "r");
+  if (is_null(f)) {
+    LOG_ERROR("Failed to open file: %s => %s", rp, strerror(errno));
+    return nullptr;
+  }
   const i64 size = fsize(f);
+  LOG_INFO("Opened file: %s of size: %li", rp, size);
 
   if (size >= FMAP_MMAP_MIN_SIZE) {
     LOG_ERROR(
@@ -69,14 +101,14 @@ File* read_file(const char* filepath, Allocator alloc) {
     return nullptr;
   }
 
-  const MemLayout layout = mlayout_fma(File, size);
+  const MemLayout layout = mlayout_fma(FileEntry, size);
   File* entry = allocator_allocate(alloc, layout);
   if (is_null(entry)) {
     fclose(f);
     LOG_ERROR(
         "Failed to allocate enough space with given allocator. Not enough space for %li bytes! which is required to "
         "load %s into memory!",
-        layout.size, filepath);
+        layout.size, rp);
     return nullptr;
   }
 
@@ -88,7 +120,7 @@ File* read_file(const char* filepath, Allocator alloc) {
   const i32 err = read(fd, &entry->data[0], entry->size);
   if (err == -1) {
     fclose(f);
-    LOG_ERROR("Failed to read file at path: %s into memory! syscall read failed for FD: %d. ERRNO: %s", filepath, fd,
+    LOG_ERROR("Failed to read file at path: %s into memory! syscall read failed for FD: %d. ERRNO: %s", rp, fd,
               strerror(errno));
     return nullptr;
   }
@@ -96,7 +128,7 @@ File* read_file(const char* filepath, Allocator alloc) {
   return entry;
 }
 
-i64 fread_into(const char* filepath, char* buff, i32 buff_count) {
+i64 file_read_into(const char* filepath, char* buff, i32 buff_count) {
   FILE* f = fopen(filepath, "r");
   const auto fd = fileno(f);
   const i32 count = read(fd, buff, buff_count);
@@ -169,6 +201,11 @@ FileMap* fmap_load_many(const char* paths[], i32 path_count) {
     entry->size = size;
     entry->id = i;
     top += fullsize;
+    /// Dont put file delim on last mapping
+    if LIKELY (i + 1 < path_count) {
+      entry->data[entry->size - 1] = FMAP_ENTRY_DELIM[0];
+      entry->data[entry->size] = 0;
+    }
     fclose(files[i].fd);
 
     files[i] = (FileInfo){};

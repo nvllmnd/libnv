@@ -321,20 +321,14 @@ static constexpr const VMarker VMARKER_NONE = -1;
 
 /// @brief creates and returns a marker, allowing for future resets back to this position in memory
 METHOD
-VMarker vmem_mark(VirtMem* self);
+VMarker vmem_checkpoint(VirtMem* self);
 
-/// @brief similar to [vmem_reset_to], but only allowed in sequential order
-/// @details this function checks to see if there are any other active markers > than @param (VMarker marker) and if so,
-/// returns that most recent Marker immediately, otherwise this function 'free' or 'pop-deletes' (or resets) back to
-/// this marker and returns -1 unlike [vmem_reset_to], this function only modifies any [VirtMem] state if it returns a
-/// positive number. If this function returns a negative value, nothing is done to [VirtMem], but you can use the
-/// returend [VMarker] to call this  function again!
-METHOD
-VMarker vmem_pop_delete(VirtSelf self, VMarker marker);
+/// @brief same as [vmem_checkpoint], but ensures all memory up to this point is non-resetable
+/// You can 'grow' this no-reset area by calling this function again after a few allocations
+VMarker vmem_checkpoint_freeze(VirtMem* self) METHOD;
 
-/// @brief same as [vmem_pop_delete], but zeroes deleted memory
-METHOD
-VMarker vmem_pop_zeroed(VirtSelf self, VMarker marker);
+/// @brief clears off any hard caps that have been set so far 
+void vmem_checkpoint_unfreeze(VirtMem* self) METHOD;
 
 /// @brief top-most (value returned by most-recent call to [vmem_mark]), or [VMARKER_NONE] if [vmem_mark] has not yet
 /// been called
@@ -347,7 +341,8 @@ METHOD
 /// @details a [VMarker] can be returned from a call to [vmem_mark], which is a memory
 /// location to 'reset' to. All allocations made after given marker are considered freed for reuse
 /// and should be considered invalid after this function returns
-void vmem_reset_to(VirtSelf self, VMarker marker);
+/// @returns number of bytes now marked as free for reuse, or the distance from current cursor top to new top
+i64 vmem_reset_to(VirtSelf self, VMarker marker);
 
 /// @brief Same as [vmem_reset_to], but zeroes the memory that was backtracked/reset
 METHOD
@@ -435,12 +430,21 @@ i64 vmem_delete_back(VirtSelf self, i64 nbytes);
 METHOD
 i64 vmem_delzero_back(VirtSelf self, i64 nbytes);
 
-/// TODO: Implement thisBuddy-style Allocator,
-/// @brief Buddy-style allocator, allocates chunks from its owning VirtMem in sizes of powers of 2.
-/// @details allows freeing (and thus re-using) allocated chunks
-// struct Slabocator {
-//   VirtMem* vm;
-//   i32 count;
-// };
-// alias(Slabocator);
-//
+/// @brief allocates an embedded Arena that owns caller defined size in bytes
+/// embedded arena can be 'popped' back off with the vmem_pop_delete, functions
+struct VArena* vmem_arena_embed(VirtSelf self, i64 arena_size_bytes) METHOD;
+
+/// @brief an embedded Arena.
+/// This arena takes up sizeof(Arena) + Arena::size bytes inside of a VirtMems memory, @see [vmem_arena_embed]
+typedef struct VArena VArena;
+typedef VArena ArenaVirt;
+
+i64 va_available(const VArena* self) METHOD PURE_FUNC;
+i64 va_used_bytes(const VArena* self) METHOD PURE_FUNC;
+
+void* va_allocate(VArena* self, MemLayout layout) METHOD;
+void* va_zallocate(VArena* self, MemLayout layout) METHOD;
+void* va_reallocate(VArena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
+bool va_expand(VArena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
+
+Allocator va_allocator(VArena* self) METHOD;

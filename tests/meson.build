@@ -15,6 +15,18 @@ strings_test = executable(
 
 test('strings', strings_test)
 
+core_test = executable(
+  'tests_core',
+  files('../tests/core.c'),
+  include_directories: inc,
+  c_pch: '../pch/nv_pch.h',
+  dependencies : dependencies,
+  install : true,  
+  c_args: cargs,
+)
+
+test('core-test', core_test)
+
 
 
 

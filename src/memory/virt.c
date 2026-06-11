@@ -1,6 +1,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "nv/core/sslice.h"
@@ -28,7 +29,6 @@
 #if defined(LIBNV_VMEM_WATERMARK_MAX) && LIBNV_VMEM_WATERMARK_MAX > 0
 static constexpr const i32 VMEM_WATERMARK_MAX = LIBNV_VMEM_WATERMARK_MAX;
 #else
-static constexpr const i32 VMEM_WATERMARK_MAX = 8;
 #endif
 
 #if SYSTEM_POSIX
@@ -42,66 +42,31 @@ static constexpr const i32 VMEM_WATERMARK_MAX = 8;
 #endif
 
 struct Watermark {
-  i32 i;
-  VMarker data[VMEM_WATERMARK_MAX];
+  /// @brief value of first call to [vmem_checkpoint]
+  VMarker first;
+  /// @brief value stored when caller invokes [vmem_checkpoint_freeze]
+  VMarker hard_cap;
+  /// @brief value of most recent invokation of [vmem_checkpoint]
+  VMarker last;
 };
 
 alias(Watermark);
 
 CONST_FUNC
-static inline Watermark wm_new(void) { return (Watermark){.i = 0, .data = {}}; }
+static inline Watermark wm_new(void) { return (Watermark){-1, -1, -1}; }
 
-METHOD
-static inline void wm_push(Watermark* self, VMarker val) {
-  assert(self);
-  if (self->i >= VMEM_WATERMARK_MAX || self->i < 0) {
-    LOG_DBG("Watermark limit: %d reached! Wrapping around!", VMEM_WATERMARK_MAX);
-    self->i = 0;
-  }
+struct VArena {
+  VirtMem* parent;
+  VMarker marker;
 
-  self->data[self->i] = val;
-  self->i += 1;
-}
+  byte* cursor;
+  void* last_alloc;
 
-static inline VMarker wm_pop(Watermark* self) {
-  if (self->i == 0) {
-    return -1;
-  } else if (self->i < 0) {
-    self->i = 0;
-    return -1;
-  }
-
-  if UNLIKELY (self->i > VMEM_WATERMARK_MAX) {
-    self->i = VMEM_WATERMARK_MAX;
-  }
-  const VMarker res = self->data[self->i - 1];
-  self->i -= 1;
-  return res;
-}
-
-static inline VMarker wm_peekn(const Watermark* self, i32 offset) {
-  const i32 i = self->i + offset;
-
-  if (i >= VMEM_WATERMARK_MAX) {
-    return self->data[i % VMEM_WATERMARK_MAX];
-  } else if (i < 0) {
-    return -1;
-  }
-  return self->data[i];
-}
-
-static inline VMarker wm_peek(const Watermark* self) {
-  assert(self);
-
-  return wm_peekn(self, 0);
-}
-
-static inline VMarker wm_pop_peek(Watermark* self) {
-  if (wm_pop(self) >= 0) {
-    return wm_peek(self);
-  }
-  return -1;
-}
+  i64 size;
+  ATTR_COUNTED_BY(size)
+  byte storage[];
+};
+alias(VArena);
 
 struct VirtMem {
   // VModeFlags flags;
@@ -150,8 +115,8 @@ static inline void vmem_resize_in_place(VirtHndl self, void* ptr, MemLayout old,
     LOG_DBG("Shrinking memory of size %li bytes to %li bytes! decrementing top pointer by %d bytes!", old.size,
             new_layout.size, delta);
   } else if (delta > 0) {
-    LOG_DBG("Expanding memory in place from size %li bytes to %li bytes! incrementing top pointer by %d bytes!", old.size,
-            new_layout.size, delta);
+    LOG_DBG("Expanding memory in place from size %li bytes to %li bytes! incrementing top pointer by %d bytes!",
+            old.size, new_layout.size, delta);
   } else {
     LOG_DBG("Old size: %li and new size: %li are equal! no need to shrink or resize!", old.size, new_layout.size);
   }
@@ -191,7 +156,7 @@ NvError vmem_init(VirtMem** self, i64 size_bytes) {
   }
 
   ptr->last_alloc = nullptr;
-  ptr->wm = wm_new();
+  ptr->wm = (Watermark){.first = -1, .hard_cap = -1, .last = -1};
   ptr->size = storage_size;
   ptr->top = &ptr->storage[0];
   ptr->end = ptr->top + storage_size;
@@ -347,7 +312,7 @@ static bool vmem_vtable_expand(void* ctx, void* ptr, MemLayout old, MemLayout nl
 }
 
 static void* vmem_vtable_realloc(void* ctx, void* ptr, MemLayout old, MemLayout newlayout) {
-  return vmem_reallocate(ctx, ptr,  old,  newlayout);
+  return vmem_reallocate(ctx, ptr, old, newlayout);
 }
 
 const AllocVTable* vmem_vtable(void) {
@@ -383,66 +348,91 @@ VirtMemView vmem_view(const VirtMem* self) {
 VMarker vmem_watermark(const VirtMem* self) {
   assert(self);
 
-  return wm_peek(&self->wm);
+  return self->wm.last;
 }
 
-VMarker vmem_pop_delete(VirtSelf self, VMarker marker) {
-  assert(self);
-
-  const VMarker wm = wm_peek(&self->wm);
-  if (marker != wm) {
-    LOG_DBG("Tried to pop delete marker: %li when most recent Watermark is (%li)", marker, wm);
-    return wm;
-  }
-
-  vmem_reset_to(self, marker);
-  return wm_pop_peek(&self->wm);
-}
-
-VMarker vmem_pop_zeroed(VirtSelf self, VMarker marker) {
-  assert(self);
-  const VMarker top = wm_peek(&self->wm);
-
-  if (top != VMARKER_NONE && marker != top) {
-    LOG_DBG("Tried to pop delete (zeroed) marker: %li when most recent Watermark is (%li)", marker, top);
-    return top;
-  }
-
-  vmem_reset_zeroed(self, marker);
-  return wm_pop_peek(&self->wm);
-}
-
-VMarker vmem_mark(VirtMem* self) {
+static inline VMarker vmem_dry_checkpoint(VirtMem* self) {
   assert(self);
   assert(self->top);
-  const VMarker m = self->top - &self->storage[0];
 
-  assert(m >= 0 && m < self->size);
-  wm_push(&self->wm, m);
+  const VMarker m = self->top - &self->storage[0];
 
   return m;
 }
 
-void vmem_reset_to(VirtMem* self, VMarker marker) {
+VMarker vmem_checkpoint(VirtMem* self) {
+  assert(self);
+  assert(self->top);
+
+  const VMarker m = self->top - &self->storage[0];
+
+  assert(m >= 0 && m < self->size);
+
+  if (self->wm.hard_cap >= 0 && m > self->wm.hard_cap) {
+    LOG_ERROR("Cannot set checkpoint: %li when hard cap is set to: %li", m, self->wm.hard_cap);
+    return -1;
+  }
+  if (self->wm.first == -1) {
+    self->wm.first = m;
+  } else if (self->wm.last == -1) {
+    self->wm.last = m;
+  }
+
+  return m;
+}
+
+VMarker vmem_checkpoint_freeze(VirtMem* self) {
+  assert(self);
+  const VMarker cap = vmem_checkpoint(self);
+  if (cap == -1) {
+    LOG_FATAL("vmem_checkpoint returned -1! Watermark data: first: %li, hard_cap: %li, last: %li", self->wm.first,
+              self->wm.hard_cap, self->wm.last);
+  }
+  self->wm.hard_cap = cap;
+  self->wm.last = cap;
+  return cap;
+}
+
+i64 vmem_reset_to(VirtMem* self, VMarker marker) {
+  if (marker < 0 || marker > vmem_size(self)) {
+    LOG_FATAL("Cannot reset marker: %li", marker);
+  }
   assert(marker >= 0 && marker <= vmem_size(self));
+
+  if (marker <= self->wm.hard_cap) {
+    LOG_ERROR("Tried to reset VirtMem to marker: %li, but hard cap is set to :%li!", marker, self->wm.hard_cap);
+    return -1;
+  } else if (marker == self->wm.last) {
+    self->wm.last = self->wm.hard_cap;
+  } else if (marker < self->wm.last) {
+    self->wm.last = marker;
+  } else if (marker < self->wm.first) {
+    self->wm.first = marker;
+  } else if (marker == self->wm.first) {
+    self->wm.first = -1;
+  }
 
   u8* const ntop = (&self->storage[marker]);
 
+  i64 delta = 0;
+  if (ntop < self->top) {
+    delta = self->top - ntop;
+  }
+
   assert(ntop <= self->top);
 
+  LOG_DBG("Reset VirtMem back %li bytes!", delta);
+
   self->top = ntop;
+
+  return delta;
 }
 
 void vmem_reset_zeroed(VirtMem* self, VMarker marker) {
-  assert(marker >= 0 && marker <= vmem_size(self));
+  const i64 delta_size = vmem_reset_to(self, marker);
+  byte* ntop = self->top;
 
-  u8* const ntop = (&self->storage[marker]);
-  const i64 delta_size = self->top - ntop;
-
-  assert(ntop <= self->top);
   memset(ntop, 0, delta_size);
-
-  self->top = ntop;
 }
 
 NvError vmem_lock(VirtMem* self, i64 nbytes) {
@@ -541,6 +531,7 @@ NvError vmem_init_ex(VirtMem** self, VirtMemOpts opts) {
   ptr->size = size;
   ptr->top = &ptr->storage[0];
   ptr->end = ptr->top + size;
+  ptr->wm = wm_new();
   *self = ptr;
 
   if (bithas(opts.mode, VMap__CommitPages) && opts.commit_bytes != 0) {
@@ -785,4 +776,135 @@ char* vmem_strdup(VirtSelf self, const char* str) {
   }
 
   return res;
+}
+
+VArena* vmem_arena_embed(VirtSelf self, const i64 arena_size_bytes) {
+  assert(self);
+  const i64 avail = vmem_available(self);
+  const i64 fullsize = arena_size_bytes + (i64)sizeof(VArena);
+  if UNLIKELY (fullsize > avail) {
+    LOG_ERROR("Failed to embed VArena of size: %li (full size: %li), only %li bytes available in backing VirtMem!",
+              arena_size_bytes, fullsize, avail);
+    return nullptr;
+  }
+
+  const VMarker marker = vmem_dry_checkpoint(self);
+  if (marker > self->wm.hard_cap) {
+    LOG_ERROR(
+        "Embedding an arena when memory is frozen at checkpoint: %li, embeded arena may not actually reset its memory "
+        "upon destruction, unless checkpoint is unfrozen!",
+        self->wm.hard_cap);
+  }
+  self->wm.last = marker;
+
+  VArena* arena = punwrap(vmem_allocate(self, mlayout_fma(VArena, arena_size_bytes)));
+  arena->size = arena_size_bytes;
+  arena->cursor = &arena->storage[0];
+  arena->last_alloc = nullptr;
+  arena->marker = marker;
+  arena->parent = self;
+
+  return arena;
+}
+
+/// @brief an embedded Arena.
+/// This arena takes up sizeof(Arena) + Arena::size bytes inside of a VirtMems memory, @see [vmem_arena_embed]
+typedef struct VArena VArena;
+typedef VArena ArenaVirt;
+
+void* va_allocate(VArena* self, MemLayout layout) {
+  assert(self);
+
+  const i64 avail = va_available(self);
+
+  if (layout.size > avail) {
+    LOG_ERROR("VArena avail: %li, cannot fit object of size: %li", avail, layout.size);
+    return nullptr;
+  }
+
+  byte* ptr = ptr_alignup(self->cursor, layout.align);
+  byte* next = ptr + layout.size;
+  const byte* end = &self->storage[self->size];
+  if (next >= end) {
+    LOG_ERROR("VArena avail: %li, cannot fit object of size: %li due to extra padding!", avail, layout.size);
+    return nullptr;
+  }
+
+  self->cursor = next;
+  return ptr;
+}
+
+void* va_zallocate(VArena* self, MemLayout layout) {
+  void* ptr = va_allocate(self, layout);
+  if UNLIKELY (is_null(ptr)) {
+    return nullptr;
+  }
+
+  memset(ptr, 0, layout.size);
+  return ptr;
+}
+
+void* va_reallocate(VArena* self, void* ptr, MemLayout old, MemLayout nlayout) {
+  assert(ptr);
+  assert(self);
+  if (old.size == nlayout.size) {
+    return ptr;
+  }
+
+
+  if (self->last_alloc == ptr) {
+    if (va_expand(self, ptr, old, nlayout)) {
+      return ptr;
+    }
+    if (nlayout.size < old.size) {
+      const i64 delta = old.size - nlayout.size;
+      self->cursor -= delta;
+      return ptr;
+    }
+  }
+
+  // this wasnt the last allocation, but we are shrinking, then we dont have to do anything!
+    if (nlayout.size < old.size) {
+      return ptr;
+    }
+
+  
+
+  void* next = va_allocate(self, nlayout);
+  if (is_null(next)) {
+    LOG_ERROR(
+        "Failed to reallocate object of size: %li bytes to object of size: %li bytes! only %li bytes available in "
+        "VArena!",
+        old.size, nlayout.size, va_available(self));
+    return nullptr;
+  }
+
+  memcpy(next, ptr, old.size);
+  return next;
+}
+
+bool va_expand(VArena* self, void* ptr, MemLayout old, MemLayout nlayout) {
+  if (self->last_alloc == ptr && nlayout.size >= old.size) {
+    const i64 delta = nlayout.size - old.size;
+    self->cursor += delta;
+    return true;
+  }
+  return false;
+}
+
+Allocator va_allocator(VArena* self) METHOD;
+
+void vmem_checkpoint_unfreeze(VirtMem* self) {
+  assert(self);
+  self->wm.hard_cap = -1;
+}
+
+i64 va_available(const VArena* self) {
+  assert(self);
+  return self->size - va_used_bytes(self);
+}
+
+i64 va_used_bytes(const VArena* self) {
+  assert(self);
+  return self->cursor - &self->storage[0];
 }

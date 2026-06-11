@@ -63,6 +63,7 @@ core_lib = static_library(
     'src/core/spad.c',
     'src/core/stb_sprintf.c',
     'src/core/fs.c',
+    'src/core/internal.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

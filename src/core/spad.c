@@ -21,7 +21,7 @@ StringPad spad_delim_new(struct VirtMem* vm, char delim) {
   // points to ending 'null character'
   const char* end = begin + 1;
 
-  const VMarker marker = vmem_mark(vm);
+  const VMarker marker = vmem_checkpoint(vm);
 
   const i32 size = 0;
   return (StringPad){.vm = vm, .size = size, .mark = marker, .delim = delim, .begin = begin, .end = end};
@@ -155,7 +155,7 @@ char spad_putchar(StringPad* self, char c) {
 
   *ch = c;
 
-  self->size+= 1;
+  self->size += 1;
 
   return c;
 }
@@ -178,24 +178,17 @@ u8 spad_putbyte(StringPad* self, u8 byte) {
 void spad_clear(StringPad* self) {
   assert(self);
 
-  self->end = self->begin + 1; 
+  self->end = self->begin + 1;
   self->size = 0;
-  
 
   vmem_reset_to(self->vm, self->mark);
-
 }
 
 void spad_clear_zeroed(StringPad* self) {
   assert(self);
 
-
-  self->end = self->begin + 1; 
+  self->end = self->begin + 1;
   self->size = 0;
-  
 
   vmem_reset_zeroed(self->vm, self->mark);
-
-  
 }
-
