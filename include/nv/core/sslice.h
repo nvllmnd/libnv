@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 /// A String slice, consisting of a pointer to the beginning of

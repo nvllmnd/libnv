@@ -1,4 +1,7 @@
-
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <string.h>
 
