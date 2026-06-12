@@ -73,17 +73,17 @@ PURE_FUNC
 i32 salloc_used(const StaticAlloc* self);
 
 METHOD
-void* salloc_allocate(StaticAlloc* self, MemLayout layout) WHERE(IS_POWER_OF_2(layout.align));
+void* salloc_allocate(StaticAlloc* self, Layout layout) WHERE(IS_POWER_OF_2(layout.align));
 
 METHOD
-void* salloc_zallocate(StaticAlloc* self, MemLayout layout) WHERE(IS_POWER_OF_2(layout.align));
+void* salloc_zallocate(StaticAlloc* self, Layout layout) WHERE(IS_POWER_OF_2(layout.align));
 
 PARAMS_NONNULL(1, 2)
-void* salloc_expand(StaticAlloc* self, void* ptr, MemLayout old_layout, MemLayout new_layout)
+void* salloc_expand(StaticAlloc* self, void* ptr, Layout old_layout, Layout new_layout)
     WHERE(IS_POWER_OF_2(old_layout.align) && IS_POWER_OF_2(new_layout.align));
 
 PARAMS_NONNULL(1, 2)
-void* salloc_reallocate(StaticAlloc* self, void* ptr, MemLayout old_layout, MemLayout new_layout)
+void* salloc_reallocate(StaticAlloc* self, void* ptr, Layout old_layout, Layout new_layout)
     WHERE(IS_POWER_OF_2(old_layout.align) && IS_POWER_OF_2(new_layout.align));
 
 PARAMS_NONNULL(1, 2)

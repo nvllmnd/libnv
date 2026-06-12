@@ -120,11 +120,11 @@ void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 
 PARAMS_NONNULL(1, 2)
 PURE_FUNC
-u8* ptr_alignto(u8* ptr, u8* end, MemLayout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
+u8* ptr_alignto(u8* ptr, u8* end, Layout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
 
 /// behaves similarly to C++'s std::align
 PARAMS_NONNULL(1, 2)
-u8* ptr_alignin(u8* ptr, i32* space, MemLayout layout);
+u8* ptr_alignin(u8* ptr, i32* space, Layout layout);
 
 PARAMS_NONNULL(1)
 static inline void* move(void** from) {

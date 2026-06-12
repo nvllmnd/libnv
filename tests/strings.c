@@ -6,7 +6,6 @@
 #include "nv/core/log.h"
 #include "nv/core/spad.h"
 #include "nv/core/core_types.h"
-#include "nv/memory/virt.h"
 #include "unity.h"
 
 void setUp(void) {}

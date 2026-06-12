@@ -1,12 +1,10 @@
 #include "nv/core/algo.h"
 
 #include <assert.h>
-#include <stdio.h>
 #include <string.h>
 #include "nv/core/core_types.h"
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
-#include "nv/core/algo.h"
 
 void* ptr_expect_(const void* ptr, const char* msg) {
 
@@ -131,7 +129,7 @@ bool ptr_is_aligned(const void* ptr, isize align) {
   return pcast(void, aligned);
 }
 
-u8* ptr_alignto(u8* ptr, u8* end, MemLayout layout) {
+u8* ptr_alignto(u8* ptr, u8* end, Layout layout) {
   assert(ptr);
   assert(end);
   assert(end >= ptr);
@@ -148,7 +146,7 @@ u8* ptr_alignto(u8* ptr, u8* end, MemLayout layout) {
 
 }
 
-u8* ptr_alignin(u8* ptr, i32* space, MemLayout layout) {
+u8* ptr_alignin(u8* ptr, i32* space, Layout layout) {
   assert(ptr);
   assert(space);
   assert(IS_POWER_OF_2(layout.align));

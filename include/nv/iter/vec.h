@@ -10,7 +10,7 @@
 typedef void* VecAny;
 typedef const void* ConstVecAny;
 
-VecAny vec_new_(MemLayout tlayout, i32 capacity, Allocator alloc);
+VecAny vec_new_(Layout tlayout, i32 capacity, Allocator alloc);
 #define vec_new(T, _cap, _alloc) ((__typeof(T)*)vec_new_(mlayout_new(T), (_cap), (_alloc)))
 
 METHOD

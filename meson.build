@@ -82,6 +82,8 @@ memory_lib = static_library(
   files(
     'src/memory/alloc.c',
     'src/memory/static_alloc.c',
+    'src/memory/arena.c',
+    'src/memory/vmem.c',
 
   ),
   include_directories: inc,

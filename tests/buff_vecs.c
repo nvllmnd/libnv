@@ -5,10 +5,8 @@
 
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/memory/virt.h"
 #include "unity.h"
 
-static VirtMem* ARENA = nullptr;
 
 static Allocator ALLOC;
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <math.h>
-#include <stdint.h>
+#include "nv/core/log.h"
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
@@ -161,7 +161,6 @@
 #define offsetof(T, _m) ((isize) & ((T*)0)->_m)
 #endif
 
-
 #define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
 
 #define sizeof_field(T, _name_) (sizeof(__typeof(make_zeroed(T)._name_)))
@@ -170,40 +169,41 @@
                     write out the struct name 3 times*/                       \
   typedef struct T T
 
-#define bailerr_with(_expr, _retval)                                           \
+#define bailerr_with(_expr, _retval)                                         \
   /* evaluates given expression that returns [error] (int), and returns from \
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
     const error _err = (_expr);                                              \
     if (_err != 0) {                                                         \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
       return (_retval);                                                      \
     }                                                                        \
   } while (0)
 
-#define bailerr_withv(_expr)                                                   \
+#define bailerr_withv(_expr)                                                 \
   /* evaluates given expression that returns [error] (int), and returns from \
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
     const error _err = (_expr);                                              \
     if (_err != 0) {                                                         \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
       return;                                                                \
     }                                                                        \
   } while (0)
 
-
-#define bailerr(_expr)                                                   \
+#define bailerr(_expr)                                                       \
   /* evaluates given expression that returns [error] (int), and returns from \
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
     const error _err = (_expr);                                              \
     if (_err != 0) {                                                         \
-      return _err;                                                                \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
+      return _err;                                                           \
     }                                                                        \
   } while (0)
-
 
 #define tryerr bailerr
 

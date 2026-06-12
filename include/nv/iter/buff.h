@@ -51,7 +51,7 @@ Buff* buff_from_mem(u8* start, u8* end);
 /// Makes space for @param (MemLayout layout) in this Buff.
 /// Returns nullptr if capacity is not large enough to acommadate given layout.
 METHOD
-void* buff_append(Buff* self, MemLayout layout);
+void* buff_append(Buff* self, Layout layout);
 
 /// Appends given string to back of this Buff. Returns a non-empty [sslice] if there is enough capacity for given
 /// string up to n bytes.
@@ -108,7 +108,7 @@ void buff_destroy(Buff* self, Allocator alloc);
 /// Returns true if this Buff has enough capacity to fit a @param (MemLayout layout), otherwise false.
 METHOD
 PURE_FUNC
-bool buff_has_space_for(const Buff* self, MemLayout layout);
+bool buff_has_space_for(const Buff* self, Layout layout);
 
 /// Does this buffer have an element size > 1?
 /// Used for Vec
@@ -123,7 +123,7 @@ i32 buff_elem_size(const Buff* self);
 /// Returns true if this Buffer needs to be resized to fit a @param (Memlayout layout)
 METHOD
 PURE_FUNC
-static inline bool buff_needs_resize_for(const Buff* self, MemLayout layout) {
+static inline bool buff_needs_resize_for(const Buff* self, Layout layout) {
   return !buff_has_space_for(self, layout);
 }
 

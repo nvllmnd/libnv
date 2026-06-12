@@ -7,7 +7,6 @@
 #include "nv/core/spad.h"
 #include "nv/core/core_types.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/virt.h"
 #include "unity.h"
 
 VirtMem* VM = {};

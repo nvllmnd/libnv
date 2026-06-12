@@ -37,6 +37,7 @@ typedef enum NvError : error {
   Error__MAdviseWillNeedFailed,
   Error__FailedRemap,
   Error__CannotExpandInPlace,
+  Error__InvalidAllocationSize,
   Error__BufferNeedsResize = -300,
   Error__VirtMemOutOfMemory = -500,
   /// Not enough space/cannot allocate memory (POSIX.1-2001).
@@ -48,7 +49,7 @@ typedef enum NvError : error {
 
 CONST_FUNC
 RETURNS_NON_NULL
-static inline const char* memerr_string(NvError err) {
+static inline const char* error_string(NvError err) {
   switch (err) {
     case Error__Ok: {
       return STRINGIFY(Error__Ok) " :: Ok! no error.";
@@ -63,7 +64,7 @@ static inline const char* memerr_string(NvError err) {
       return STRINGIFY(Error__BufferNeedsResize) " :: Buff must be resized in order to append a given layout!";
     } break;
     case Error__VirtMemOutOfMemory: {
-      return STRINGIFY(Error__VirtMemOutOfMemory) " :: Virtual Memory owned by VirtMem does not have enough memory for a given MemLayout!";
+      return STRINGIFY(Error__VirtMeOutOfMemory) " :: Virtual Memory owned by VirtMem does not have enough memory for a given MemLayout!";
     } break;
     case Error__OOM: {
       return STRINGIFY(Error__OOM) " :: General/Unspecified Out of Memory Error.";
@@ -106,6 +107,9 @@ static inline const char* memerr_string(NvError err) {
       return STRINGIFY(Error__FailedRemap);
     case Error__CannotExpandInPlace:
       return STRINGIFY(Error__CannotExpandInPlace);
+      break;
+    case Error__InvalidAllocationSize:
+      return STRINGIFY(Error__InvalidAllocationSize) " :: Size null, negative, or larger than INT64_MAX!";
       break;
   }
 

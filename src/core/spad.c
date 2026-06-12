@@ -7,7 +7,6 @@
 #include "nv/core/sslice.h"
 #include "nv/iter/string.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/virt.h"
 
 StringPad spad_delim_new(struct VirtMem* vm, char delim) {
   if UNLIKELY (is_null(vm)) {
