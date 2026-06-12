@@ -90,7 +90,7 @@ struct AllocVTable {
   /// See [VTableFree]
   VTableFree free;
 
-  VTableResize expand;
+  VTableResize resize;
 
   /// VTable Mask, Allocators can set bits related to the allocation methods that they support, to avoid having to
   /// make  a funciton call. This also is more clear to the caller which functions they can use.
@@ -114,7 +114,7 @@ void* vtable_expand_no_impl(void*, void*, Layout, Layout);
 
 #define VTABLE_ADAPTER_ALLOC_NAME(T) T##_vtable_adapter_alloc
 
-#define VTABLE_ADAPTER_ALLOC(T, _impl)                              \
+#define VTABLE_ADAPTER_DEF_ALLOC(T, _impl)                              \
   void* VTABLE_ADAPTER_ALLOC_NAME(T)(void* ctx, Layout layout) { \
     __typeof(T)* self = ctx;                                        \
     return (_impl)(self, layout);                                   \
@@ -122,7 +122,7 @@ void* vtable_expand_no_impl(void*, void*, Layout, Layout);
 
 #define VTABLE_ADAPTER_REALLOC_NAME(T) T##_vtable_adapter_realloc
 
-#define VTABLE_ADAPTER_REALLOC(T, _impl)                                                                   \
+#define VTABLE_ADAPTER_DEF_REALLOC(T, _impl)                                                                   \
   void* VTABLE_ADAPTER_REALLOC_NAME(T)(void* ctx, void* ptr, Layout old_layout, Layout new_layout) { \
     __typeof(T)* self = ctx;                                                                               \
     return (_impl)(self, ptr, old_layout, new_layout);                                                     \
@@ -130,27 +130,32 @@ void* vtable_expand_no_impl(void*, void*, Layout, Layout);
 
 #define VTABLE_ADAPTER_ZALLOC_NAME(T) T##_vtable_adapter_zalloc
 
-#define VTABLE_ADAPTER_ZALLOC(T, _impl)                              \
+#define VTABLE_ADAPTER_DEF_ZALLOC(T, _impl)                              \
   void* VTABLE_ADAPTER_ZALLOC_NAME(T)(void* ctx, Layout layout) { \
     __typeof(T)* self = ctx;                                         \
     return (_impl)(self, layout);                                    \
   }
 
-#define VTABLE_ADAPTER_EXPAND_NAME(T) T##_vtable_adapter_expand
+#define VTABLE_ADAPTER_RESIZE_NAME(T) T##_vtable_adapter_resize
 
-#define VTABLE_ADAPTER_EXPAND(T, _impl)                                                                   \
-  void* VTABLE_ADAPTER_EXPAND_NAME(T)(void* ctx, void* ptr, Layout old_layout, Layout new_layout) { \
+#define VTABLE_ADAPTER_DEF_RESIZE(T, _impl)                                                                   \
+  bool VTABLE_ADAPTER_RESIZE_NAME(T)(void* ctx, void* ptr, Layout old_layout, Layout new_layout) { \
     __typeof(T)* self = ctx;                                                                              \
     return (_impl)(self, ptr, old_layout, new_layout);                                                    \
   }
 
 #define VTABLE_ADAPTER_FREE_NAME(T) T##_vtable_adapter_free
 
-#define VTABLE_ADAPTER_FREE(T, _impl)                       \
-  void* VTABLE_ADAPTER_FREE_NAME(T)(void* ctx, void* ptr) { \
+#define VTABLE_ADAPTER_DEF_FREE(T, _impl)                       \
+  void VTABLE_ADAPTER_FREE_NAME(T)(void* ctx, void* ptr) { \
     __typeof(T)* self = ctx;                                \
     (_impl)(self, ptr);                                     \
   }
+
+  
+#define VT_DEFINE_AS(_type, _kind, _name) VTABLE_ADAPTER_DEF_##_kind(_type, _name)
+#define VT_NAMEOF(_type, _kind) VTABLE_ADAPTER_##_kind##_NAME(_type)
+
 
 /// C-Style Allocator Interface
 /// Inspired by Zig <3
@@ -189,8 +194,8 @@ static inline void* allocator_zallocate(Allocator self, Layout layout) {
 }
 
 static inline bool allocator_expand(Allocator self, void* ptr, Layout old_layout, Layout new_layout) {
-  assert(vtmask_has_expand(self.vtable->mask) && self.vtable->expand);
-  return self.vtable->expand(self.ctx, ptr, old_layout, new_layout);
+  assert(vtmask_has_expand(self.vtable->mask) && self.vtable->resize);
+  return self.vtable->resize(self.ctx, ptr, old_layout, new_layout);
 }
 
 static inline void allocator_free(Allocator self, void* ptr) {

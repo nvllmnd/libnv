@@ -5,189 +5,171 @@
 #include "nv/core/algo.h"
 #include "nv/core/log.h"
 #include "nv/core/sslice.h"
-#include "nv/iter/string.h"
 #include "nv/memory/alloc.h"
+#include "nv/memory/vmem.h"
 
-StringPad spad_delim_new(struct VirtMem* vm, char delim) {
-  if UNLIKELY (is_null(vm)) {
-    LOG_FATAL("Tried to create a new StringPad with a null VirtMem pointer!");
+#ifndef LIBNV_SPAD_STRICT
+#define LIBNV_SPAD_STRICT 1
+#endif
+
+static inline void assert_inuse(const StringPad* self) {
+#if LIBNV_SPAD_STRICT == 1
+  if UNLIKELY (!self->inuse) {
+    LOG_FATAL("Expected StringPad to be in use when it isnt!");
   }
+#endif
+}
 
-  const VirtMemView view = vmem_view(vm);
+static inline void assert_not_inuse(const StringPad* self) {
+#if LIBNV_SPAD_STRICT == 1
+  if UNLIKELY (self->inuse) {
+    LOG_FATAL("Expected StringPad to not be in use but it is!");
+  }
+#endif
+}
 
-  const char* vstart = view.start;
-  const char* begin = &vstart[view.used_bytes];
-  // points to ending 'null character'
-  const char* end = begin + 1;
+sslice spad_clone_string(StringPad* self, Allocator alloc) {
+  assert_inuse(self);
+  const i64 size = va_used_bytes(&self->mem);
 
-  const VMarker marker = vmem_checkpoint(vm);
+  char* cpy = allocator_allocate(alloc, mlayout_bytes(size + 1));
+  if UNLIKELY (is_null(cpy)) {
+    LOG_ERROR("StringPad finished building string of size: %li bytes but failed to clone into given allocator!", size);
+    return sslice_empty();
+  }
+  strncpy(cpy, (char*)vmem_begin(self->mem.mem), size);
+  cpy[size + 1] = 0;
+  return sslice_new(.begin = cpy, .len = size);
+}
 
-  const i32 size = 0;
-  return (StringPad){.vm = vm, .size = size, .mark = marker, .delim = delim, .begin = begin, .end = end};
+StringPad spad_new(i64 size_bytes) {
+  assert(size_bytes > 0);
+  Vallocator mem = va_new(size_bytes, false);
+  assert(va_isok(&mem));
+  return (StringPad){.inuse = false, .mem = mem};
+}
+void spad_build_start(StringPad* self) {
+  assert(self);
+  assert_not_inuse(self);
+
+  self->inuse = true;
+  va_clear(&self->mem);
+}
+sslice spad_build_end(StringPad* self, Allocator alloc) {
+  assert(self);
+  assert_inuse(self);
+
+  self->inuse = false;
+  return spad_clone_string(self, alloc);
 }
 
 i32 spad_clone_into(StringPad* self, char* buff_out, i32 buff_len) {
   assert(self);
   assert(buff_out);
-  assert(buff_len >= 0);
-  const i32 size = self->end - self->begin;
+  assert(buff_len > 0);
+  assert_inuse(self);
 
-  const i32 len = min(buff_len, size);
+  const i64 size = va_used_bytes(&self->mem);
+  const i64 len = min(buff_len - 1, size + 1);
 
-  strncpy(buff_out, self->begin, len);
-
-  buff_out[len] = '\0';
+  strncpy(buff_out, (char*)vmem_begin(self->mem.mem), len);
+  buff_out[len] = 0;
 
   return len;
 }
 
-sslice spad_clone_string(StringPad* self, Allocator alloc) {
-  assert(self);
-  const i32 len = self->size + 1;
-  char* str = allocator_allocate(alloc, mlayout_bytes(len));
+i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len) {
+  assert_inuse(self);
 
-  spad_clone_into(self, str, len);
 
-  return sslice_new(str, len);
+  const i64 n = spad_clone_into(self, buff_out, buff_len);
+
+  self->inuse = false;
+  return n;
 }
-
 sslice spad_nappend(StringPad* self, const char* s, i32 len) {
   assert(self);
   assert(s);
   assert(len > 0);
+  assert_inuse(self);
 
-  const i32 avail = vmem_available(self->vm);
+  const i64 avail = va_available(&self->mem);
 
-  if UNLIKELY (avail <= 0) {
-    ELOG_DBG("Not enough memory in backing VirtMem to append string %.*s of length: %d", len, s, len);
+  // NOTE: we want to allocate -1 full requested size,
+  // so that when we write a null character to the end of this appended string,
+  // that null character will get overwritten by the next append (if any).
+  // the size is truncated to available size if this string is too long, minus 1 to account for
+  // terminal null character,
+  const i64 full_size = min(len + 1, avail - 1);
+
+  // dont tell allocator about the null character
+  // NOTE: This is kind of hacky, but i lowkey like it lol, what wrong with a public struct eh?? =P
+  char* str = va_allocate(&self->mem, mlayout_bytes(full_size - 1));
+  if UNLIKELY (is_null(str)) {
+    LOG_ERROR("Failed to append string %.*s into StringPad with only %li bytes available", len, s,
+              va_available(&self->mem));
     return sslice_empty();
   }
 
-  if (len > avail) {
-    len = avail;
-  }
+  strncpy(str, s, full_size - 1);
+  // ensure we always  have a null character at the end of this string-pads build string
+  str[full_size] = 0;
 
-  // make room for our delimiter, if any
-  const i32 size = self->delim != '\0' ? len + 1 : len;
-
-  char* str = punwrap(vmem_allocate(self->vm, mlayout_bytes(size)));
-
-  strncpy(str, s, len);
-
-  self->end += size;
-  self->size += size;
-
-  if (self->delim != '\0') {
-    str[len] = self->delim;
-  }
-
-  return sslice_new(str, len);
+  return sslice_new(.begin = str, .len = full_size - 1);
 }
 
 sslice spad_append(StringPad* self, const char* s) {
   assert(self);
   assert(s);
 
-  const i32 len = stringlen(s);
+  const i64 len = stringlen(s);
   return spad_nappend(self, s, len);
-}
-
-sslice spad_fappend(StringPad* self, const char* fmt, ...) {
-  assert(self);
-  assert(fmt);
-  va_list args = {};
-  va_start(args);
-
-  const sslice sl = spad_vfappend(self, fmt, args);
-
-  va_end(args);
-
-  return sl;
-}
-
-sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) {
-  assert(self);
-
-  i64 slen = 0;
-  const char* str = vmem_vfstring(self->vm, &slen, fmt, args);
-
-  // NOTE: Here we delete the top most byte, so that the null character that
-  // vmem_fstring appends to our formatted string gets overwritten on the next call to this function,
-  // otherwise there would be a bunch of null characters interleaved into the string we are building!
-  vmem_delete_back(self->vm, 1);
-
-  // const i32 len = vfstring_length(fmt, args);
-  //
-  // const i32 avail = vmem_available(self->vm) - 1;
-  //
-  // const i32 alloc_size = min(len, avail)
-  //
-  //     // NOTE: We not calling the vmem_fstring functions as they all append null character to the strings they
-  //     allocate
-  //
-  //     char* str = punwrap(vmem_allocate(self->vm, mlayout_bytes(alloc_size)));
-
-  self->end += slen;
-  self->size += slen;
-
-  //
-  // vsnprintf(str, alloc_size + 1, fmt, args);
-
-  return sslice_new(str, slen);
-}
-
-void spad_destroy(StringPad* self) {
-  if LIKELY (self && is_not_null(self->vm)) {
-    vmem_reset_to(self->vm, self->mark);
-    memset(self, 0, sizeof(StringPad));
-  }
 }
 
 char spad_putchar(StringPad* self, char c) {
   assert(self);
+  assert_inuse(self);
 
-  if UNLIKELY (vmem_available(self->vm) < 1) {
-    return -1;
+  if (spad_available(self) >= 1) {
+    *self->mem.cursor = c;
+    self->mem.cursor += 1;
+    return c;
   }
-
-  char* ch = punwrap(vmem_allocate(self->vm, mlayout_bytes(1)));
-
-  *ch = c;
-
-  self->size += 1;
-
-  return c;
+  LOG_ERROR("StringPad of size: %li bytes has no available space to append character: %c", spad_capacity(self), c);
+  return -1;
 }
 
 u8 spad_putbyte(StringPad* self, u8 byte) {
   assert(self);
+  assert_inuse(self);
 
-  if UNLIKELY (vmem_available(self->vm) < 1) {
-    return UINT8_MAX;
+  if (spad_available(self) >= 1) {
+    *self->mem.cursor = byte;
+    self->mem.cursor += 1;
+    return byte;
   }
-
-  u8* by = punwrap(vmem_allocate(self->vm, mlayout_bytes(1)));
-  *by = byte;
-
-  self->size += 1;
-
-  return byte;
+  LOG_ERROR("StringPad of size: %li bytes has no available space to append character: %b", spad_capacity(self), byte);
+  return -1;
 }
 
 void spad_clear(StringPad* self) {
   assert(self);
-
-  self->end = self->begin + 1;
-  self->size = 0;
-
-  vmem_reset_to(self->vm, self->mark);
+  va_clear(&self->mem);
+  self->inuse = false;
 }
 
 void spad_clear_zeroed(StringPad* self) {
   assert(self);
+  va_clear_zeroed(&self->mem);
+  self->inuse = false;
+}
 
-  self->end = self->begin + 1;
-  self->size = 0;
+void spad_destroy(StringPad* self) {
+  if (is_not_null(self)) {
 
-  vmem_reset_zeroed(self->vm, self->mark);
+    assert_not_inuse(self);
+
+    va_destroy(&self->mem);
+    memset(self, 0, sizeof(StringPad));
+  }
 }

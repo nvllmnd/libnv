@@ -11,23 +11,20 @@
 #define _POSIX_C_SOURCE 1
 #endif
 
-
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
-
-#include "nv/memory/vmem.h"
-
-
-#include "nv/core/stb_sprintf.h"
 #include "nv/core/algo.h"
+#include "nv/memory/alloc.h"
 #include "nv/core/core_types.h"
 #include "nv/core/log.h"
+#include "nv/core/stb_sprintf.h"
 #include "nv/memory/error.h"
+#include "nv/memory/vmem.h"
 
 PURE_FUNC
 METHOD
@@ -290,7 +287,7 @@ char* va_strndup(Vallocator* self, const char* str, i32 len) {
 PARAMS_NONNULL(1, 2)
 sslice va_sslice_dup(Vallocator* self, const char* str, i32 len) {
   const char* ptr = va_strndup(self, str, len);
-  if UNLIKELY(is_null(ptr)) {
+  if UNLIKELY (is_null(ptr)) {
     return sslice_empty();
   }
   return sslice_new(.begin = ptr, .len = len);
@@ -306,14 +303,13 @@ sslice va_fslice(Vallocator* self, const char* fmt, ...) {
   const sslice str = va_vfslice(self, fmt, args);
 
   va_end(args);
-  
+
   return str;
-  
 }
 
 sslice va_vfslice(Vallocator* self, const char* fmt, va_list args) {
   assert(self);
-  assert(fmt);  
+  assert(fmt);
 
   i64 len = 0;
   const char* begin = va_vfstring(self, &len, fmt, args);
@@ -323,30 +319,25 @@ sslice va_vfslice(Vallocator* self, const char* fmt, va_list args) {
   }
 
   return sslice_new(.begin = begin, .len = len);
-  
 }
 
 char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...) {
-
   assert(self);
-  assert(fmt);  
+  assert(fmt);
 
   va_list args;
-  
+
   va_start(args);
 
   char* str = va_vfstring(self, len_out, fmt, args);
   va_end(args);
   return str;
-  
 }
 
 METHOD
 char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args) {
-
-
   assert(self);
-  assert(fmt);  
+  assert(fmt);
 
   const i64 avail = va_available(self);
   if UNLIKELY (avail <= 0) {
@@ -354,17 +345,24 @@ char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args)
     return nullptr;
   }
 
-  const i32 len = min(avail, vfstring_length(fmt,  args) + 1); // +1 for null terminator!
+  const i32 len = min(avail, vfstring_length(fmt, args) + 1);  // +1 for null terminator!
 
   char* str = punwrap(va_allocate(self, mlayout_bytes(len)));
 
-  stbsp_vsnprintf(str,  len,  fmt, args);
+  stbsp_vsnprintf(str, len, fmt, args);
 
   if (len_out) {
-    *len_out = len - 1; // dont include null terminal in length calc
+    *len_out = len - 1;  // dont include null terminal in length calc
   }
   return str;
+}
 
+void va_destroy(Vallocator* self) {
+  if (self && is_not_null(self->mem)) {
+    vmem_destroy(self->mem);
+    self->cursor = nullptr;
+    self->mem = nullptr;
+  }
 }
 
 // char* va_realpath(Vallocator* self, sslice path) {
@@ -373,3 +371,38 @@ char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args)
 //   const char* p = realpath(path.begin, char *restrict resolved)
 
 // }
+
+void va_clear(Vallocator* self) {
+  assert(self);
+  self->cursor = vmem_begin(self->mem);
+}
+
+void va_clear_zeroed(Vallocator* self) {
+  const i64 used = va_used_bytes(self);
+  va_clear(self);
+  memset(vmem_begin(self->mem), 0, used);
+}
+
+METHOD
+static void va_free(VArena*, void*) {}
+
+#define VT_DEFINE(_rest, _name) static VT_DEFINE_AS(VArena, _rest, _name)
+
+VT_DEFINE(ALLOC, va_allocate)
+VT_DEFINE(ZALLOC, va_zallocate)
+VT_DEFINE(REALLOC, va_reallocate)
+VT_DEFINE(RESIZE, va_resize)
+VT_DEFINE(FREE, va_free)
+
+#define VT_NAME(_ty) VT_NAMEOF(VArena, _ty)
+
+static constexpr const AllocVTable VA_VT = (AllocVTable){.allocate = VT_NAME(ALLOC),
+                                                         .zallocate = VT_NAME(ZALLOC),
+                                                         .resize = VT_NAME(RESIZE),
+                                                         .reallocate = VT_NAME(REALLOC),
+                                                         .free = VT_NAME(FREE), .mask = VT__All};
+
+
+Allocator vallocator(Vallocator* self) {
+  return (Allocator){.ctx = self, .vtable = &VA_VT};
+}

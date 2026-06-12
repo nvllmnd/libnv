@@ -1,10 +1,12 @@
 #pragma once
 
 #include <assert.h>
+#include <string.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
+#include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
 /// @brief allocated virtual memory
@@ -118,9 +120,26 @@ struct Vallocator {
 };
 alias(Vallocator);
 
+typedef Vallocator VArena;
+
 static constexpr const Vallocator VALLOC_NONE = {};
 
+METHOD
+PURE_FUNC
+static inline bool va_isnone(const Vallocator* self) {
+  return memcmp(self, &VALLOC_NONE, sizeof(Vallocator)) == 0;
+}
+
+METHOD
+PURE_FUNC
+static inline bool va_isok(const Vallocator* self) {
+  return !va_isnone(self);
+}
+
 typedef Vallocator VMalloc;
+
+METHOD
+Allocator vallocator(Vallocator* self);
 
 static inline Vallocator va_new(i64 vmem_size, bool noreserve) {
   Vallocator self = {};
@@ -130,6 +149,7 @@ static inline Vallocator va_new(i64 vmem_size, bool noreserve) {
 
   return self;
 }
+
 
 /// @brief creates new [Vallocator] with existing [VMem].
 /// Created Vallocator takes ownership of given VMem, and will destroy it when/if this instance is destroyed as well
@@ -194,6 +214,13 @@ char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...);
 
 METHOD
 char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args);
+
+METHOD
+void va_clear(Vallocator* self);
+METHOD
+void va_clear_zeroed(Vallocator* self);
+
+void va_destroy(Vallocator* self);
 
 // METHOD
 // char* va_realpath(Vallocator* self, sslice path);

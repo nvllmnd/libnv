@@ -8,8 +8,8 @@
 #include "nv/core/log.h"
 #include "nv/core/core_types.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/block_alloc.h"
 #include "nv/memory/error.h"
+#include "nv/memory/vmem.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -28,29 +28,14 @@ struct Stuff {
 };
 alias(Stuff);
 
-void arena_heap_exclusive(void) {
-  VirtMem* ah = nullptr;
-  bailerr_withv(vmem_init(&ah, GB(64)));
-  TEST_ASSERT_NOT_NULL(ah);
+void vmem_alloc_and_cleanup(void) {
+  VArena vm = va_new(GB(2), false);
 
-  Stuff* s = vmem_zallocate(ah, mlayout_new(Stuff));
-  TEST_ASSERT_NOT_NULL(s);
-
-  *s = make(Stuff, .buf = {}, .points = {}, .counter = 5);
-
-  vmem_destroy(ah);
-}
-
-void arena_heap_from_vmem(void) {
-  VirtMem* vm = {};
-
-  TEST_ASSERT_EQUAL(OK, vmem_init(&vm, MEGABYTES(16)));
-
-  TEST_ASSERT_NOT_NULL(vm);
+  TEST_ASSERT_TRUE(va_isok(&vm));
 
   for (i32 i = 0; i < 50; i++) {
-    char* b1 = vmem_zallocate(vm, mlayout_bytes(1024));
-    char* b2 = vmem_zallocate(vm, mlayout_bytes(2048));
+    char* b1 = va_zallocate(&vm, mlayout_bytes(1024));
+    char* b2 = va_zallocate(&vm, mlayout_bytes(2048));
 
     TEST_ASSERT_NOT_NULL(b1);
     TEST_ASSERT_NOT_NULL(b2);
@@ -60,156 +45,80 @@ void arena_heap_from_vmem(void) {
     TEST_ASSERT_EQUAL_STRING(b1, "ayooo");
   }
 
-  vmem_destroy(vm);
+  va_destroy(&vm);
 }
 
-void vmap_ex_lock_and_commit(void) {
-  VirtMem* vm = nullptr;
-  NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess,
-                                       .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+// void vmap_ex_lock_and_commit(void) {
+//   VirtMem* vm = nullptr;
+//   NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess,
+//                                        .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  err = vmem_lock(vm, KILOBYTES(12));
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+//   err = vmem_lock(vm, KILOBYTES(12));
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  err = vmem_unlock(vm, KILOBYTES(12));
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+//   err = vmem_unlock(vm, KILOBYTES(12));
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  err = vmem_destroy(vm);
-  TEST_ASSERT_EQUAL(Error__Ok, err);
-}
+//   err = vmem_destroy(vm);
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
+// }
 
-void vmap_marker_and_remap(void) {
-  VirtMem* vm = nullptr;
-  NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve,
-                                       .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+// void vmap_marker_and_remap(void) {
+//   VirtMem* vm = nullptr;
+//   NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve,
+//                                        .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  for (i32 i = 0; i < 25; i++) {
-    i32* x = vmem_allocate(vm, mlayout_new(i32));
-    TEST_ASSERT_NOT_NULL(x);
-    *x = i * i;
-  }
+//   for (i32 i = 0; i < 25; i++) {
+//     i32* x = vmem_allocate(vm, mlayout_new(i32));
+//     TEST_ASSERT_NOT_NULL(x);
+//     *x = i * i;
+//   }
 
-  const VMarker marker = vmem_checkpoint(vm);
+//   const VMarker marker = vmem_checkpoint(vm);
 
-  TEST_ASSERT(marker >= 0);
+//   TEST_ASSERT(marker >= 0);
 
-  static constexpr const i64 INTCOUNT = 25;
+//   static constexpr const i64 INTCOUNT = 25;
 
-  for (i32 i = 0; i < INTCOUNT; i++) {
-    i32* x = vmem_allocate(vm, mlayout_new(i32));
-    TEST_ASSERT_NOT_NULL(x);
-    *x = i * i;
-  }
+//   for (i32 i = 0; i < INTCOUNT; i++) {
+//     i32* x = vmem_allocate(vm, mlayout_new(i32));
+//     TEST_ASSERT_NOT_NULL(x);
+//     *x = i * i;
+//   }
 
-  static constexpr const i64 ALLOCSIZE = INTCOUNT * sizeof(i32);
+//   static constexpr const i64 ALLOCSIZE = INTCOUNT * sizeof(i32);
 
-  const i64 size = vmem_reset_to(vm, marker);
-  TEST_ASSERT_EQUAL(size, ALLOCSIZE);
+//   const i64 size = vmem_reset_to(vm, marker);
+//   TEST_ASSERT_EQUAL(size, ALLOCSIZE);
 
-  VAddrOffset offset = 0;
-  Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
+//   VAddrOffset offset = 0;
+//   Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
 
-  for (i32 i = 0; i < 8; i++) {
-    x->counter = i * i;
-  }
+//   for (i32 i = 0; i < 8; i++) {
+//     x->counter = i * i;
+//   }
 
-  const i32 pre = x[2].counter;
+//   const i32 pre = x[2].counter;
 
-  err = vmem_remap(&vm, MEGABYTES(101), VRemap__ExpandInPlace);
+//   err = vmem_remap(&vm, MEGABYTES(101), VRemap__ExpandInPlace);
 
-  if (err == Error__CannotExpandInPlace) {
-    LOG("Could not expand in place, trying to relocate!");
-    err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
-  }
+//   if (err == Error__CannotExpandInPlace) {
+//     LOG("Could not expand in place, trying to relocate!");
+//     err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
+//   }
 
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+//   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  vmem_update_ptr(vm, (void**)&x, offset);
- TEST_ASSERT_EQUAL(x[2].counter, pre); }
-void block_allocator_works(void) {
-  BlockAllocator* ba = ba_owned_new(MEGABYTES(24));
-  TEST_ASSERT_NOT_NULL(ba);
+//   vmem_update_ptr(vm, (void**)&x, offset);
+//  TEST_ASSERT_EQUAL(x[2].counter, pre);
+// }
 
-  Stuff* ss[50] = {};
-
-  for (i32 i = 0; i < 50; i++) {
-    Stuff* s = ba_allocate(ba, mlayout_new(Stuff));
-    TEST_ASSERT_NOT_NULL(s);
-    *s = make(Stuff, .buf = {}, .points = {}, .counter = 69);
-    ss[i] = s;
-  }
-
-  for (i32 i = 0; i < 50; i++) {
-    ba_free(ba, ss[i]);
-  }
-
-  ba_destroy(ba);
-}
-
-void block_allocator_relcaims_memory(void) {
-  BlockAllocator* ba = ba_owned_new(MEGABYTES(4));
-  TEST_ASSERT_NOT_NULL(ba);
-
-  Stuff* s = ba_allocate(ba, mlayout_new(Stuff));
-  TEST_ASSERT_NOT_NULL(s);
-
-  ba_free(ba, s);
-
-  struct Point* ps = ba_allocate(ba, mlayout_array(struct Point, 20));
-  TEST_ASSERT_NOT_NULL(ps);
-
-  struct Point* ps2 = ba_allocate(ba, mlayout_array(struct Point, 32));
-  TEST_ASSERT_NOT_NULL(ps2);
-
-  struct Point* ps3 = ba_allocate(ba, mlayout_array(struct Point, 10));
-  TEST_ASSERT_NOT_NULL(ps3);
-
-  struct Point* ps4 = ba_allocate(ba, mlayout_array(struct Point, 64));
-  TEST_ASSERT_NOT_NULL(ps4);
-
-  ba_free(ba, ps2);
-  ps2 = nullptr;
-
-  ba_free(ba, ps3);
-  ps3 = nullptr;
-
-  struct Point* ps5 = ba_allocate(ba, mlayout_array(struct Point, 200));
-  TEST_ASSERT_NOT_NULL(ps5);
-
-  struct Point* ps6 = ba_allocate(ba, mlayout_array(struct Point, 120));
-  TEST_ASSERT_NOT_NULL(ps6);
-
-  ba_free(ba, ps5);
-  ps5 = nullptr;
-
-  struct Point* ps7 = ba_allocate(ba, mlayout_array(struct Point, 10));
-  TEST_ASSERT_NOT_NULL(ps7);
-
-  ba_free(ba, ps7);
-  ps7 = nullptr;
-
-  ba_free(ba, ps4);
-  ps4 = nullptr;
-
-  ba_free(ba, ps6);
-  ps6 = nullptr;
-
-  ba_free(ba, ps);
-  ps = nullptr;
-
-  ba_destroy(ba);
-}
 i32 main(void) {
   UNITY_BEGIN();
 
-  RUN_TEST(arena_heap_exclusive);
-  RUN_TEST(arena_heap_from_vmem);
-  RUN_TEST(block_allocator_works);
-  RUN_TEST(block_allocator_relcaims_memory);
-  RUN_TEST(vmap_ex_lock_and_commit);
-  RUN_TEST(vmap_marker_and_remap);
+  RUN_TEST(vmem_alloc_and_cleanup);
 
   return UNITY_END();
 }

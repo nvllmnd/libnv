@@ -68,7 +68,7 @@ static inline u8* vec_iter_end(Vector* self) {
 }
 
 CONST_FUNC
-static inline MemLayout vec_layout(i32 capacity, i32 elem_size) {
+static inline Layout vec_layout(i32 capacity, i32 elem_size) {
   return mlayout_fma(Vector, vec_data_size(capacity, elem_size));
 }
 
@@ -76,7 +76,7 @@ static inline MemLayout vec_layout(i32 capacity, i32 elem_size) {
 
 // static_assert(sizeof(VecHeader(i32)) == sizeof(VecMeta));
 
-VecAny vec_new_(MemLayout elayout, i32 capacity, Allocator alloc) {
+VecAny vec_new_(Layout elayout, i32 capacity, Allocator alloc) {
   assert(capacity > 0);
   Vector* self = allocator_allocate(alloc, vec_layout(capacity, elayout.size));
   assert(self);
