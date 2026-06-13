@@ -1,12 +1,17 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <stdio.h>
 
 #include "nv/core/algo.h"
+#include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/core/spad.h"
-#include "nv/core_types.h"
-#include "nv/memory/virt.h"
+#include "nv/core/core_types.h"
+#include "nv/memory/vmem.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -88,55 +93,61 @@ void tagged_pointers(void) {
 }
 
 void stringpad_builds_string(void) {
-  VirtMem* vm = {};
-  NvError err = vmem_init(&vm, MEGABYTES(24));
-  TEST_ASSERT_EQUAL(Error__Ok, err);
+  Vallocator vm = va_new(MEGABYTES(24));
+  TEST_ASSERT_TRUE(va_isok(&vm));
 
-  {
     static constexpr const i32 BLEH_COUNT = 200;
     // allocate random space so we can test building strings in the middle of using VirtMem for other stuff
-    i32* bleh = vmem_allocate_array(vm, i32, BLEH_COUNT);
+    i32* bleh = va_alloc_array(&vm, i32, BLEH_COUNT);
     TEST_ASSERT_NOT_NULL(bleh);
     for (i32 i = 0; i < BLEH_COUNT; i++) {
       bleh[i] = (i * i * i) ^ i;
     }
-  }
 
-  const i32 prev_avail = vmem_available(vm);
-  const i32 prev_used = vmem_used_bytes(vm);
 
-  StringPad sp = spad_new(vm);
+  StringPad sp = spad_new((char*)vmem_begin(vm.mem), (char*)vmem_end(vm.mem));
+
+  spad_build_start(&sp);
 
   sslice sl = spad_fappend(&sp, "asdf ayooo %d ", 540);
 
   TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 ", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
 
   sl = spad_fappend(&sp, "%s", "interpolate!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN("interpolate!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
+
 
   sl = spad_append(&sp, " we building!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN(" we building!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate! we building!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
+
 
   char buf[255] = {};
 
-  spad_clone_into(&sp, buf, 255);
+  // spad_length does not count the ending null character,
+  // so +1 here to match the value returned from spad_build_end_into below
+  const i64 size = spad_length(&sp) + 1;
 
-  LOG("PREV_USED: %d, CURR_USED: %li", prev_used, vmem_used_bytes(vm));
+  const i32 n = spad_build_end_into(&sp, buf, 255);
+  UNUSED(n);
+  TEST_ASSERT_EQUAL(size, n);
 
-  LOG("PREV_AVAIL: %d, CURR_AVAIL: %li", prev_avail, vmem_available(vm));
+  TEST_ASSERT_EQUAL_STRING("asdf ayooo 540 interpolate! we building!", buf);
 
-  spad_destroy(&sp);
 
-  const i32 avail = vmem_available(vm);
-  const i32 used = vmem_used_bytes(vm);
+  const i32 avail = va_available(&vm);
+  const i32 used = va_used_bytes(&vm);
 
   LOG("AVAIL: %d", avail);
   LOG("USED: %d", used);
 
-  TEST_ASSERT_EQUAL(prev_avail, avail);
-  TEST_ASSERT_EQUAL(prev_used, used);
 }
 
 void spad_clones_into_arena(void) {}

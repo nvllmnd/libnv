@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Matthew McDade <zedex805@protonmail.com>
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 #ifndef __cplusplus
@@ -15,9 +18,21 @@
 #define SYSTEM_POSIX 1
 #endif
 
+#ifndef LIBNV_NO_USE_SHORT_NAMES
+#define LIBNV_NO_USE_SHORT_NAMES 0
+#endif
+
+#define LIBNV_USE_SHORT_NAMES (LIBNV_NO_USE_SHORT_NAMES == 0 ? 1 : 0)
+
+
+
 #if defined(__clang__) && __clang__
 
 // HEDLEY_PRAGMA(clang diagnostic push);
+
+
+#define CLANG_LIKELY [[clang::likely]]
+#define CLANG_UNLIKELY [[clang::unlikely]]
 
 #define CLANG_NON_NULL_BEGIN           \
                                        \
@@ -33,6 +48,10 @@
 #define CLANG_NULLABLE _Nullable
 
 #else
+
+#define CLANG_LIKELY
+#define CLANG_UNLIKELY
+
 #define CLANG_NON_NULL
 #define CLANG_NULLABLE
 #define CLANG_NON_NULL_BEGIN
@@ -40,6 +59,46 @@
 
 #endif  // if defined(__clang__) && __clang__
 
+#if defined(__has_c_attribute)
+#define LIBNV_HAS_ATTRIBUTE_SUPPORT 1
+#else
+#define LIBNV_HAS_ATTRIBUTE_SUPPORT 0
+#endif
+
+
+// NOTE: For support with older compilers
+// for use primarily in header files
+#if LIBNV_HAS_ATTRIBUTE_SUPPORT
+#define nv_nodiscard_msg(_m) [[nodiscard(_m)]]
+#define nv_nodiscard [[nodiscard]]
+
+#else
+#define nv_nodiscard_msg(_m)
+#define no_nodiscard
+#define constexpr
+#endif
+
+
+#ifndef LIBNV_USE_SHORT_ATTRIBUTE_NAMES
+#define LIBNV_USE_SHORT_ATTRIBUTE_NAMES 1
+#endif
+
+#ifndef LIBNV_DEFINE_FEATURE_MACROS
+#define LIBNV_DEFINE_FEATURE_MACROS 1
+#endif
+
+#if LIBNV_DEFINE_FEATURE_MACROS == 1
+
+#include "nv/core/ext.h"
+
+#endif
+
+// #if LIBNV_USE_SHORT_ATTRIBUTE_NAMES == 1
+// #define nodiscard nv_nodiscard
+// #define nodiscard_msg nv_nodiscard_msg
+// #endif
+
+    
 // #pragma clang assume_nonnull begin
 // #if defined(__clang__) && __clang__
 // #pragma clang assume_nonnull end

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 
@@ -21,7 +25,7 @@
 
 #else
 
-#include "nv/core_types.h"
+#include "nv/core/core_types.h"
 
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x

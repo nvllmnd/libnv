@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include "nv/memory/static_alloc.h"
 
 #include <assert.h>
@@ -47,7 +51,7 @@ i32 salloc_metadata_size(void) {
   return SIZE;
 }
 
-void* salloc_allocate(StaticAlloc* self, MemLayout layout) {
+void* salloc_allocate(StaticAlloc* self, Layout layout) {
   assert(self);
   assert(IS_POWER_OF_2(layout.align));
   assert(layout.size > 0);
@@ -69,7 +73,7 @@ void* salloc_allocate(StaticAlloc* self, MemLayout layout) {
 
 // static VTABLE_ADAPTER_ALLOC(StaticAlloc, salloc_allocate)
 
-void* salloc_zallocate(StaticAlloc* self, MemLayout layout) {
+void* salloc_zallocate(StaticAlloc* self, Layout layout) {
   void* ptr = salloc_allocate(self, layout);
   if (is_null(ptr)) {
     return nullptr;
@@ -78,7 +82,7 @@ void* salloc_zallocate(StaticAlloc* self, MemLayout layout) {
   return ptr;
 }
 
-void* salloc_expand(StaticAlloc* self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+void* salloc_expand(StaticAlloc* self, void* ptr, Layout old_layout, Layout new_layout) {
   assert(self);
   assert(ptr);
   assert(IS_POWER_OF_2(new_layout.align));
@@ -94,7 +98,7 @@ void* salloc_expand(StaticAlloc* self, void* ptr, MemLayout old_layout, MemLayou
   return ptr;
 }
 
-void* salloc_reallocate(StaticAlloc* self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+void* salloc_reallocate(StaticAlloc* self, void* ptr, Layout old_layout, Layout new_layout) {
   if (new_layout.size == old_layout.size) {
     return ptr;
   }

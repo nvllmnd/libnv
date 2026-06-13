@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 #include <stdarg.h>
@@ -5,7 +9,7 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
-#include "nv/memory/layout.h"
+#include "nv/memory/alloc.h"
 
 #define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
@@ -20,6 +24,27 @@ u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 
+/// @brief a safer, more efficient [strncat]
+/// @details Its not required that dest string ends with a null terminal, however after this function returns
+/// there is gauranteed to be a null terminal, which will get overwritten on the next invokation of this function using the
+/// original dest buffer
+/// @param (i64 dest_count) :: The current number of characters in dest string, not including null terminal (if any)
+/// @param (i64* out_new_count) new count of destination string, not including null character. You can use this value to pass to the next invokation of
+/// this function using same original destination string
+NvError try_stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen, i64* out_new_count) PARAMS_NONNULL(1,4);
+
+
+/// @brief fastpath version of [try_stringcat] 
+/// @details [try_stringcat] does a lot of checking to verify that its parameters are valid, this function
+/// does not do any of it and operates under the assumption that the caller is passing good parameters
+/// it only does the bare minimum and asserts pointer parameters are non-null, and checking the input string can fit in dest buffer, truncating it if it doesnt
+/// @returns  new character count of destination string, not including null terminal. You can use this value to
+/// pass to the next invokation of stringcat
+i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) PARAMS_NONNULL(1,4);
+
+
+
+
 // CLANG_NON_NULL_BEGIN
 
 // struct NonNull {
@@ -32,15 +57,18 @@ static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 /// This is to assert to the compiler that a poitner is not null, as
 /// this function is marked with the __returns_nonnull__ compiler attribute
 RETURNS_NON_NULL
-PURE_FUNC
 void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 // CLANG_NON_NULL_END
 
 #define ptr_nonnull(_ptr) cast(typeof_ptr(_ptr), ptr_nonnull_((const void*)(_ptr)))
 
-#if !defined(punwrap) && !defined(LIBNV_NO_USE_SHORT_NAMES)
+#if LIBNV_USE_SHORT_NAMES == 1
+
+#ifndef punwrap  
 #define punwrap ptr_nonnull
+#endif
+
 #endif
 
 /// Same as [ptr_nonnull], but fails with a user provided, message.
@@ -49,7 +77,6 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 /// would at the very worst, pass a bunch of parameters onto the stack that will never be used most the time, callers
 /// are also encouraged to keep messages light (no formatting, just as simple string literal)
 RETURNS_NON_NULL
-PURE_FUNC
 void* ptr_expect_(const void* ptr, const char* msg);
 
 #if !defined(pexpect) && (!defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0)
@@ -62,7 +89,7 @@ void* ptr_expect_(const void* ptr, const char* msg);
   /* Upper bound used by [stringlen] as the max_len parameter to [str_len] */ \
   /* NOTE: I decided to make this a macro so that it can be configurable to   \
    * each build (-D compiler flag)*/                                          \
-  (INT32_MAX - 1)
+  (INT64_MAX - 1)
 
 #endif  // STRLEN_UPPER_BOUND
 
@@ -115,16 +142,15 @@ bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 /// confusion if given pointer is misaligned
 PARAMS_NONNULL(1)
 RETURNS_NON_NULL
-PURE_FUNC
 void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
 
 PARAMS_NONNULL(1, 2)
 PURE_FUNC
-u8* ptr_alignto(u8* ptr, u8* end, MemLayout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
+u8* ptr_alignto(u8* ptr, u8* end, Layout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
 
 /// behaves similarly to C++'s std::align
 PARAMS_NONNULL(1, 2)
-u8* ptr_alignin(u8* ptr, i32* space, MemLayout layout);
+u8* ptr_alignin(u8* ptr, i32* space, Layout layout);
 
 PARAMS_NONNULL(1)
 static inline void* move(void** from) {
@@ -158,3 +184,11 @@ i32 fstring_length(const char* fmt, ...);
 /// @details does not modify va_list args
 PURE_FUNC
 i32 vfstring_length(const char* fmt, va_list args);
+
+
+sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va_list args) PARAMS_NONNULL(1,4);
+
+
+sslice fconcat(char* dest, i64 dest_len, i64 dest_capaccity, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(4, 5);
+
+

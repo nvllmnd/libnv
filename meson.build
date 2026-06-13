@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+# SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 project(
   'nv',
   'c',
@@ -41,7 +46,6 @@ endif
 
 if not meson.is_subproject() 
   cargs += '-DLIBNV_INTERNAL=1'
-  cargs += '-DNV_ALIAS_VIRTMEM_AS_ARENA=1'
 endif
 
 
@@ -57,13 +61,10 @@ core_lib = static_library(
   'nv_core',
   files(
     'src/core/log.c',
-    'src/core/buffer.c',
     'src/core/vec.c',
     'src/core/algo.c',
     'src/core/spad.c',
     'src/core/stb_sprintf.c',
-    'src/core/fs.c',
-    'src/core/internal.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
@@ -84,11 +85,10 @@ memory_lib = static_library(
   'nv_memory',
   files(
     'src/memory/alloc.c',
-    'src/memory/virt.c',
-    'src/memory/block_alloc.c',
-    'src/memory/runeset.c',
     'src/memory/static_alloc.c',
-
+    'src/memory/arena.c',
+    'src/memory/vmem.c',
+    'src/memory/chunk_alloc.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

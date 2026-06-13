@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 /// A String slice, consisting of a pointer to the beginning of
@@ -15,7 +19,6 @@
 /// These slices are ment to be immutable, as in it is not typical to
 /// mutate strings through a [sslice]. As such these are treated like views
 ///
-#include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
@@ -44,24 +47,14 @@ static inline bool sslice_is_empty(sslice self) {
 }
 
 PURE_FUNC
-static inline sslice sslice_from_str(const char* string) {
-  const isize len = stringlen(string);
-  return sslice_new(.begin = string, .len = len);
-}
+sslice sslice_from_str(const char* string);
 
 
 PURE_FUNC
 /// creates a new [sslice] from given string that points to the range provided by @param (from) and @param (to)
 /// such that the new slice points to string[from..to]
-static inline sslice sslice_from_range(const char* string, isize from, isize to) {
-  const isize slen = stringlen(string);
-  const isize slice_len = to - from;
-  if (slice_len > slen || slice_len < 0) {
-    return sslice_empty();
-  }
-  const char* begin = &string[from];
-  return sslice_new(.begin = begin, .len = slice_len);
-}
+sslice sslice_from_range(const char* string, isize from, isize to);
+
 
 /// Forwards each given [sslice]'s begin pointer to [strncmp], taking the
 /// minimum of each [sslice]'s length. for the count parameter of [strncmp]

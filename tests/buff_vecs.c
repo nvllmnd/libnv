@@ -1,55 +1,30 @@
-#include "nv/core/attributes.h"
-#include "nv/core_types.h"
-#include "nv/iter/buff.h"
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include "nv/core/constants.h"
 
 #include "nv/iter/vec.h"
 
 #include "nv/core/intdefs.h"
-#include "nv/core/log.h"
-#include "nv/memory/virt.h"
+#include "nv/memory/vmem.h"
 #include "unity.h"
 
-static VirtMem* ARENA = nullptr;
+static VArena ARENA = {};
 
 static Allocator ALLOC;
 
 void setUp(void) {
-   bailerr_withv(vmem_init(&ARENA, GB(64)));
-  ALLOC = vmem_allocator(ARENA);
-
-  assert(ARENA);
+  ARENA = va_new(GB(2));
+  ALLOC = va_allocator(&ARENA);
 
   
 }
 
 void tearDown(void) {
-  vmem_destroy(ARENA);
-  ARENA = nullptr;
-}
-
-void buffs_works(void) {
-
-
-  Buff* b = buff_new(KILOBYTES(4), ALLOC);
-  TEST_ASSERT_NOT_NULL(b);
-  
-  #define FIRST "test string"
-  #define SEC " appended!"
-  #define FULL FIRST SEC
-
-  LOG_DBG("Test: %s", FULL);
-
-  const sslice str = buff_append_str(b, FIRST);
-  TEST_ASSERT_EQUAL_STRING_LEN(FIRST, str.begin, str.len);
-
-  const sslice end = buff_append_str(b, SEC);
-
-  TEST_ASSERT_EQUAL_STRING_LEN(SEC, end.begin, end.len);
-
-  const sslice full = buff_as_string(b);
-
-  TEST_ASSERT_EQUAL_STRING_LEN(FULL, full.begin, full.len);
-
+  va_destroy(&ARENA);
+  ARENA = (VArena){};
 }
 
 
@@ -76,7 +51,6 @@ void vecs_works(void) {
 i32 main(void) {
   UNITY_BEGIN();
 
-  RUN_TEST(buffs_works);
   RUN_TEST(vecs_works);
 
   return UNITY_END();

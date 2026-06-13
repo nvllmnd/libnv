@@ -1,10 +1,13 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include "nv/iter/vec.h"
 
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/layout.h"
 struct Vector {
   /// @brief aligned top
   u8* start;
@@ -68,7 +71,7 @@ static inline u8* vec_iter_end(Vector* self) {
 }
 
 CONST_FUNC
-static inline MemLayout vec_layout(i32 capacity, i32 elem_size) {
+static inline Layout vec_layout(i32 capacity, i32 elem_size) {
   return mlayout_fma(Vector, vec_data_size(capacity, elem_size));
 }
 
@@ -76,7 +79,7 @@ static inline MemLayout vec_layout(i32 capacity, i32 elem_size) {
 
 // static_assert(sizeof(VecHeader(i32)) == sizeof(VecMeta));
 
-VecAny vec_new_(MemLayout elayout, i32 capacity, Allocator alloc) {
+VecAny vec_new_(Layout elayout, i32 capacity, Allocator alloc) {
   assert(capacity > 0);
   Vector* self = allocator_allocate(alloc, vec_layout(capacity, elayout.size));
   assert(self);

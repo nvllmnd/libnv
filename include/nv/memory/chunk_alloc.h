@@ -2,5 +2,17 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#define STB_SPRINTF_IMPLEMENTATION 1
-#include "nv/core/stb_sprintf.h"
+#pragma once
+
+
+#include "nv/core/core_types.h"
+
+struct ChunkAlloc {
+  byte* begin;  
+};
+alias(ChunkAlloc);
+
+
+
+
+

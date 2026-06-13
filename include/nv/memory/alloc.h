@@ -1,13 +1,66 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #pragma once
 
 #include <assert.h>
-#include <string.h>
 
-#include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
-#include "nv/core/log.h"
-#include "nv/core_types.h"
-#include "nv/memory/layout.h"
+#include "nv/common.h"
+#include "nv/iter/iterators.h"
+
+/// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
+struct Layout {
+  /// Size of requested allocation in bytes. Must be non-negative and greater than 0
+  isize size;
+  /// Alignment of requested allocation. must be a multiple of 2 (or the value 1)
+  isize align;
+};
+typedef struct Layout Layout;
+
+#define mlayout_static(s, a)                          \
+  ({                                                  \
+    constexpr const __typeof(s) _s = (s);             \
+    constexpr const __typeof(a) _a = (a);             \
+    static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
+    make(Layout, .size = _s, .align = _a);            \
+  })
+
+#define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
+#define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T)))
+#define mlayout_vec(T, _n) (make(Layout, .size = sizeof(T) * (_n), .align = alignof(T)))
+#define mlayout_fma(THeader, flex_member_size) \
+  (make(Layout, .size = sizeof(THeader) + (flex_member_size), .align = alignof(THeader)))
+
+/// @brief Creates a new [Layout] appropriate for allocating a buffer of bytes of size `nbytes`
+/// @param(i32 nbytes) size in bytes of allocation request. Must be > 0
+CONST_FUNC
+static inline Layout mlayout_bytes(i32 nbytes) {
+  assert(nbytes > 0);
+  return make(Layout, .size = nbytes, .align = 1);
+}
+
+/// @brief exteneds Layout by count. (if MemLayout represents a single element of a typed array, then MemLayout * count
+/// is the MemLayout of that typed array)
+CONST_FUNC
+static inline Layout mlayout_extend(Layout self, i32 count) {
+  assert(count > 0);
+  return (Layout){.size = self.size * count, .align = self.align};
+}
+
+/// @brief Creates a new MemLayout calculated as such: multiplies self.size * count and adds the rhs.size to the result,
+/// takes max of self and rhs alignment
+CONST_FUNC
+static inline Layout mlayout_extend_with(Layout self, i32 count, Layout rhs) {
+  assert(count > 0);
+  return (Layout){.size = (self.size * count) + rhs.size, .align = max(self.align, rhs.align)};
+}
+
+/// @brief lhs.size + rhs.size, align = max(lhs.align, rhs.align)
+CONST_FUNC
+static inline Layout mlayout_add(Layout lhs, Layout rhs) {
+  return (Layout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
+}
 
 /// Function pointer typedef for [Allocator] [AllocVTable] allocate method.
 ///
@@ -15,7 +68,7 @@
 ///              Typically you will cast this to your derived Allocator type in this method implementation
 /// MemLayout layout - layout of requested allocation. see [MemLayout]
 ///
-typedef void* (*const VTableAllocate)(void* self, MemLayout layout);
+typedef void* (*const VTableAllocate)(void* self, Layout layout);
 /// Function pointer typedef for [Allocator] [AllocVTable] reallocate method
 ///
 /// void* self     - Pointer to self (may be null if Allocator has no state!)
@@ -24,7 +77,7 @@ typedef void* (*const VTableAllocate)(void* self, MemLayout layout);
 /// isize new_size - Size of requested reallocation in bytes
 /// isize align - Alignment of allocation requested. Must be a power of 2!
 /// @returns Implementations should return nullptr on failure, otherewise a poitner to the start of reallocated memory
-typedef void* (*const VTableReallocate)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
+typedef void* (*const VTableReallocate)(void* self, void* ptr, Layout old_layout, Layout new_layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] zallocate method
 /// This is the same as [VTableAllocate], but ensures allocated memory is zeroed
@@ -33,7 +86,7 @@ typedef void* (*const VTableReallocate)(void* self, void* ptr, MemLayout old_lay
 ///               Typically you will cast this to your derived Allocator type in this method implementation
 /// usize size  - Size of allocation requested in bytes
 /// isize align - Alignment of allocation requested. Must be a power of 2!
-typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
+typedef void* (*const VTableZallocate)(void* self, Layout layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] free method.
 ///
@@ -43,7 +96,7 @@ typedef void* (*const VTableZallocate)(void* self, MemLayout layout);
 typedef void (*const VTableFree)(void* self, void* ptr);
 
 /// Returns true if @param (void* ptr) was successfully expanded in place
-typedef bool (*const VTableExpand)(void* self, void* ptr, MemLayout old_layout, MemLayout new_layout);
+typedef bool (*const VTableResize)(void* self, void* ptr, Layout old_layout, Layout new_layout);
 
 typedef enum HEDLEY_FLAGS AllocVTableMask : u8 {
   VT__Allocate = 1,
@@ -90,7 +143,7 @@ struct AllocVTable {
   /// See [VTableFree]
   VTableFree free;
 
-  VTableExpand expand;
+  VTableResize resize;
 
   /// VTable Mask, Allocators can set bits related to the allocation methods that they support, to avoid having to
   /// make  a funciton call. This also is more clear to the caller which functions they can use.
@@ -102,9 +155,9 @@ typedef struct AllocVTable AllocVTable;
 // const AllocVTable* global_allocator_vtable(void);
 
 // void* vtable_alloc_no_impl(void*, MemLayout);
-void* vtable_realloc_no_impl(void*, void*, MemLayout, MemLayout);
-void* vtable_zalloc_no_impl(void*, MemLayout);
-void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout);
+void* vtable_realloc_no_impl(void*, void*, Layout, Layout);
+void* vtable_zalloc_no_impl(void*, Layout);
+void* vtable_expand_no_impl(void*, void*, Layout, Layout);
 // void vtable_free_no_impl(void*, void*);
 
 // #define NO_IMPL_ALLOCATE (&vtable_alloc_no_impl)
@@ -114,43 +167,46 @@ void* vtable_expand_no_impl(void*, void*, MemLayout, MemLayout);
 
 #define VTABLE_ADAPTER_ALLOC_NAME(T) T##_vtable_adapter_alloc
 
-#define VTABLE_ADAPTER_ALLOC(T, _impl)                              \
-  void* VTABLE_ADAPTER_ALLOC_NAME(T)(void* ctx, MemLayout layout) { \
-    __typeof(T)* self = ctx;                                        \
-    return (_impl)(self, layout);                                   \
+#define VTABLE_ADAPTER_DEF_ALLOC(T, _impl)                       \
+  void* VTABLE_ADAPTER_ALLOC_NAME(T)(void* ctx, Layout layout) { \
+    __typeof(T)* self = ctx;                                     \
+    return (_impl)(self, layout);                                \
   }
 
 #define VTABLE_ADAPTER_REALLOC_NAME(T) T##_vtable_adapter_realloc
 
-#define VTABLE_ADAPTER_REALLOC(T, _impl)                                                                   \
-  void* VTABLE_ADAPTER_REALLOC_NAME(T)(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) { \
-    __typeof(T)* self = ctx;                                                                               \
-    return (_impl)(self, ptr, old_layout, new_layout);                                                     \
+#define VTABLE_ADAPTER_DEF_REALLOC(T, _impl)                                                         \
+  void* VTABLE_ADAPTER_REALLOC_NAME(T)(void* ctx, void* ptr, Layout old_layout, Layout new_layout) { \
+    __typeof(T)* self = ctx;                                                                         \
+    return (_impl)(self, ptr, old_layout, new_layout);                                               \
   }
 
 #define VTABLE_ADAPTER_ZALLOC_NAME(T) T##_vtable_adapter_zalloc
 
-#define VTABLE_ADAPTER_ZALLOC(T, _impl)                              \
-  void* VTABLE_ADAPTER_ZALLOC_NAME(T)(void* ctx, MemLayout layout) { \
-    __typeof(T)* self = ctx;                                         \
-    return (_impl)(self, layout);                                    \
+#define VTABLE_ADAPTER_DEF_ZALLOC(T, _impl)                       \
+  void* VTABLE_ADAPTER_ZALLOC_NAME(T)(void* ctx, Layout layout) { \
+    __typeof(T)* self = ctx;                                      \
+    return (_impl)(self, layout);                                 \
   }
 
-#define VTABLE_ADAPTER_EXPAND_NAME(T) T##_vtable_adapter_expand
+#define VTABLE_ADAPTER_RESIZE_NAME(T) T##_vtable_adapter_resize
 
-#define VTABLE_ADAPTER_EXPAND(T, _impl)                                                                   \
-  void* VTABLE_ADAPTER_EXPAND_NAME(T)(void* ctx, void* ptr, MemLayout old_layout, MemLayout new_layout) { \
-    __typeof(T)* self = ctx;                                                                              \
-    return (_impl)(self, ptr, old_layout, new_layout);                                                    \
+#define VTABLE_ADAPTER_DEF_RESIZE(T, _impl)                                                        \
+  bool VTABLE_ADAPTER_RESIZE_NAME(T)(void* ctx, void* ptr, Layout old_layout, Layout new_layout) { \
+    __typeof(T)* self = ctx;                                                                       \
+    return (_impl)(self, ptr, old_layout, new_layout);                                             \
   }
 
 #define VTABLE_ADAPTER_FREE_NAME(T) T##_vtable_adapter_free
 
-#define VTABLE_ADAPTER_FREE(T, _impl)                       \
-  void* VTABLE_ADAPTER_FREE_NAME(T)(void* ctx, void* ptr) { \
-    __typeof(T)* self = ctx;                                \
-    (_impl)(self, ptr);                                     \
+#define VTABLE_ADAPTER_DEF_FREE(T, _impl)                  \
+  void VTABLE_ADAPTER_FREE_NAME(T)(void* ctx, void* ptr) { \
+    __typeof(T)* self = ctx;                               \
+    (_impl)(self, ptr);                                    \
   }
+
+#define VT_DEFINE_AS(_type, _kind, _name) VTABLE_ADAPTER_DEF_##_kind(_type, _name)
+#define VT_NAMEOF(_type, _kind) VTABLE_ADAPTER_##_kind##_NAME(_type)
 
 /// C-Style Allocator Interface
 /// Inspired by Zig <3
@@ -171,26 +227,26 @@ static constexpr const Allocator ALLOCATOR_NONE = make_zeroed(Allocator);
 /// Do note that if given [Allocator] interface struct's do not always implement all function on the [AllocVTable]
 /// vtable. as such, if any particular Allocator Vtable call returns ((void*)-1)
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_allocate(Allocator self, MemLayout layout) {
+static inline void* allocator_allocate(Allocator self, Layout layout) {
   assert(vtmask_has_alloc(self.vtable->mask && self.vtable->allocate));
   return self.vtable->allocate(self.ctx, layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_reallocate(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+static inline void* allocator_reallocate(Allocator self, void* ptr, Layout old_layout, Layout new_layout) {
   assert(vtmask_has_realloc(self.vtable->mask && self.vtable->reallocate));
   return self.vtable->reallocate(self.ctx, ptr, old_layout, new_layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
-static inline void* allocator_zallocate(Allocator self, MemLayout layout) {
+static inline void* allocator_zallocate(Allocator self, Layout layout) {
   assert(vtmask_has_zalloc(self.vtable->mask && self.vtable->zallocate));
   return self.vtable->zallocate(self.ctx, layout);
 }
 
-static inline bool allocator_expand(Allocator self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
-  assert(vtmask_has_expand(self.vtable->mask) && self.vtable->expand);
-  return self.vtable->expand(self.ctx, ptr, old_layout, new_layout);
+static inline bool allocator_expand(Allocator self, void* ptr, Layout old_layout, Layout new_layout) {
+  assert(vtmask_has_expand(self.vtable->mask) && self.vtable->resize);
+  return self.vtable->resize(self.ctx, ptr, old_layout, new_layout);
 }
 
 static inline void allocator_free(Allocator self, void* ptr) {
@@ -207,102 +263,82 @@ static inline bool allocator_is_ok(Allocator self) {
   return !allocator_is_none(self) && (self.vtable->allocate && self.vtable->free);
 }
 
-// TODO: Decide if i want to do all this ish...
-// for now it seems a little to over-abstracted for me..
-// /// @brief a non-owning span of bytes
-// struct Span {};
-// alias(Span);
+// NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
+// and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
+// Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
+// IterByte pointing to any memory you want to allocate into
 
-// /// @details '(Chunk::begin + ChCursor::i) == ChCursor::iter' should be true at all times
-// struct ChCursor {
-//   i64 i;
-//   byte* iter;
-// };
-// alias(ChCursor);
 
-// /// @brief a non-owning span of bytes in memory
-// struct Chunk {
-//   /// @brief pointer to the first byte of this chunk
-//   byte* begin;
-//   /// @brief should always be pointing to the byte immediately after
-//   /// the last byte in this chunk
-//   byte* end;
+//
+// @basic Fundamental malloc
+//
+// @details
+//
+// NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
+// and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
+// Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
+// IterByte pointing to any memory you want to allocate into
+void* allocate_raw(IterByte* self, Layout layout) METHOD;
 
-//   ChCursor cursor;
-// };
-// alias(Chunk);
+//
+// @basic Fundamental zeroed malloc
+//
+// @details
+//
+// NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
+// and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
+// Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
+// IterByte pointing to any memory you want to allocate into
+void* zallocate_raw(IterByte* self, Layout layout) METHOD;
 
-// Chunk chunk_new(byte* begin, i64 size) PARAMS_NONNULL(1);
+// @basic Fundamental in-place expand/shrink
+//
+// @details
+//
+// NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
+// and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
+// Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
+// IterByte pointing to any memory you want to allocate into//
+bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
 
-// void chunk_write(Chunk* self, const Chunk* other) PARAMS_NONNULL(1, 2);
+// @basic Fundamental memory move /
+// @details
+//
+// NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
+// and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
+// Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
+// IterByte pointing to any memory you want to allocate into//
+void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
 
-// void chunk_write_bytes(Chunk* self, byte* begin, i64 size) PARAMS_NONNULL(1, 2);
 
-// /// @brief Chunk [P]ush [Alloc]ate
-// void* chunk_palloc(Chunk* self, MemLayout layout) METHOD;
 
-// void* chunk_pzalloc(Chunk* self, MemLayout layout) METHOD;
 
-// Chunk chunk_clone(const Chunk* self, Allocator alloc) METHOD;
 
-// void chunk_clone_bytes(const Chunk* self, char* dest, i64 dest_len) PARAMS_NONNULL(1,2);
+char* strdup_raw(IterByte* self, const char* str);
 
-struct VirtMem;
+char* strndup_raw(IterByte* self, const char* str, i32 len);
 
-/// @brief a header-less version of [VArena]
-struct Arena {
-  /// @brief null if not created with [arena_new_in]
-  struct VirtMem* parent;
-  /// @brief for in-place expansion
-  void* last_alloc;
-  /// brief -1 if not created with [arena_new_in]
-  i64 marker;
+sslice sslice_dup_raw(IterByte* self, const char* str, i32 len);
 
-  i64 size;
-  byte* begin;
-  byte* end;
-  byte* cursor;
-};
-alias(Arena);
+HEDLEY_PRINTF_FORMAT(2, 3)
+sslice fslice_raw(IterByte* self, const char* fmt, ...);
 
-/// @brief how was this arena created?
-typedef enum ArenaType {
-  /// @brief created with [arena_new]
-  Arena__Buffered = 0,
-  /// @brief created with [arena_new_in]
-  Arena__OwnedVirt,
-} ArenaType;
+sslice vfslice_raw(IterByte* self, const char* fmt, va_list args);
 
-PURE_FUNC
-static inline ArenaType arena_type(const Arena* self) {
-  return (self && self->parent && (self->marker >= 0)) ? Arena__OwnedVirt : Arena__Buffered;
-}
+HEDLEY_PRINTF_FORMAT(3, 4)
+char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...);
 
-static inline i64 arena_used_bytes(const Arena* self) {
-  assert(self);
-  return self->cursor - self->begin;
-}
+char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args);
 
-static inline i64 arena_available(const Arena* self) {
-  assert(self);
-  return self->size - arena_used_bytes(self);
-}
 
-static inline bool arena_is_owned(const Arena* self) { return arena_type(self) == Arena__OwnedVirt; }
-static inline bool arena_is_buffered(const Arena* self) { return arena_type(self) == Arena__Buffered; }
 
-static constexpr const Arena ARENA_EMPTY = {};
 
-static inline bool arena_is_empty(const Arena* self) { return memcmp(self, &ARENA_EMPTY, sizeof(Arena)) == 0; }
 
-Arena arena_new(byte* begin, i64 size_bytes) PARAMS_NONNULL(1);
-Arena arena_new_in(struct VirtMem* vm, i64 size_bytes);
+METHOD
+/// @brief Zeroes memory at pointer with size layout
+/// @details does not free any memory and pointers and memory are still valid for reads and writes after this function
+/// returns.
+/// @param (u64 pattern) :: Pattern used to set freed memory to. If you dont know or care about this, you can safely
+/// just pass 0
+void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern);
 
-void* arena_allocate(Arena* self, MemLayout layout);
-void* arena_zallocate(Arena* self, MemLayout layout) METHOD;
-void* arena_reallocate(Arena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
-bool arena_expand(Arena* self, void* ptr, MemLayout old, MemLayout nlayout) METHOD;
-
-Allocator arena_allocator(Arena* self) METHOD;
-
-void arena_destroy(Arena* self);
