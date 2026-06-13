@@ -73,7 +73,6 @@ typedef enum VRemapMode {
 /// a non-null pointer indicates the remaping was successfully done in place, nullptr indicates that
 /// the attempt to expand/shrink VMem inplace failed, you can still call this function again with the
 /// [VRemap__AllowRelocate] (which will most likely succeed), but that may not be your desired behavior
-RETURNS_RESOURCE
 VMem* vmem_remap(VMem* self, i64 new_size, VRemapMode mode);
 
 RETURNS_NON_NULL
@@ -130,12 +129,10 @@ NvError vmem_prefault_range(VMem* self, void* from, i64 size) METHOD;
 void vmem_destroy(VMem* self) METHOD;
 
 /// @brief Arena-style allocator fully backed by a single VMem virutal memory mapping
-/// @details for an Arena-style allocator also backed by virtual memory, but grows as mappings are exhausted, @see
-/// [Arena] in arena.h
+/// @details for an Arena-style allocator also backed by virtual memory, but grows as mappings are exhausted, @see [Arena] in arena.h
 struct Vallocator {
   VMem* mem;
   IterByte iter;
-  // byte* cursor;
 };
 alias(Vallocator);
 
@@ -154,7 +151,7 @@ static inline bool va_isok(const Vallocator* self) { return !va_isnone(self); }
 typedef Vallocator VMalloc;
 
 METHOD
-Allocator vallocator(Vallocator* self);
+Allocator va_allocator(Vallocator* self);
 
 Vallocator va_new_ex(i64 vmem_size, bool noreserve);
 
@@ -246,10 +243,9 @@ char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...);
 
 METHOD
 void va_clear(Vallocator* self);
+
 METHOD
 void va_clear_zeroed(Vallocator* self);
 
 void va_destroy(Vallocator* self);
 
-// METHOD
-// char* va_realpath(Vallocator* self, sslice path);

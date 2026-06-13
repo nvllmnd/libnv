@@ -17,7 +17,7 @@ static Allocator ALLOC;
 
 void setUp(void) {
   ARENA = va_new(GB(2));
-  ALLOC = vallocator(&ARENA);
+  ALLOC = va_allocator(&ARENA);
 
   
 }

@@ -332,4 +332,4 @@ static constexpr const AllocVTable VA_VT = (AllocVTable){.allocate = VT_NAME(ALL
                                                          .free = VT_NAME(FREE),
                                                          .mask = VT__All};
 
-Allocator vallocator(Vallocator* self) { return (Allocator){.ctx = self, .vtable = &VA_VT}; }
+Allocator va_allocator(Vallocator* self) { return (Allocator){.ctx = self, .vtable = &VA_VT}; }
