@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+
 #include "nv/core/ext.h"
+#include "nv/memory/vmem.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -13,18 +15,82 @@
 
 #include "nv/common.h"
 #include "nv/core/algo.h"
-#include "nv/memory/alloc.h"
 #include "nv/core/core_types.h"
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
+#include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
-#include "nv/memory/vmem.h"
 
 PURE_FUNC
 METHOD
 i64 vmem_size(const VMem* self) {
   assert(self);
   return self->size;
+}
+
+#define vmem_lock_prefault_check(_self, _from, _size)                                \
+  {                                                                                  \
+    NvError err = OK;                                                                \
+    if UNLIKELY (is_null(_from)) {                                                   \
+      bitset(err, Error__ParamInvalidNull);                                          \
+    }                                                                                \
+    if (_size <= 0) {                                                                \
+      return err | Error__ParamUnexpectedNegOrZeroInt;                               \
+    }                                                                                \
+    if (!vmem_contains(_self, _from)) {                                              \
+      LOG_ERROR("VMem does not contain/own memory span of size: %li bytes!", _size); \
+      return err | Error__PtrNotOwnedByVMem;                                         \
+    }                                                                                \
+  }
+
+NvError vmem_lock_ram_range(VMem* self, void* from, i64 size) {
+  assert(self);
+
+  vmem_lock_prefault_check(self, from, size);
+
+  // NOTE: if from is nullptr, it will get caught in below call to vmem_contains, which does a couple lt/gt operations
+  // on it without dereferencing it at all, so itll return false (correctly) which then gets caught and this func will
+  // return early
+
+  const i32 err = mlock(from, size);
+
+  if (err != 0) {
+    LOG_ERROR("Failed to lock memory span of size: %li bytes! ERRNO[%d] = => %s", size, errno, strerror(errno));
+    return Error__VMemFailedToLockRangeToRAM;
+  }
+
+  return OK;
+}
+
+NvError vmem_unlock_ram_range(VMem* self, void* from, i64 size) {
+  assert(self);
+
+  vmem_lock_prefault_check(self, from, size);
+
+  const i32 err = munlock(from, size);
+
+  if (err != 0) {
+    LOG_ERROR("Failed to unlock memory span of size: %li bytes! ERRNO[%d] = => %s", size, errno, strerror(errno));
+    return Error__VMemFailedToUnlockRangeFromRAM;
+  }
+
+  return OK;
+}
+
+NvError vmem_prefault_range(VMem* self, void* from, i64 size) {
+  assert(self);
+
+  vmem_lock_prefault_check(self, from, size);
+
+  const i32 err = madvise(from, size, MADV_WILLNEED);
+
+  if (err != 0) {
+    LOG_ERROR("Failed to prefault memory span of size: %li bytes! (madvise call failed) ERRNO[%d] = => %s", size, errno,
+              strerror(errno));
+    return Error__VMemFailedToLockRangeToRAM;
+  }
+
+  return OK;
 }
 
 i64 os_page_size(void) {
@@ -130,9 +196,8 @@ VOffset vmem_offset(const VMem* self, const void* ptr) {
 }
 
 bool vmem_contains(const VMem* self, const void* ptr) {
-  if UNLIKELY (is_null(self) || is_null(ptr)) {
-    return false;
-  }
+  assert(self);
+
   const byte* p = ptr;
   const byte* begin = vmem_cbegin(self);
   const byte* end = vmem_cend(self);
@@ -394,9 +459,7 @@ static constexpr const AllocVTable VA_VT = (AllocVTable){.allocate = VT_NAME(ALL
                                                          .zallocate = VT_NAME(ZALLOC),
                                                          .resize = VT_NAME(RESIZE),
                                                          .reallocate = VT_NAME(REALLOC),
-                                                         .free = VT_NAME(FREE), .mask = VT__All};
+                                                         .free = VT_NAME(FREE),
+                                                         .mask = VT__All};
 
-
-Allocator vallocator(Vallocator* self) {
-  return (Allocator){.ctx = self, .vtable = &VA_VT};
-}
+Allocator vallocator(Vallocator* self) { return (Allocator){.ctx = self, .vtable = &VA_VT}; }

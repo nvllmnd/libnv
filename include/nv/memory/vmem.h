@@ -93,9 +93,9 @@ static inline const byte* vmem_cend(const VMem* self) {
 
 typedef i64 VOffset;
 
-VOffset vmem_offset(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) PURE_FUNC;
+VOffset vmem_offset(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) METHOD PURE_FUNC;
 
-bool vmem_contains(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) PURE_FUNC;
+bool vmem_contains(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) METHOD PURE_FUNC;
 
 METHOD
 static inline VMem* vmem_remap_expand(VMem* self, i64 new_size) {
@@ -108,7 +108,11 @@ static inline VMem* vmem_remap_move(VMem* self, i64 new_size) {
 }
 
 
-NvError vmem_lock_ram(VMem* self, void* from, void* to) METHOD;
+
+NvError vmem_lock_ram_range(VMem* self, void* from, i64 size) METHOD;
+NvError vmem_unlock_ram_range(VMem* self, void* from, i64 size) METHOD;
+
+NvError vmem_prefault_range(VMem* self, void* from, i64 size) METHOD;
 
 void vmem_destroy(VMem* self) METHOD;
 

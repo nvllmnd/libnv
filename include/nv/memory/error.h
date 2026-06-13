@@ -56,6 +56,10 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   Error__ParamUnexpectedNegOrZeroInt = 1 << 29,
 
   Error__ParamUnexpectedNegOrZeroFloat = 1 << 29,
+  Error__VMemFailedToLockRangeToRAM = 1 << 30,
+  Error__VMemFailedToUnlockRangeFromRAM = 1 << 31,
+  Error__PtrNotOwnedByVMem = 1L << 32,
+  Error__VMemFailedToPrefaultRange = 1L << 33,
 
   // Error__ParamExpectedPosNonZeroInt = 1 << 30,
 
@@ -63,7 +67,7 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
 
   Error__UnknownError = UINT64_MAX - 20,
 
-  ERROR_COUNT = 30,
+  ERROR_COUNT = 34,
 } HEDLEY_FLAGS NvError;
 
 static constexpr const NvError OK = Error__Ok;

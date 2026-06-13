@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 //! This module contains generic types and macro functions for iterators and spans (slice-like object similar to C++'s
 //! std::span)
 //! The Span and Iter types just wrap SpanData and IterData respectively, so you can extend
