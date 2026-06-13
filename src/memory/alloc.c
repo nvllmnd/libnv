@@ -7,116 +7,128 @@
 #include <assert.h>
 #include <string.h>
 
+#include "nv/core/algo.h"
 #include "nv/core/log.h"
-#include "nv/memory/layout.h"
+#include "nv/iter/iterators.h"
 
 void* vtable_realloc_no_impl(void*, void*, Layout, Layout) { return nullptr; }
 void* vtable_zalloc_no_impl(void*, Layout) { return nullptr; }
 void* vtable_expand_no_impl(void*, void*, Layout, Layout) { return nullptr; }
 
-// Arena arena_new(byte* begin, i64 size_bytes) {
-//   assert(begin);
-//   if UNLIKELY (is_null(begin) || size_bytes <= 0) {
-//     return ARENA_EMPTY;
-//   }
-//   return (Arena){
-//       .parent = nullptr, .marker = -1, .size = size_bytes, .begin = begin, .end = begin + size_bytes, .cursor = begin};
-// }
+void* allocate_raw(IterByte* self, const Layout layout) {
+  assert(iter_is_ok(self));
+  assert(self->cursor);
 
-// Arena arena_new_in(struct VirtMem* vm, i64 size_bytes) {
-//   if UNLIKELY (is_null(vm) || size_bytes <= 0) {
-//     return ARENA_EMPTY;
-//   }
-//   const VMarker marker = vmem_checkpoint(vm);
-//   byte* begin = vmem_allocate(vm, mlayout_bytes(size_bytes));
-//   if UNLIKELY (is_null(begin)) {
-//     return ARENA_EMPTY;
-//   }
-//   byte* end = begin + size_bytes;
-//   return (Arena){.parent = vm, .marker = marker, .size = size_bytes, .begin = begin, .end = end, .cursor = begin};
-// }
+  byte* ptr = (byte*)ptr_alignup(self->cursor, layout.align);
+  byte* next = ptr + layout.size;
 
-// void* arena_allocate(Arena* self, Layout layout) {
-//   if UNLIKELY (is_null(self)) {
-//     LOG_FATAL("Attempted to call method function on a nullptr!");
-//   }
-//   const i64 avail = arena_available(self);
-//   if (layout.size > avail) {
-//     LOG_ERROR("Arena failed to allocate object of size: %li bytes, but only %li bytes available!", layout.size, avail);
-//     return nullptr;
-//   }
-//   byte* ptr = ptr_alignup(self->cursor, layout.align);
-//   byte* next = ptr + layout.size;
-//   if (next >= self->end) {
-//     LOG_ERROR(
-//         "Arena has enough space to fit object of size: %li bytes, however because its aligned to %li, the aligned "
-//         "address wont fit in this Arena! Need more space!",
-//         layout.size, layout.align);
-//     return nullptr;
-//   }
+  if UNLIKELY (next >= self->end) {
+    LOG_ERROR("Iterator Raw Allocation Failed! Not enough space left between cursor and end of byte iterator!");
+    return nullptr;
+  }
 
-//   self->cursor = next;
-//   self->last_alloc = ptr;
-//   return ptr;
-// }
+  self->cursor = next;
+  return ptr;
+}
 
-// void* arena_zallocate(Arena* self, Layout layout) {
-//   void* ptr = arena_allocate(self, layout);
-//   if UNLIKELY (is_null(ptr)) {
-//     return ptr;
-//   }
-//   memset(ptr, 0, layout.size);
-//   return ptr;
-// }
-// void* arena_reallocate(Arena* self, void* ptr, Layout old, Layout nlayout) {
-//   assert(self);
-//   assert(ptr);
-//   if (nlayout.size == old.size) {
-//     return ptr;
-//   }
+void* zallocate_raw(IterByte* self, const Layout layout) {
+  void* ptr = allocate_raw(self, layout);
+  if UNLIKELY (is_null(ptr)) {
+    return ptr;
+  }
 
-//   if (self->last_alloc == ptr) {
-//     if (arena_expand(self, ptr, old, nlayout)) {
-//       return ptr;
-//     }
+  memset(ptr, 0, layout.size);
+  return ptr;
+}
 
-//     if (nlayout.size < old.size) {
-//       const i64 delta = old.size - nlayout.size;
-//       self->cursor -= delta;
-//       return ptr;
-//     }
-//   }
+bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) {
+  assert(self);
+  assert(ptr);
+  if (old.size == new.size) {
+    return false;
+  }
+  byte* last = (self->cursor - old.size);
+  if (last == (byte*)ptr) {
+    // Shrink if newsize is greater oldsize, otherwise grow
+    const i64 delta = new.size - old.size;
+    self->cursor += delta;
 
-//   void* next = arena_allocate(self, nlayout);
-//   if (is_null(next)) {
-//     LOG_ERROR("Failed to allocate new memory for object reallocation of size %li bytes to %li bytes", old.size,
-//               nlayout.size);
-//     return ptr;
-//   }
-//   memcpy(next, ptr, old.size);
+    return true;
+  }
 
-//   self->last_alloc = next;
-//   return next;
-// }
+  return false;
+}
 
-// bool arena_expand(Arena* self, void* ptr, Layout old, Layout nlayout) {
-//   assert(self);
-//   assert(ptr);
+void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) {
+  if UNLIKELY (old.size == new.size) {
+    return ptr;
+  }
 
-//   if (self->last_alloc == ptr && nlayout.size >= old.size) {
-//     const i64 delta = nlayout.size - old.size;
-//     self->cursor += delta;
-//     return true;
-//   }
+  if (resize_raw(self, ptr, old, new)) {
+    return ptr;
+  }
 
-//   return false;
-// }
+  if (new.size < old.size) {
+    return ptr;
+  }
 
-// Allocator arena_allocator(Arena* self) METHOD;
+  void* res = allocate_raw(self, new);
+  if UNLIKELY (is_null(res)) {
+    LOG_ERROR("Failed to Reallocate Memory of size %li bytes to size %li bytes", old.size, new.size);
+    return nullptr;
+  }
 
-// void arena_destroy(Arena* self) {
-//   if (self && arena_is_owned(self)) {
-//     vmem_reset_to(self->parent, self->marker);
+  memcpy(res, ptr, old.size);
 
-//   }
-// }
+  return res;
+}
+
+#if LIBNV_INTERNAL == 0
+
+#ifndef LIBNV_FREE_RAW_WARN
+#define LIBNV_FREE_RAW_WARN 1
+#endif
+
+#else
+// NOTE: Suppress warnings for internal use
+#define LIBNV_FREE_RAW_WARN 0
+#undef LIBNV_SUPPRESS_MILD_ERRORS
+#define LIBNV_SUPPRESS_MILD_ERRORS 0
+
+#endif
+
+#ifndef LIBNV_SUPPRESS_MILD_ERRORS
+#define LIBNV_SUPPRESS_MILD_ERRORS 0
+#endif
+
+static inline void warn_usage(void);
+
+void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
+  assert(self);
+
+  warn_usage();
+
+  if (ptr && contains(*self, ptr)) {
+    memset(ptr, pattern, layout.size); 
+  }
+  
+}
+
+
+
+void warn_usage(void) {
+#if LIBNV_FREE_RAW_WARN == 1
+
+#if LIBNV_SUPPRESS_MILD_ERRORS == 0
+#warning \
+    "function: free_raw  only zeroes memory, it does not actually release memory. you can suppress this message by defining LIBNV_FREE_RAW_WARN as 0. If you have are using -Werror, you must also define LIBNV_SUPPRESS_MILD_ERRORS to a non-zero value";
+#endif  // LIBNV_SUPPRESS_MILD_ERRORS == 0
+
+  LOG_INFO(
+      "RAW FREE => Attempting to zero memory of size: %li bytes and alignment: %li with byte pattern: %lu. If you are "
+      "sure of what you are doing, and are aware that calling raw_free does not release any memory, instead is used to "
+      "mark memory as available for reuse, you can safely ignore this. You can also turn this message off by compiling "
+      "libnv with the flag: '-DLIBNV_FREE_RAW_WARN=0'",
+      layout.size, layout.align, pattern);
+#endif  // LIBNV_FREE_RAW_WARN == 1
+}

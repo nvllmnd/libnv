@@ -9,7 +9,6 @@
 #include "nv/core/constants.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/core_types.h"
-#include "nv/memory/layout.h"
 
 /// @brief Minimum size
 static constexpr const i32 STATIC_ALLOC_MIN_SIZE = 24;

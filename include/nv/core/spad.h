@@ -12,6 +12,8 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/vmem.h"
 
+
+
 /// @brief A StringPad used for building Strings dynamically
 /// Essentially a [Vallocator] that only operates on strings, and extended for cloning/copying
 struct StringPad {
@@ -19,14 +21,17 @@ struct StringPad {
   /// If this value is true when spad_build_start is called, this implementation calls abort and halts execution
   bool inuse;
 
-  Vallocator mem;
+  char* begin;
+  char* cursor;
+  char* end;
+
 };
 alias(StringPad);
 
 /// @brief creates new StringPad with no delimiting character
 /// @details unless caller sets delim field to a new value other than '\0', strings
 /// will be concatenated together with no delimiting charater, or any space in betweent them
-StringPad spad_new(i64 size_bytes);
+StringPad spad_new(char* begin, char* end);
 
 /// @brief duplicates currently built string using given allocator
 /// @param(Allocator alloc) - Used to duplicate Spad's inner string buffer
@@ -38,7 +43,7 @@ sslice spad_clone_string(StringPad* self, Allocator alloc);
 METHOD
 PURE_FUNC
 static inline i64 spad_capacity(const StringPad* self) {
-  return self->mem.mem->size; 
+  return self->end - self->begin;
 }
 
 METHOD
@@ -72,43 +77,26 @@ METHOD
 /// @details Concats a delimter to the end of string, if any delimiter is specified
 sslice spad_append(StringPad* self, const char* s);
 
-METHOD
 /// @brief same as [spad_fappend] but takes a [va_list] instead of var_args
-static inline sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) {
-  const sslice res = va_vfslice(&self->mem, fmt, args);
-  // forget null character that vsnprintf appends to end of formatted string!
-  // if we dont do this, the resulting string would have a bunch of null characters (one for each formatted string call)
-  self->mem.cursor -= 1;
-  return res;
-}
+sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) METHOD;
+
 /// @brief Formats given format string and appends it to the back of the StringPad's inner buffer. Takes a format string
 /// literal and printf-style variadic format value args
 ///
 /// @param (const char* fmt) - printf-style format string literal
-HEDLEY_PRINTF_FORMAT(2, 3)
-METHOD
-static inline sslice spad_fappend(StringPad* self, const char* fmt, ...) {
-  va_list args;
-  va_start(args);
-
-  const sslice str = spad_vfappend(self, fmt, args);
-
-  va_end(args);
-  
-  return str;
-}
+ sslice spad_fappend(StringPad* self, const char* fmt, ...);
 
 
 
 PURE_FUNC
 static inline i64 spad_available(const StringPad* self) {
-  return va_available(&self->mem); 
+  return self->end - self->cursor;
 }
 
 /// @brief size of string currently built so far
 PURE_FUNC
 static inline i64 spad_length(const StringPad* self) {
-  return va_used_bytes(&self->mem); 
+  return self->cursor - self->begin;
 }
 
 
@@ -125,7 +113,3 @@ void spad_clear(StringPad* self);
 
 METHOD
 void spad_clear_zeroed(StringPad* self);
-
-/// @brief CLeans up memory used by this StringPad to the VirtMem it allocated out of
-/// @details zeroes StringPad to prevent further use by it
-void spad_destroy(StringPad* self);

@@ -2,17 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE 1
-#endif
-
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 1
-#endif
+#include "nv/core/ext.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -21,6 +11,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "nv/common.h"
 #include "nv/core/algo.h"
 #include "nv/memory/alloc.h"
 #include "nv/core/core_types.h"

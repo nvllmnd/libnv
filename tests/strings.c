@@ -96,6 +96,7 @@ void stringpad_builds_string(void) {
   Vallocator vm = va_new(MEGABYTES(24), false);
   TEST_ASSERT_TRUE(va_isok(&vm));
 
+  LOG("VALLOC");
     static constexpr const i32 BLEH_COUNT = 200;
     // allocate random space so we can test building strings in the middle of using VirtMem for other stuff
     i32* bleh = va_alloc_array(&vm, i32, BLEH_COUNT);
@@ -104,22 +105,36 @@ void stringpad_builds_string(void) {
       bleh[i] = (i * i * i) ^ i;
     }
 
+    LOG("BEFORE CREATE SPAD");
 
-  StringPad sp = spad_new(MEGABYTES(24));
+  StringPad sp = spad_new((char*)vmem_begin(vm.mem), (char*)vmem_end(vm.mem));
+  LOG("CREATE SPAD");
 
   spad_build_start(&sp);
+  LOG("START BUILD STRING");
 
   sslice sl = spad_fappend(&sp, "asdf ayooo %d ", 540);
 
   TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 ", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
+  LOG("CLEAR FIRST APPEND");
 
   sl = spad_fappend(&sp, "%s", "interpolate!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN("interpolate!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
+
+  LOG("CLEAR SECOND APPEND");
 
   sl = spad_append(&sp, " we building!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN(" we building!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate! we building!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+
+  LOG("CLEAR THIRD APPEND");
+
 
   char buf[255] = {};
 
@@ -134,7 +149,6 @@ void stringpad_builds_string(void) {
 
   TEST_ASSERT_EQUAL_STRING("asdf ayooo 540 interpolate! we building!", buf);
 
-  spad_destroy(&sp);
 
   const i32 avail = va_available(&vm);
   const i32 used = va_used_bytes(&vm);

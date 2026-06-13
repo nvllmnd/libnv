@@ -46,7 +46,6 @@ endif
 
 if not meson.is_subproject() 
   cargs += '-DLIBNV_INTERNAL=1'
-  cargs += '-DNV_ALIAS_VIRTMEM_AS_ARENA=1'
 endif
 
 
@@ -89,7 +88,7 @@ memory_lib = static_library(
     'src/memory/static_alloc.c',
     'src/memory/arena.c',
     'src/memory/vmem.c',
-
+    'src/memory/chunk_alloc.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

@@ -59,7 +59,6 @@ typedef enum VRemapMode {
 /// the attempt to expand/shrink VMem inplace failed, you can still call this function again with the
 /// [VRemap__AllowRelocate] (which will most likely succeed), but that may not be your desired behavior
 RETURNS_RESOURCE
-METHOD
 VMem* vmem_remap(VMem* self, i64 new_size, VRemapMode mode);
 
 RETURNS_NON_NULL
@@ -94,13 +93,9 @@ static inline const byte* vmem_cend(const VMem* self) {
 
 typedef i64 VOffset;
 
-PARAMS_NONNULL(1,2)
-PURE_FUNC
-VOffset vmem_offset(const VMem* self, const void* ptr);
+VOffset vmem_offset(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) PURE_FUNC;
 
-PARAMS_NONNULL(1, 2)
-PURE_FUNC
-bool vmem_contains(const VMem* self, const void* ptr);
+bool vmem_contains(const VMem* self, const void* ptr) PARAMS_NONNULL(1, 2) PURE_FUNC;
 
 METHOD
 static inline VMem* vmem_remap_expand(VMem* self, i64 new_size) {
@@ -112,8 +107,11 @@ static inline VMem* vmem_remap_move(VMem* self, i64 new_size) {
   return vmem_remap(self, new_size, VRemap__AllowRelocate);
 }
 
-METHOD
-void vmem_destroy(VMem* self);
+
+NvError vmem_lock_ram(VMem* self, void* from, void* to) METHOD;
+
+void vmem_destroy(VMem* self) METHOD;
+
 
 /// @brief Arena-style allocator fully backed by a single VMem virutal memory mapping
 /// @details for an Arena-style allocator also backed by virtual memory, but grows as mappings are exhausted, @see

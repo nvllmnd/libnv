@@ -4,16 +4,8 @@
 
 #pragma once
 
-#ifndef _DEFAULT_SOURCE
-#define _DEFAULT_SOURCE 1
-#endif
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE 1
-#endif
-#ifndef _POSIX_C_SOURCE
-#define _POSIX_C_SOURCE 1
-#endif
 
+#include "nv/core/ext.h"
 
 // #define __USE_POSIX 1
 
@@ -36,15 +28,8 @@
 #include <string.h>
 #include <strings.h>
 
-#include "nv/core/log.h"
-#include "nv/core/sslice.h"
-#include "nv/core/attributes.h"
-#include "nv/core/constants.h"
-#include "nv/core/debug.h"
-#include "nv/core/intdefs.h"
-#include "nv/core/core_types.h"
-#include "nv/iter/array.h"
-#include "nv/memory/error.h"
-
 #include "nv/core/algo.h"
-#include "nv/memory/layout.h"
+#include "nv/memory/alloc.h"
+#include "nv/iter/array.h"
+
+#include "nv/common.h"

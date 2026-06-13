@@ -6,12 +6,60 @@
 
 #include <assert.h>
 #include <string.h>
+#include "nv/iter/iterators.h"
 
-#include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
-#include "nv/core/log.h"
-#include "nv/core/core_types.h"
-#include "nv/memory/layout.h"
+#include "nv/common.h"
+
+
+/// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
+struct Layout {
+  /// Size of requested allocation in bytes. Must be non-negative and greater than 0
+  isize size;
+  /// Alignment of requested allocation. must be a multiple of 2 (or the value 1)
+  isize align;
+};
+typedef struct Layout Layout;
+
+#define mlayout_static(s, a)                          \
+  ({                                                  \
+    constexpr const __typeof(s) _s = (s);             \
+    constexpr const __typeof(a) _a = (a);             \
+    static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
+    make(Layout, .size = _s, .align = _a);       \
+  })
+
+#define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
+#define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T)))
+#define mlayout_vec(T, _n) (make(Layout, .size = sizeof(T) * (_n), .align = alignof(T)))
+#define mlayout_fma(THeader, flex_member_size) (make(Layout, .size = sizeof(THeader) + (flex_member_size), .align = alignof(THeader)))
+
+/// @brief Creates a new [Layout] appropriate for allocating a buffer of bytes of size `nbytes`
+/// @param(i32 nbytes) size in bytes of allocation request. Must be > 0
+CONST_FUNC
+static inline Layout mlayout_bytes(i32 nbytes) {
+  assert(nbytes > 0);
+  return make(Layout, .size = nbytes, .align = 1);
+}
+
+/// @brief exteneds Layout by count. (if MemLayout represents a single element of a typed array, then MemLayout * count is the MemLayout of that typed array)
+CONST_FUNC
+static inline Layout mlayout_extend(Layout self, i32 count) {
+  assert(count > 0);
+  return (Layout){.size = self.size * count, .align = self.align};
+}
+
+/// @brief Creates a new MemLayout calculated as such: multiplies self.size * count and adds the rhs.size to the result, takes max of self and rhs alignment
+CONST_FUNC
+static inline Layout mlayout_extend_with(Layout self, i32 count, Layout rhs) {
+  assert(count > 0);
+  return (Layout){.size = (self.size * count) + rhs.size, .align = max(self.align, rhs.align)};
+}
+
+/// @brief lhs.size + rhs.size, align = max(lhs.align, rhs.align)
+CONST_FUNC
+static inline Layout mlayout_add(Layout lhs, Layout rhs) {
+  return (Layout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
+}
 
 /// Function pointer typedef for [Allocator] [AllocVTable] allocate method.
 ///
@@ -315,3 +363,20 @@ static inline bool allocator_is_ok(Allocator self) {
 // Allocator arena_allocator(Arena* self) METHOD;
 
 // void arena_destroy(Arena* self);
+
+
+
+void* allocate_raw(IterByte* self, Layout layout) METHOD;
+void* zallocate_raw( IterByte* self, Layout layout) METHOD;
+bool resize_raw( IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
+void* reallocate_raw( IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
+
+
+METHOD
+/// @brief Zeroes memory at pointer with size layout
+/// @details does not free any memory and pointers and memory are still valid for reads and writes after this function
+/// returns.
+/// @param (u64 pattern) :: Pattern used to set freed memory to. If you dont know or care about this, you can safely just pass 0 
+///
+void free_raw( IterByte* self, void* ptr, Layout layout, u64 pattern);
+

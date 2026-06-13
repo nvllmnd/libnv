@@ -8,7 +8,6 @@
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/layout.h"
 struct Vector {
   /// @brief aligned top
   u8* start;

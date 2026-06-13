@@ -1863,6 +1863,16 @@ static stbsp__int32 stbsp__real_to_str(char const **start, stbsp__uint32 *len, c
 
 #endif // STB_SPRINTF_IMPLEMENTATION
 
+
+#ifndef vsnprintf
+#define vsnprintf stbsp_vsnprintf
+#endif
+
+#ifndef snprintf
+#define snprintf stbsp_vsnprintf
+#endif
+
+
 // Copyright (c) 2017 Sean Barrett
 // SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
 //

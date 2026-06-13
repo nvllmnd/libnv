@@ -5,6 +5,7 @@
 #pragma once
 
 #include <math.h>
+
 #include "nv/core/log.h"
 
 #define CONCAT_(a, b) a##b

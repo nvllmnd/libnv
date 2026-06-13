@@ -35,7 +35,21 @@ typedef long double ldouble;
 
 typedef typeof(void *) voidptr;
 
-#if !defined(LIBNV_NO_USE_SHORT_NAMES) || LIBNV_NO_USE_SHORT_NAMES == 0
+#if LIBNV_INTERNAL == 1
+
+// force allow short names for internal use
+#undef LIBNV_NO_USE_SHORT_NAMES
+#define LIBNV_NO_USE_SHORT_NAMES 0
+#undef LIBNV_USE_SHORT_NAMES
+#define LIBNV_USE_SHORT_NAMES 1
+
+#endif // LIBNV_INTERNAL == 1
+
+#ifndef LIBNV_NO_USE_SHORT_NAMES
+#define LIBNV_NO_USE_SHORT_NAMES 1
+#endif //  LIBNV_NO_USE_SHORT_NAMES
+
+#if LIBNV_USE_SHORT_NAMES == 1
 /// type alias to help clarify functions that return errors.
 /// also for setting the undlying type of an enum to : error.
 /// Unless returned value is an enum, usually a value of 0 means that
@@ -43,6 +57,7 @@ typedef typeof(void *) voidptr;
 /// each funcitons documentation specifics. Negative numbers usually correlate
 /// to some error code, assuming that numbers >= 0 are not errors
 typedef i32 error;
+typedef u64 uerror;
 #else
 typedef i32 nv_error;
 #ifndef error

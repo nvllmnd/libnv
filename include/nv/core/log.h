@@ -97,10 +97,25 @@ void seprintln(sslice str);
 #define LOG_CTX(CTX_NAME, _fmt, ...) (println(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 #define ELOG_CTX(CTX_NAME, _fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
+#ifndef LIBNV_SUPPRESS_RUNTIME_ERROR_LOG
+#define LIBNV_SUPPRESS_RUNTIME_ERROR_LOG 0
+#endif
+
 #define LOG(fmt, ...) (LOG_CTX(LIBNV, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define LOG_INFO(fmt, ...) (LOG_CTX(INFO, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define LOG_WARN(fmt, ...) (LOG_CTX(!WARNING !, fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#if LIBNV_SUPPRESS_RUNTIME_ERROR_LOG == 1
+
+#define LOG_ERROR(fmt, ...)
+#else
+
+
+
 #define LOG_ERROR(fmt, ...) (ELOG_CTX(!!ERROR !!, fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#endif
+
 
 #define SSPREAD(slice) ((slice).begin), ((slice).len)
 #define RSSPREAD(slice) ((slice).len), ((slice).begin)
