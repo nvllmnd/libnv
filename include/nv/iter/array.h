@@ -4,9 +4,7 @@
 
 #pragma once
 
-#include <string.h>
 
-#include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
 #define Array(T, N)      \

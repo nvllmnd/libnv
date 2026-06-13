@@ -10,6 +10,7 @@
 #include "nv/core/constants.h"
 #include "nv/core/core_types.h"
 #include "nv/core/log.h"
+#include "nv/core/spad.h"
 #include "nv/core/sslice.h"
 #include "nv/core/stb_sprintf.h"
 #include "nv/iter/iterators.h"
@@ -103,7 +104,6 @@ void* ptr_nonnull_(const void* ptr) {
   return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
 }
 
-
 static inline i64 find_term(const char* str) {
   if UNLIKELY (is_null(str)) {
     LOG_FATAL("Cannot find null terminal with nullptr!");
@@ -122,7 +122,6 @@ static inline i64 find_term(const char* str) {
       "%li, which is libnv's upper limit for finding the length of C-style null-terminated strings)",
       SAMPLE_SIZE, str, STRLEN_UPPER_BOUND);
 }
-
 
 isize ptr_align_offset(const void* ptr, isize align) {
   assert(ptr);
@@ -221,24 +220,14 @@ i32 vfstring_length(const char* fmt, va_list args) {
   return len;
 }
 
-
 const char* error_string(NvError err) {
   if (err == 0) {
     return STRINGIFY(Error__Ok) " :: Ok! no error.";
-  }
-  if (err == Error__UnknownError) {
+  } else if (err == Error__UnknownError) {
     return STRINGIFY(Error__UnknownError);
   }
-
-  // char buff[2048] = {};
-
-  // if (bithas(err, Error__FailedMemMap)) {
-  //   strcat(buff, "\t=> " STRINGIFY(Error__FailedMemMap) " :: mmap returned MAP_FAILED\n");
-  // }
-
-  // if (bithas(err, Error__FailedMemUnmap)) {
-  //   strcat(buff, "\t=> " STRINGIFY(Error__FailedMemUnmap) " :: munmap returned -1, check errno for more info\n");
-  // }
+  // TODO: Write a print_error version of this function. OR change this functions parameters to take a string
+  // buffer to write into, then i can write up to caller defined limit (-1 for null terminal) and return
 
   switch (err) {
     case Error__Ok: {
@@ -318,7 +307,9 @@ const char* error_string(NvError err) {
       return "Invalid NvError Value!";
   }
 
-  return "Invalid NvError Value!";
+  return "NvError is Invalid, or may contain more than 1 NvError value. function error_string cannot currently detect "
+         "such values, but will in the soon future (pending an API change)! Its probably best to not use this function "
+         "in the first place until multi-value error are supported!";
 }
 
 sslice sslice_from_str(const char* string) {
@@ -418,12 +409,11 @@ i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 sr
 }
 
 sslice vfconcat(char* const dest, i64 dest_len, const i64 dest_cap, const char* const fmt, va_list args) {
-
   assert(dest);
   assert(dest_len >= 0);
   assert(dest_cap > 0);
   assert(fmt);
-  
+
   if (dest[dest_len] != 0) {
     const i64 i = find_term(dest);
 
@@ -432,7 +422,6 @@ sslice vfconcat(char* const dest, i64 dest_len, const i64 dest_cap, const char* 
 
     dest_len = i;
   }
-
 
   char* buf = &dest[dest_len];
   assert(*buf == 0);
@@ -443,12 +432,11 @@ sslice vfconcat(char* const dest, i64 dest_len, const i64 dest_cap, const char* 
   const i64 n = stbsp_vsnprintf(buf, size, fmt, args);
 
   if UNLIKELY (n <= 0) {
-    LOG_FATAL("Error occurred while formatting string: %s before concatenating to destination string: %.*s", fmt, (i32)dest_len, dest);
+    LOG_FATAL("Error occurred while formatting string: %s before concatenating to destination string: %.*s", fmt,
+              (i32)dest_len, dest);
   }
 
   return sslice_new(.begin = dest, .len = dest_len + n);
-  
-
 }
 
 sslice fconcat(char* dest, i64 dest_size, const i64 dest_cap, const char* fmt, ...) {

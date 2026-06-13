@@ -32,7 +32,7 @@ struct Stuff {
 alias(Stuff);
 
 void vmem_alloc_and_cleanup(void) {
-  VArena vm = va_new(GB(2), false);
+  VArena vm = va_new_ex(GB(2), false);
 
   TEST_ASSERT_TRUE(va_isok(&vm));
 
@@ -51,77 +51,53 @@ void vmem_alloc_and_cleanup(void) {
   va_destroy(&vm);
 }
 
-// void vmap_ex_lock_and_commit(void) {
-//   VirtMem* vm = nullptr;
-//   NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .size_bytes = KILOBYTES(24), .access = VMap__DefaultAccess,
-//                                        .mode = VMap__CommitAll | VMap__NoReserve | VMap__LockAll));
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
+void varena_lock_and_commit(void) {
+  VMem* vm = vmem_new(GB(2));
+  TEST_ASSERT_NOT_NULL(vm);
 
-//   err = vmem_lock(vm, KILOBYTES(12));
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
+  NvError err = vmem_ram_lock(vm, vmem_begin(vm), KB(12));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
-//   err = vmem_unlock(vm, KILOBYTES(12));
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
+  err = vmem_ram_release(vm, vmem_begin(vm), KB(12));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
-//   err = vmem_destroy(vm);
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
-// }
+  err = vmem_prefault_range(vm, vmem_begin(vm),  KB(24));
+  TEST_ASSERT_EQUAL(Error__Ok, err);
 
-// void vmap_marker_and_remap(void) {
-//   VirtMem* vm = nullptr;
-//   NvError err = vmem_init_ex(&vm, make(VirtMemOpts, .access = VMap__DefaultAccess, .mode = VMap__NoReserve,
-//                                        .commit_bytes = 0, .lock_bytes = 0, .size_bytes = MEGABYTES(100)));
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
+  vmem_destroy(vm);
+}
+  
+void varena_marker_and_reset(void) {
+  VArena arena = va_new(GB(2));
 
-//   for (i32 i = 0; i < 25; i++) {
-//     i32* x = vmem_allocate(vm, mlayout_new(i32));
-//     TEST_ASSERT_NOT_NULL(x);
-//     *x = i * i;
-//   }
+  TEST_ASSERT_TRUE(va_isok(&arena));
 
-//   const VMarker marker = vmem_checkpoint(vm);
+  const VMark marker = va_checkpoint(&arena);
 
-//   TEST_ASSERT(marker >= 0);
+  TEST_ASSERT(marker >= 0);
 
-//   static constexpr const i64 INTCOUNT = 25;
+  static constexpr const i64 INTCOUNT = 25;
 
-//   for (i32 i = 0; i < INTCOUNT; i++) {
-//     i32* x = vmem_allocate(vm, mlayout_new(i32));
-//     TEST_ASSERT_NOT_NULL(x);
-//     *x = i * i;
-//   }
+  for (i32 i = 0; i < INTCOUNT; i++) {
+    i32* x = va_allocate(&arena, mlayout_new(i32));
+    TEST_ASSERT_NOT_NULL(x);
+    *x = i * i;
+  }
 
-//   static constexpr const i64 ALLOCSIZE = INTCOUNT * sizeof(i32);
+  static constexpr const i64 ALLOCSIZE = INTCOUNT * sizeof(i32);
 
-//   const i64 size = vmem_reset_to(vm, marker);
-//   TEST_ASSERT_EQUAL(size, ALLOCSIZE);
+  const i64 size = va_reset_to(&arena, marker);
+  TEST_ASSERT_EQUAL(ALLOCSIZE, size);
 
-//   VAddrOffset offset = 0;
-//   Stuff* x = vmem_alloc_offset_array(vm, Stuff, 8, &offset);
-
-//   for (i32 i = 0; i < 8; i++) {
-//     x->counter = i * i;
-//   }
-
-//   const i32 pre = x[2].counter;
-
-//   err = vmem_remap(&vm, MEGABYTES(101), VRemap__ExpandInPlace);
-
-//   if (err == Error__CannotExpandInPlace) {
-//     LOG("Could not expand in place, trying to relocate!");
-//     err = vmem_remap(&vm, MEGABYTES(300), VRemap__AllowRelocate);
-//   }
-
-//   TEST_ASSERT_EQUAL(Error__Ok, err);
-
-//   vmem_update_ptr(vm, (void**)&x, offset);
-//  TEST_ASSERT_EQUAL(x[2].counter, pre);
-// }
+  va_destroy(&arena);
+}
 
 i32 main(void) {
   UNITY_BEGIN();
 
   RUN_TEST(vmem_alloc_and_cleanup);
+  RUN_TEST(varena_marker_and_reset);
+  RUN_TEST(varena_lock_and_commit);
 
   return UNITY_END();
 }

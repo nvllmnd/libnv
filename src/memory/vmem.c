@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
-
-
 #include "nv/core/ext.h"
+
 #include "nv/memory/vmem.h"
 
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +43,24 @@ i64 vmem_size(const VMem* self) {
     }                                                                                \
   }
 
-NvError vmem_lock_ram_range(VMem* self, void* from, i64 size) {
+Vallocator va_new_ex(i64 vmem_size, bool noreserve) {
+  // Vallocator self = {};
+  // bailerr_with(vmem_init(&self.mem, vmem_size, noreserve), VALLOC_NONE);
+
+  // self.cursor = vmem_begin(self.mem);
+
+  VMem* mem = vmem_new_ex(vmem_size, noreserve);
+  if UNLIKELY (is_null(mem)) {
+    return VALLOC_NONE;
+  }
+
+  byte* begin = vmem_begin(mem);
+  byte* cursor = begin;
+  byte* end = vmem_end(mem);
+  return (Vallocator){.mem = mem, .iter = (IterByte){.begin = begin, .cursor = cursor, .end = end}};
+}
+
+NvError vmem_ram_lock(VMem* self, void* from, i64 size) {
   assert(self);
 
   vmem_lock_prefault_check(self, from, size);
@@ -62,7 +79,7 @@ NvError vmem_lock_ram_range(VMem* self, void* from, i64 size) {
   return OK;
 }
 
-NvError vmem_unlock_ram_range(VMem* self, void* from, i64 size) {
+NvError vmem_ram_release(VMem* self, void* from, i64 size) {
   assert(self);
 
   vmem_lock_prefault_check(self, from, size);
@@ -80,7 +97,22 @@ NvError vmem_unlock_ram_range(VMem* self, void* from, i64 size) {
 NvError vmem_prefault_range(VMem* self, void* from, i64 size) {
   assert(self);
 
-  vmem_lock_prefault_check(self, from, size);
+  static i64 page_size = 0;
+
+  if UNLIKELY (page_size == 0) {
+    page_size = os_page_size();
+  }
+
+  // NOTE: users deal with this range and shouldnt have to worry about decrementing vmem_begin by the size of VMem's
+  // header data, so we check here if that is the case and adjust as we need
+  if (from == vmem_begin(self)) {
+    from = self;
+  }
+
+  if (!ptr_is_aligned(from, page_size)) {
+    LOG_ERROR("Given pointer is not page aligned! Must provide a page aligned pointer to pass to madvise!");
+    return Error__UnexpectedMisAlignedPtr;
+  }
 
   const i32 err = madvise(from, size, MADV_WILLNEED);
 
@@ -101,7 +133,7 @@ i64 os_page_size(void) {
   return size;
 }
 
-VMem* vmem_new(const i64 size_bytes, const bool noreserve) {
+VMem* vmem_new_ex(const i64 size_bytes, const bool noreserve) {
   VMem* self = {};
 
   bailerr_with(vmem_init(&self, size_bytes, noreserve), nullptr);
@@ -109,6 +141,8 @@ VMem* vmem_new(const i64 size_bytes, const bool noreserve) {
   assert(self);
   return self;
 }
+
+VMem* vmem_new(const i64 size_bytes) { return vmem_new_ex(size_bytes, VMEM_NORESERVE_DEFAULT); }
 
 NvError vmem_init(VMem** s, const i64 size_bytes, const bool noreserve) {
   assert(s);
@@ -207,7 +241,7 @@ bool vmem_contains(const VMem* self, const void* ptr) {
 
 VMark va_checkpoint(const Vallocator* self) {
   assert(self);
-  const VMark m = self->cursor - vmem_cbegin(self->mem);
+  const VMark m = iter_head(self->iter);
   assert(m >= 0 && m < self->mem->size);
   return m;
 }
@@ -221,206 +255,41 @@ i64 va_reset_to(Vallocator* self, VMark mark) {
 
   byte* top = &self->mem->data[mark];
   i64 delta = 0;
-  if (top < self->cursor) {
-    delta = self->cursor - top;
+  if (top < self->iter.cursor) {
+    delta = self->iter.cursor - top;
   }
   return delta;
 }
 
-i64 va_available(const Vallocator* self) {
-  assert(self);
-  return self->mem->size - va_used_bytes(self);
-}
-
-i64 va_used_bytes(const Vallocator* self) {
-  assert(self);
-  return self->cursor - vmem_cbegin(self->mem);
-}
-
-void* va_allocate(Vallocator* self, Layout layout) {
-  assert(self);
-  assert(self->cursor);
-
-  byte* ptr = ptr_alignup(self->cursor, layout.align);
-  byte* next = ptr + layout.size;
-  byte* end = vmem_end(self->mem);
-
-  if UNLIKELY (next >= end) {
-    LOG_ERROR("Vallocator of size: %li bytes does not have room for object of size: %li, only %li bytes available!",
-              self->mem->size, layout.size, va_available(self));
-    return nullptr;
-  }
-
-  self->cursor = next;
-
-  return ptr;
-}
-
-METHOD
-void* va_zallocate(Vallocator* self, Layout layout) {
-  void* ptr = va_allocate(self, layout);
-  if UNLIKELY (is_null(ptr)) {
-    return nullptr;
-  }
-  memset(ptr, 0, layout.size);
-  return ptr;
-}
-
-#define va_make(_self, T) ((__typeof(T)*)va_allocate((_self), mlayout_new(T)))
-#define va_alloc_array(_self, T, N) ((__typeof(T)*)va_allocate((_self), mlayout_array(T, N)))
-#define va_alloc_vec(_self, T, _n) ((__typeof(T)*)va_allocate((_self), mlayout_vec(T, _n)))
-
-PARAMS_NONNULL(1, 2)
-bool va_resize(Vallocator* self, void* ptr, Layout old, Layout new) {
-  assert(self);
-  assert(ptr);
-  if (old.size == new.size) {
-    return false;
-  }
-  if ((self->cursor - old.size) == (byte*)ptr) {
-    // Shrink if newsize is greater oldsize, otherwise grow
-    const i64 delta = new.size - old.size;
-    self->cursor += delta;
-
-    return true;
-  }
-
-  return false;
-}
-
-PARAMS_NONNULL(1, 2)
-void* va_reallocate(Vallocator* self, void* ptr, Layout old, Layout new) {
-  if UNLIKELY (old.size == new.size) {
-    return ptr;
-  }
-
-  if (va_resize(self, ptr, old, new)) {
-    return ptr;
-  }
-
-  if (new.size < old.size) {
-    return ptr;
-  }
-
-  void* res = va_allocate(self, new);
-  if UNLIKELY (is_null(res)) {
-    LOG_ERROR("Failed to Reallocate Memory of size %li bytes to size %li bytes", old.size, new.size);
-    return nullptr;
-  }
-
-  memcpy(res, ptr, old.size);
-
-  return res;
-}
-
-PARAMS_NONNULL(1, 2)
-char* va_strdup(Vallocator* self, const char* str) {
-  const i64 len = stringlen(str);
-  return va_strndup(self, str, len);
-}
-
-PARAMS_NONNULL(1, 2)
-char* va_strndup(Vallocator* self, const char* str, i32 len) {
-  assert(self);
-  assert(str);
-
-  const i64 avail = va_available(self) - 1;
-  if UNLIKELY (avail <= 0) {
-    LOG_ERROR("Cannot dup string: %.*s of length %d in Vallocator with only %li bytes available!", len, str, len,
-              avail);
-    return nullptr;
-  }
-  if UNLIKELY (len > avail) {
-    LOG_INFO("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
-             len, str, len, (i32)avail, str, avail);
-    len = avail;
-  }
-
-  char* ptr = va_allocate(self, mlayout_bytes(len + 1));
-
-  strncpy(ptr, str, len);
-  ptr[len + 1] = 0;
-  return ptr;
-}
-
-PARAMS_NONNULL(1, 2)
-sslice va_sslice_dup(Vallocator* self, const char* str, i32 len) {
-  const char* ptr = va_strndup(self, str, len);
-  if UNLIKELY (is_null(ptr)) {
-    return sslice_empty();
-  }
-  return sslice_new(.begin = ptr, .len = len);
-}
-
-sslice va_fslice(Vallocator* self, const char* fmt, ...) {
-  assert(self);
-  assert(fmt);
-
-  va_list args;
-  va_start(args);
-
-  const sslice str = va_vfslice(self, fmt, args);
-
-  va_end(args);
-
-  return str;
-}
-
-sslice va_vfslice(Vallocator* self, const char* fmt, va_list args) {
-  assert(self);
-  assert(fmt);
-
-  i64 len = 0;
-  const char* begin = va_vfstring(self, &len, fmt, args);
-
-  if UNLIKELY (is_null(begin)) {
-    return sslice_new(.begin = begin, .len = len);
-  }
-
-  return sslice_new(.begin = begin, .len = len);
-}
 
 char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...) {
-  assert(self);
-  assert(fmt);
 
-  va_list args;
-
+  va_list args = {};
   va_start(args);
 
-  char* str = va_vfstring(self, len_out, fmt, args);
+  char* ptr = va_vfstring(self, len_out, fmt, args);
+
   va_end(args);
-  return str;
+  return ptr;
 }
 
-METHOD
-char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args) {
-  assert(self);
-  assert(fmt);
 
-  const i64 avail = va_available(self);
-  if UNLIKELY (avail <= 0) {
-    LOG_ERROR("Vallocator of size: %li bytes has no free memory!", self->mem->size);
-    return nullptr;
-  }
+sslice va_fslice(Vallocator* self, const char* fmt, ...) {
+  va_list args = {};
+  va_start(args);
 
-  const i32 len = min(avail, vfstring_length(fmt, args) + 1);  // +1 for null terminator!
+  const sslice sl = va_vfslice(self, fmt, args);
 
-  char* str = punwrap(va_allocate(self, mlayout_bytes(len)));
-
-  stbsp_vsnprintf(str, len, fmt, args);
-
-  if (len_out) {
-    *len_out = len - 1;  // dont include null terminal in length calc
-  }
-  return str;
+  va_end(args);
+  return sl;
+  
 }
+
 
 void va_destroy(Vallocator* self) {
   if (self && is_not_null(self->mem)) {
     vmem_destroy(self->mem);
-    self->cursor = nullptr;
-    self->mem = nullptr;
+    memset(self, 0, sizeof(IterByte));
   }
 }
 
@@ -433,7 +302,8 @@ void va_destroy(Vallocator* self) {
 
 void va_clear(Vallocator* self) {
   assert(self);
-  self->cursor = vmem_begin(self->mem);
+
+  iter_reset(&self->iter);
 }
 
 void va_clear_zeroed(Vallocator* self) {

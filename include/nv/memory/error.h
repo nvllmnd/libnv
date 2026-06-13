@@ -4,10 +4,8 @@
 
 #pragma once
 
-#include <errno.h>
 
 #include "nv/core/attributes.h"
-#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 
 typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could lead to segfaults!") NvError : uerror {
@@ -60,6 +58,7 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   Error__VMemFailedToUnlockRangeFromRAM = 1 << 31,
   Error__PtrNotOwnedByVMem = 1L << 32,
   Error__VMemFailedToPrefaultRange = 1L << 33,
+  Error__UnexpectedMisAlignedPtr = 1L << 34,
 
   // Error__ParamExpectedPosNonZeroInt = 1 << 30,
 
@@ -67,9 +66,12 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
 
   Error__UnknownError = UINT64_MAX - 20,
 
-  ERROR_COUNT = 34,
+  ERROR_COUNT = 35,
 } HEDLEY_FLAGS NvError;
 
 static constexpr const NvError OK = Error__Ok;
 
+/// @remarks Currently an [NvError] can contain up to [ERROR_COUNT] number of errors simultaneously.
+/// but - also currently - this function can only detect if given error value exactly matches each [NvError] variant exactly,
+/// so it may report valid error values as invalid
 const char* error_string(NvError err) CONST_FUNC RETURNS_NON_NULL;

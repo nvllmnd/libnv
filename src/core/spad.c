@@ -51,7 +51,7 @@ StringPad spad_new(char* begin, char* end) {
   const i64 size_bytes = end - begin;
 
   assert(size_bytes > 0);
-  Vallocator mem = va_new(size_bytes, false);
+  Vallocator mem = va_new(size_bytes);
   assert(va_isok(&mem));
   return (StringPad){.inuse = false, .begin = begin, .cursor = begin, .end = begin + size_bytes};
 }

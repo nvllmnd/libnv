@@ -93,7 +93,7 @@ void tagged_pointers(void) {
 }
 
 void stringpad_builds_string(void) {
-  Vallocator vm = va_new(MEGABYTES(24), false);
+  Vallocator vm = va_new(MEGABYTES(24));
   TEST_ASSERT_TRUE(va_isok(&vm));
 
     static constexpr const i32 BLEH_COUNT = 200;

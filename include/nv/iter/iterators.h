@@ -12,11 +12,7 @@
 
 #include <string.h>
 
-#include "nv/core/attributes.h"
-#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
-
-
 
 #define SpanData(T)   \
   __typeof(T)* begin; \
@@ -122,21 +118,20 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 #define iterlen(_iter) ((_iter).end - (_iter).cursor)
 #define itersize(_iter) (spanlen(_iter))
 
-#define span_contains(_iter, _ptr) ({\
- const auto _it = (_iter);\
-  const byte* _begin = (byte*)_it.begin;\
-  const byte* _end = (byte*)_it.end;\
-  const byte* _p = (byte*)(_ptr);\
-  _p && (_p >= _begin && _p < _end);\
-})
-
+#define span_contains(_iter, _ptr)         \
+  ({                                       \
+    const auto _it = (_iter);              \
+    const byte* _begin = (byte*)_it.begin; \
+    const byte* _end = (byte*)_it.end;     \
+    const byte* _p = (byte*)(_ptr);        \
+    _p && (_p >= _begin && _p < _end);     \
+  })
 
 #if LIBNV_USE_SHORT_NAMES == 1
 
 #ifndef contains
 #define contains span_contains
 #endif
-
 
 #endif
 
@@ -148,16 +143,16 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
     }                                      \
   })
 
-#define span_index(_self, _index)                                 \
-  ({                                                              \
-    const auto _i = (_index);                                     \
-    auto _begin = (_self).begin;                                  \
-    auto _end = (_self).end;                                      \
-    __typeof(_begin) _ptr = nullptr;                              \
-    if ((_ptr >= _begin) && (_ptr < _end) && span_is_ok(_self)) { \
-      _ptr = &_begin[_i];                                         \
-    }                                                             \
-    _ptr;                                                         \
+#define span_index(_self, _index)                                  \
+  ({                                                               \
+    const auto _i = (_index);                                      \
+    auto _begin = (_self)->begin;                                  \
+    auto _end = (_self)->end;                                      \
+    __typeof(_begin) _ptr = nullptr;                               \
+    if ((_ptr >= _begin) && (_ptr < _end) && span_is_ok(*_self)) { \
+      _ptr = &_begin[_i];                                          \
+    }                                                              \
+    _ptr;                                                          \
   })
 
 #define subspan(_span, _from, _to)                                          \
@@ -179,6 +174,27 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 #define iter_is_empty(_it) (memcmp(&(_it), &ITER_NONE_BYTE, sizeof(__typeof(_it))) == 0)
 #define iter_is_ok(_it) (!iter_is_empty(_it))
 
+#define iter_tail(_iter) /* Element count between cursor and end */ \
+  ({                                                                \
+    const auto _it = (_iter);                                       \
+    _it.end - _it.cursor;                                           \
+  })
+
+#define iter_head(_iter) /* Element count between begin and cursor */ \
+  ({                                                                  \
+    const auto _it = (_iter);                                         \
+    _it.cursor - _it.begin;                                           \
+  })
+
+#define iter_first(_iter) ((_iter).begin)
+#define iter_last(_iter) ((_iter).end - 1)
+
+#define iter_reset(_iter)     \
+  ({                          \
+    auto _it = (_iter);       \
+    _it->cursor = _it->begin; \
+  })
+
 #define iter_at_end(_it)   \
   ({                       \
     const auto _i = (_it); \
@@ -189,8 +205,8 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 
 #define iter_write_next(_iter, _val) \
   ({                                 \
-    if (!iter_at_end(_iter)) {       \
-      *(_iter).begin = (_val);       \
+    if (!iter_at_end(*_iter)) {      \
+      *_iter->begin = (_val);        \
       (_iter) = iter_next(_iter);    \
     }                                \
   })
@@ -206,5 +222,3 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
   for (auto _name = _iter.begin; _name < _iter.end; _name++)
 
 #define iter_foreach_i(_iterator) iter_foreach(_iterator, i)
-
-

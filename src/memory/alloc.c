@@ -9,6 +9,7 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/log.h"
+#include "nv/core/stb_sprintf.h"
 #include "nv/iter/iterators.h"
 
 void* vtable_realloc_no_impl(void*, void*, Layout, Layout) { return nullptr; }
@@ -109,12 +110,9 @@ void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
   warn_usage();
 
   if (ptr && contains(*self, ptr)) {
-    memset(ptr, pattern, layout.size); 
+    memset(ptr, pattern, layout.size);
   }
-  
 }
-
-
 
 void warn_usage(void) {
 #if LIBNV_FREE_RAW_WARN == 1
@@ -131,4 +129,120 @@ void warn_usage(void) {
       "libnv with the flag: '-DLIBNV_FREE_RAW_WARN=0'",
       layout.size, layout.align, pattern);
 #endif  // LIBNV_FREE_RAW_WARN == 1
+}
+
+char* va_strdup(IterByte* self, const char* str) {
+  const i64 len = stringlen(str);
+  return strndup_raw(self, str, len);
+}
+
+char* strndup_raw(IterByte* self, const char* str, i32 len) {
+  assert(self);
+  assert(str);
+
+  const i64 avail = iter_tail(*self) - 1;
+  if UNLIKELY (avail <= 0) {
+    LOG_ERROR("Cannot dup string: %.*s of length %d in Vallocator with only %li bytes available!", len, str, len,
+              avail);
+    return nullptr;
+  }
+  if UNLIKELY (len > avail) {
+    LOG_INFO("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
+             len, str, len, (i32)avail, str, avail);
+    len = avail;
+  }
+
+  char* ptr = allocate_raw(self, mlayout_bytes(len + 1));
+
+  strncpy(ptr, str, len);
+  ptr[len] = 0;
+  return ptr;
+}
+
+sslice sslice_dup_raw(IterByte* self, const char* str, i32 len) {
+  const char* ptr = strndup_raw(self, str, len);
+  if UNLIKELY (is_null(ptr)) {
+    return sslice_empty();
+  }
+  return sslice_new(.begin = ptr, .len = len);
+}
+
+sslice fslice_raw(IterByte* self, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+  va_start(args);
+
+  const sslice str = vfslice_raw(self, fmt, args);
+
+  va_end(args);
+
+  return str;
+}
+
+sslice vfslice_raw(IterByte* self, const char* fmt, va_list args) {
+  assert(self);
+  assert(fmt);
+
+  i64 len = 0;
+  const char* begin = vfstring_raw(self, &len, fmt, args);
+
+  if UNLIKELY (is_null(begin)) {
+    return sslice_new(.begin = begin, .len = len);
+  }
+
+  return sslice_new(.begin = begin, .len = len);
+}
+
+char* strdup_raw(IterByte* self, const char* str) {
+  const i64 len = stringlen(str);
+  return strndup_raw(self, str, len);
+}
+
+
+
+char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...) {
+  assert(self);
+  assert(fmt);
+
+  va_list args;
+
+  va_start(args);
+
+  char* str = vfstring_raw(self, len_out, fmt, args);
+  va_end(args);
+  return str;
+}
+
+char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args) {
+  assert(self);
+  assert(fmt);
+
+  const i64 avail = iter_tail(*self);
+  if UNLIKELY (avail <= 0) {
+    LOG_ERROR("Byte Iterator used for string formatting of size: %li bytes has no free memory!", itersize(*self));
+    return nullptr;
+  }
+
+  const i32 len = min(avail, vfstring_length(fmt, args) + 1);  // +1 for null terminator!
+
+  char* str = punwrap(allocate_raw(self, mlayout_bytes(len)));
+
+  const i64 n = stbsp_vsnprintf(str, len, fmt, args);
+
+  if (n >= len) {
+    LOG_DBG(
+        "vfstring_raw expanded format string is longer than expected! A truncation has most likely occured with "
+        "unexpanded format string: %s",
+        fmt);
+    *len_out = len - 1;
+  } else {
+    *len_out = n;
+  }
+
+  if (len_out) {
+    *len_out = len - 1;  // dont include null terminal in length calc
+  }
+  return str;
 }

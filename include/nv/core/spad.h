@@ -10,7 +10,6 @@
 #include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
-#include "nv/memory/vmem.h"
 
 
 
