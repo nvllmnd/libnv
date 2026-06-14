@@ -13,33 +13,42 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
+
 /// @brief allocated virtual memory
 /// @details Header is kept small so this type is easier to extend, its also harder to
 /// accidently add redundant data as callers can see the full impl
 ///
 ///
 struct nv_nodiscard_msg("Hey! Where did my memory go? ;P Seriously tho dont ignore this!") VMem {
-  /// @brief does not include the size of this header
-  /// @remarks used for __counted_by__ compiler attribute flexible array member
   i64 size;
+  /// @brief if negative or 0, this field is ignored,
+  /// otherwise, it is used for begin/end calculations,
+  /// so that callers can add their own metadata and not worry about it getting updated by allocations
 
-  ///
   ATTR_COUNTED_BY(size)
   byte data[];
 };
 alias(VMem);
 
-static constexpr const i64 VMEM_HEADER_SIZE = sizeof(VMem);
+
+
+/// @brief magic number used to mark VMem created with custom header data
+/// @details location: (&VMem::data[0]) is set to this magic value when 
+static constexpr const i64 VMEM_PREFIX_SIZE = sizeof(VMem);
 
 i64 os_page_size(void);
 
-PURE_FUNC
-METHOD
-i64 vmem_size(const VMem* self);
 
 PURE_FUNC
 METHOD
-static inline i64 vmem_size_full(const VMem* self) { return vmem_size(self) + VMEM_HEADER_SIZE; }
+static inline i64 vmem_size(const VMem* self) {
+  assert(self);
+  return self->size;
+}
+
+PURE_FUNC
+METHOD
+static inline i64 vmem_size_full(const VMem* self) { return vmem_size(self) + VMEM_PREFIX_SIZE; }
 
 #ifndef LIBNV_VMEM_NORESERVE_DEFAULT
 #define LIBNV_VMEM_NORESERVE_DEFAULT 0
@@ -248,4 +257,11 @@ METHOD
 void va_clear_zeroed(Vallocator* self);
 
 void va_destroy(Vallocator* self);
+
+#define vmem_meta_new(_size, _meta) ({\
+  VMem* _self = vmem_new((_size));\
+  if (is_not_null(_self)) {\
+    \
+  }\
+})
 

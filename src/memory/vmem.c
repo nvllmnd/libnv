@@ -21,12 +21,7 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
-PURE_FUNC
-METHOD
-i64 vmem_size(const VMem* self) {
-  assert(self);
-  return self->size;
-}
+ 
 
 #define vmem_lock_prefault_check(_self, _from, _size)                                \
   {                                                                                  \
@@ -152,7 +147,7 @@ NvError vmem_init(VMem** s, const i64 size_bytes, const bool noreserve) {
     return Error__InvalidAllocationSize;
   }
 
-  const i64 size = max(size_bytes, os_page_size()) + VMEM_HEADER_SIZE;
+  const i64 size = max(size_bytes, os_page_size()) + VMEM_PREFIX_SIZE;
 
   const i32 flags = noreserve ? (MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE) : (MAP_PRIVATE | MAP_ANONYMOUS);
 
@@ -184,7 +179,7 @@ VMem* vmem_remap(VMem* self, i64 new_size, VRemapMode mode) {
   }
   const i64 old_size = vmem_size_full(self);
 
-  const i64 size = new_size + VMEM_HEADER_SIZE;
+  const i64 size = new_size + VMEM_PREFIX_SIZE;
 
   VMem* new = mremap(self, old_size, size, flags);
 
@@ -193,7 +188,7 @@ VMem* vmem_remap(VMem* self, i64 new_size, VRemapMode mode) {
       LOG_ERROR(
           "Failed to remap VMem from size %li bytes to size %li bytes, even though MREMAP_MAYMOVE flag was enabled! "
           "ERRNO => %s",
-          old_size - VMEM_HEADER_SIZE, new_size, strerror(errno));
+          old_size - VMEM_PREFIX_SIZE, new_size, strerror(errno));
     }
 
     return nullptr;
