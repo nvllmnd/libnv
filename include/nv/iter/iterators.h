@@ -118,6 +118,7 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 #define iterlen(_iter) ((_iter).end - (_iter).cursor)
 #define itersize(_iter) (spanlen(_iter))
 
+
 #define span_contains(_iter, _ptr)         \
   ({                                       \
     const auto _it = (_iter);              \
