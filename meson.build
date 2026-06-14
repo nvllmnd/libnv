@@ -89,6 +89,7 @@ memory_lib = static_library(
     'src/memory/arena.c',
     'src/memory/vmem.c',
     'src/memory/chunk_alloc.c',
+    'src/memory/mpool.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

@@ -7,11 +7,12 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
+#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/core/core_types.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
+#include "nv/memory/mpool.h"
 #include "nv/memory/vmem.h"
 #include "unity.h"
 
@@ -30,6 +31,43 @@ struct Stuff {
   i64 counter;
 };
 alias(Stuff);
+
+alias(Point);
+
+void mpool_alloc_free(void) {
+  static constexpr const i64 STORAGE_SIZE = KB(2);
+  char storage[STORAGE_SIZE] = {};
+
+  auto pool = mpool_new(Point, storage, storage + STORAGE_SIZE);
+  TEST_ASSERT_TRUE(mpool_is_ok(pool));
+
+  auto mp = &pool;
+
+  static constexpr const f32 XV = 50505050.f;
+  static constexpr const f32 YV = XV * 50;
+
+  Point* x = mpool_allocate(mp);
+  TEST_ASSERT_NOT_NULL(x);
+
+  x->x = XV;
+
+  Point* y = mpool_zallocate(mp);
+  TEST_ASSERT_NOT_NULL(y);
+
+  const f32 sample_x = x->x;
+
+  y->y = YV;
+
+  (void)mpool_allocate(mp);
+
+  const f32 sample_y = y->y;
+
+  mpool_free(mp, x);
+  mpool_free(mp, y);
+
+  TEST_ASSERT_EQUAL(XV, sample_x);
+  TEST_ASSERT_EQUAL(YV, sample_y);
+}
 
 void vmem_alloc_and_cleanup(void) {
   VArena vm = va_new_ex(GB(2), false);
@@ -61,12 +99,12 @@ void varena_lock_and_commit(void) {
   err = vmem_ram_release(vm, vmem_begin(vm), KB(12));
   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  err = vmem_prefault_range(vm, vmem_begin(vm),  KB(24));
+  err = vmem_prefault_range(vm, vmem_begin(vm), KB(24));
   TEST_ASSERT_EQUAL(Error__Ok, err);
 
   vmem_destroy(vm);
 }
-  
+
 void varena_marker_and_reset(void) {
   VArena arena = va_new(GB(2));
 
@@ -98,6 +136,7 @@ i32 main(void) {
   RUN_TEST(vmem_alloc_and_cleanup);
   RUN_TEST(varena_marker_and_reset);
   RUN_TEST(varena_lock_and_commit);
+  RUN_TEST(mpool_alloc_free);
 
   return UNITY_END();
 }
