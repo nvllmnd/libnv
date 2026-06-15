@@ -147,8 +147,8 @@ char* strndup_raw(IterByte* self, const char* str, i32 len) {
     return nullptr;
   }
   if UNLIKELY (len > avail) {
-    LOG_INFO("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
-             len, str, len, (i32)avail, str, avail);
+    DWARN("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
+          len, str, len, (i32)avail, str, avail);
     len = avail;
   }
 
@@ -199,8 +199,6 @@ char* strdup_raw(IterByte* self, const char* str) {
   const i64 len = stringlen(str);
   return strndup_raw(self, str, len);
 }
-
-
 
 char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...) {
   assert(self);

@@ -11,6 +11,7 @@
 #include "nv/core/debug.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/sslice.h"
+#include "nv/memory/error.h"
 
 typedef enum FormatError { Format__Error = -1, Format__Ok = 0 } FormatError;
 
@@ -71,55 +72,70 @@ void seprint(sslice str);
 
 void seprintln(sslice str);
 
+/// @brief similar to libnv's other logging macros, but includes [strerror] output
+/// You can think of this function as a [perror] that formats a string message
+void print_error(const char* fmt, ...);
+/// @see [print_error]
+void vprint_error(const char* fmt, va_list args);
+
 #define FILE_FMT "%s[%s::%s]:%d => "
 #define FILE_FMT_ARGS(CTX_NAME, ...) __FILE__, STRINGIFY(CTX_NAME), __func__, __LINE__ __VA_OPT__(, ) __VA_ARGS__
-
-#if LIBNV_DEBUG == 0
-
-#define LOG_DBG(fmt, ...) ((void)fmt) /* inactive in release builds (NDEBUG == 1) */
-
-#define ELOG_DBG(fmt, ...) ((void)fmt) /* inactive in release builds (NDEBUG == 1) */
-
-#define SLOG_DBG(slice) ((void)slice) /* inactive in release builds (NDEBUG == 1) */
-
-#define SELOG_DBG(slice) ((void)slice) /* inactive in release builds (NDEBUG == 1) */
-
-#else
-
-#define LOG_DBG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
-#define ELOG_DBG(fmt, ...) (eprintln(fmt __VA_OPT__(, ) __VA_ARGS__))
-
-#define SLOG_DBG(slice) (sprintln((slice)))
-#define SELOG_DBG(slice) (seprintln((slice)))
-
-#endif
-
-#define LOG_CTX(CTX_NAME, _fmt, ...) (println(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
-#define ELOG_CTX(CTX_NAME, _fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
 #ifndef LIBNV_SUPPRESS_RUNTIME_ERROR_LOG
 #define LIBNV_SUPPRESS_RUNTIME_ERROR_LOG 0
 #endif
 
-#define LOG(fmt, ...) (LOG_CTX(LIBNV, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define LOG_INFO(fmt, ...) (LOG_CTX(INFO, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define LOG_WARN(fmt, ...) (LOG_CTX(!WARNING !, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define LOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
+#define ELOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
-#if LIBNV_SUPPRESS_RUNTIME_ERROR_LOG == 1
+#if LIBNV_DEBUG == 0 || LIBNV_SUPPRESS_RUNTIME_ERROR_LOG != 0
+
+#define LOG_DBG(fmt, ...)
+#define ELOG_DBG(fmt, ...)
+
+#define DERROR(_fmt, ...)
+#define SLOG_DBG(slice)
+#define SELOG_DBG(slice)
+#define LOG_WARN(fmt, ...)
 
 #define LOG_ERROR(fmt, ...)
+
+#define LOG_FATAL(fmt, ...) (log_fatal(fmt, __VA_OPT__(,) __VA_ARGS__)
+
+#define PERROR_FATAL() (LOG_FATAL(""))
+
 #else
 
+#define LOG_DBG(fmt, ...) (LOG_CTX([[DEBUG]], fmt __VA_OPT__(, ) __VA_ARGS__))
+#define ELOG_DBG(fmt, ...) (LOG_CTX([[DEBUG]], fmt __VA_OPT__(, ) __VA_ARGS__))
 
+#define LOG_WARN(fmt, ...) (LOG_CTX([[WARN]], fmt __VA_OPT__(, ) __VA_ARGS__))
 
-#define LOG_ERROR(fmt, ...) (ELOG_CTX(!!ERROR !!, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define DERROR(_fmt, ...) (LOG_CTX([[ERROR]], _fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#define LOG_ERROR(fmt, ...) (ELOG_CTX([[ERROR]], fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#define DWARN LOG_WARN
+#define DERR DERROR
+
+#define SLOG_DBG(slice) (sprintln((slice)))
+#define SELOG_DBG(slice) (seprintln((slice)))
+
+#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!__VA_OPT__(, ) __VA_ARGS__)))
+
+#define PERROR_FATAL() (LOG_FATAL(""))
 
 #endif
 
+#define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
 
 #define SSPREAD(slice) ((slice).begin), ((slice).len)
 #define RSSPREAD(slice) ((slice).len), ((slice).begin)
 
+/// @brief print a formatted string message,alongside [strerror] and aborts the program
+/// @details also prints a stack trace if debug build (LIBNV_DEBUG == 1) and LIBNV_TRACE_ON_ABORT is defined to a
+/// non-zero value.
+/// @returns does not return
 HEDLEY_NO_RETURN
 FORMAT_FUNC(1, 2)
 void log_fatal(const char* fmt, ...);
@@ -127,8 +143,10 @@ void log_fatal(const char* fmt, ...);
 HEDLEY_NO_RETURN
 void vlog_fatal(const char* fmt, va_list args);
 
-#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!__VA_OPT__(, ) __VA_ARGS__)))
-
-#define TODO_MSG(_msg, ...) (log_fatal((_msg)__VA_OPT__(, ) __VA_ARGS__))
-
-#define TODO() TODO_MSG("%s: %s @ LINE: %d => Not Yet Implemented!", __FILE__, __func__, __LINE__)
+/// @brief uses backtrace in execinfo.h,
+/// @details i dont think this is available on musl...
+/// @param (i32 depth) number of function calls that will be printed. if there are any more they are truncated and not
+/// reported
+/// @returns this function calls [backtrace_symbols], which mallocs some strings
+/// containing stack call information. so if any of those calls fail, an error is returned
+NvError print_stack_trace(i32 depth);

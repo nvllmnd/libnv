@@ -4,6 +4,10 @@
 
 unity_dep = dependency('unity')
 
+# test_files = files('data/file1.txt', 'data/file2.txt')
+# install_data(test_files, install_dir: 'tests/data')
+
+
 
 dependencies += unity_dep
 

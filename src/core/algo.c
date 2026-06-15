@@ -223,7 +223,7 @@ i32 vfstring_length(const char* fmt, va_list args) {
 const char* error_string(NvError err) {
   if (err == 0) {
     return STRINGIFY(Error__Ok) " :: Ok! no error.";
-  } else if (err == Error__UnknownError) {
+  } else if (err == ERROR) {
     return STRINGIFY(Error__UnknownError);
   }
   // TODO: Write a print_error version of this function. OR change this functions parameters to take a string
