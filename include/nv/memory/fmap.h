@@ -64,10 +64,6 @@ static inline bool fmap_is_multi(const FileMap* self) { return !fmap_is_single(s
 
 static constexpr const i32 FMAP_FILE_COUNT_MAX = 1024;
 
-NvError fmap_load_init(FileMap* self, const char* path);
-
-NvError fmap_load_directory_init(FileMap* self, const char* path, bool recursive);
-
 NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count);
 
 #define fmap_load_all_init(_fm, ...) \

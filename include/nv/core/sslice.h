@@ -22,39 +22,55 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
+#define StringSliceData \
+  const char* begin;    \
+  i64 len
+
 struct sslice {
-  const char* begin;
-  i32 len;
+  StringSliceData;
 };
 typedef struct sslice sslice;
 
+struct StaticString {
+  StringSliceData;
+};
+typedef struct StaticString StaticString;
 
 #define sslice_new(...) ((sslice){__VA_ARGS__})
-
 
 #define sslice_static_new(static_str)                                      \
   /* Creates a new instance of [sslice] on the stack that points to string \
    literals, which reside in constant static readonly memory*/             \
-  (sslice_new(.begin = (static_str), .len = (sizeof((static_str)) - 1))) /* - 1 so we dont include the null-terminating byte*/
+  (sslice_new(.begin = (static_str),                                       \
+              .len = (sizeof((static_str)) - 1))) /* - 1 so we dont include the null-terminating byte*/
 
+#define sslice_empty() (sslice_new())
 
-#define sslice_empty() (sslice_new())  
+#define static_string(_ss)                                                                                \
+  ({                                                                                                      \
+    static_assert(HEDLEY_IS_CONSTANT((_ss)), "Static Strings can only be created with string literals!"); \
+    (StaticString) {                                                                                      \
+      .begin = (_ss);                                                                                     \
+      .len = (sizeof((_ss)) - 1)                                                                          \
+    };                                                                                                    \
+  })
 
+#define empty_string() static_string("")
+#define sstring_new static_string
 
 PURE_FUNC
-static inline bool sslice_is_empty(sslice self) {
-  return self.begin == nullptr || self.len <= 0;
-}
+static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
+
+PURE_FUNC
+static inline bool sslice_is_empty(sslice self) { return self.begin == nullptr || self.len <= 0; }
 
 PURE_FUNC
 sslice sslice_from_str(const char* string);
-
 
 PURE_FUNC
 /// creates a new [sslice] from given string that points to the range provided by @param (from) and @param (to)
 /// such that the new slice points to string[from..to]
 sslice sslice_from_range(const char* string, isize from, isize to);
-
 
 /// Forwards each given [sslice]'s begin pointer to [strncmp], taking the
 /// minimum of each [sslice]'s length. for the count parameter of [strncmp]
@@ -78,3 +94,20 @@ i32 sslice_cmp(sslice left, sslice right);
 /// see: [sslice_cmp]
 PURE_FUNC
 bool sslice_eq(sslice left, sslice right);
+
+PURE_FUNC
+static inline bool sstring_cmp(StaticString lhs, StaticString rhs) {
+  const auto left = sstring_slice(lhs);
+  const auto right = sstring_slice(rhs);
+  return sslice_cmp(left, right);
+}
+
+PURE_FUNC
+static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
+  const auto left = sstring_slice(lhs);
+  const auto right = sstring_slice(rhs);
+  return sslice_eq(left, right);
+}
+
+#define SSPREAD(slice) ((i32)(slice).begin), ((slice).len)
+#define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)

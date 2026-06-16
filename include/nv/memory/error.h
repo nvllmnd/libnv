@@ -31,7 +31,7 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   Error__VMapCannotExpandInPlace = 1 << 11,
   Error__FailedMemUnmap = 1 << 12,
   Error__NotEnoughPhysicalRAMAavailable = 1 << 13,
-  Error__VMemLimitReached = 1 << 14,
+  Error__BFileErrorTooSmall = 1L << 14,
   Error__MAdviseWillNeedFailed = 1 << 15,
   Error__FailedRemap = 1 << 16,
   Error__CannotExpandInPlace = 1 << 17,
@@ -41,9 +41,8 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
 
   /// @brief Not enough space/cannot allocate memory (POSIX.1-2001).
   Error__OOM = 1 << 21,
-  Error__ValTooLargeFoDataType = 1 << 22,
-  Error__ResourceTempUnavail = 1 << 23,
-
+  Error__FilePathTooLong = 1L << 22,
+  Error__FileMapFailedToLoad = 1L << 23,
   /// @brief for errors not covered by other Param* variants
   Error__ParamInvalid = 1 << 24,
   /// @brief function expected its first parameter to be non-null, but was null!
@@ -56,7 +55,6 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   Error__ParamUnexpectedNegFloat = 1 << 28,
   Error__IndexOutOfRange = 1 << 29,
   Error__ParamUnexpectedNegOrZeroInt = 1 << 30,
-
   Error__ParamUnexpectedNegOrZeroFloat = 1 << 31,
   Error__VMemFailedToLockRangeToRAM = 1L << 32,
   Error__VMemFailedToUnlockRangeFromRAM = 1L << 33,
@@ -72,14 +70,14 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   Error__FilePermissionDenied = 1L << 43,
   Error__FileNotADirectory = 1L << 44,
   Error__FileTooBig = 1L << 45,
-  Error__FilePathTooLong = 1L << 46,
-  Error__FileMapFailedToLoad = 1L << 47,
+
+  Error__FileIO = 1L << 46,
 
   // Error__ParamExpectedPosNonZeroInt = 1 << 30,
 
   // Error__ParamExpectedPosNonZeroFloat= 1 << 30,
 
-  ERROR_COUNT = 48,
+  ERROR_COUNT = 47,
 } HEDLEY_FLAGS NvError;
 
 static constexpr const NvError OK = Error__Ok;

@@ -13,5 +13,5 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
-#include "nv/core/core_types.h"
+#include "nv/core/algo.h"
 

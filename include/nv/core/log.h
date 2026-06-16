@@ -88,6 +88,8 @@ void vprint_error(const char* fmt, va_list args);
 #define LOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 #define ELOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
+#define NVERROR(_fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
+
 #if LIBNV_DEBUG == 0 || LIBNV_SUPPRESS_RUNTIME_ERROR_LOG != 0
 
 #define LOG_DBG(fmt, ...)
@@ -103,6 +105,8 @@ void vprint_error(const char* fmt, va_list args);
 #define LOG_FATAL(fmt, ...) (log_fatal(fmt, __VA_OPT__(,) __VA_ARGS__)
 
 #define PERROR_FATAL() (LOG_FATAL(""))
+
+#define DNVERROR(_fmt, ...)
 
 #else
 
@@ -125,12 +129,11 @@ void vprint_error(const char* fmt, va_list args);
 
 #define PERROR_FATAL() (LOG_FATAL(""))
 
+#define DNVERROR(_fmt, ...) (NVERROR(_fmt __VA_OPT__(, ) __VA_ARGS__))
+
 #endif
 
 #define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
-
-#define SSPREAD(slice) ((slice).begin), ((slice).len)
-#define RSSPREAD(slice) ((slice).len), ((slice).begin)
 
 /// @brief print a formatted string message,alongside [strerror] and aborts the program
 /// @details also prints a stack trace if debug build (LIBNV_DEBUG == 1) and LIBNV_TRACE_ON_ABORT is defined to a

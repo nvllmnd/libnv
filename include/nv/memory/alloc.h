@@ -6,7 +6,9 @@
 
 #include <assert.h>
 
+#include "nv/core/algo.h"
 #include "nv/common.h"
+
 #include "nv/iter/iterators.h"
 
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
@@ -61,6 +63,34 @@ CONST_FUNC
 static inline Layout mlayout_add(Layout lhs, Layout rhs) {
   return (Layout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
 }
+
+
+PARAMS_NONNULL(1)
+isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
+
+/// Checks if a given pointer is aligned to given alignment.
+/// @param (align) MUST BE A POWER OF 2. If it is not this funciton returns
+/// false
+PURE_FUNC
+PARAMS_NONNULL(1)
+bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
+
+/// Aligns pointer up to given alignment, or returns the same pointer if it
+/// already is aligned
+/// @param (align) MUST BE A POWER OF 2.  If it is not, then this function
+/// returns the exact same pointer, doing no calulations and possiby causing
+/// confusion if given pointer is misaligned
+PARAMS_NONNULL(1)
+RETURNS_NON_NULL
+void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
+
+PARAMS_NONNULL(1, 2)
+PURE_FUNC
+u8* ptr_alignto(u8* ptr, u8* end, Layout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
+
+/// behaves similarly to C++'s std::align
+PARAMS_NONNULL(1, 2)
+u8* ptr_alignin(u8* ptr, i32* space, Layout layout);
 
 /// Function pointer typedef for [Allocator] [AllocVTable] allocate method.
 ///

@@ -65,6 +65,7 @@ core_lib = static_library(
     'src/core/algo.c',
     'src/core/spad.c',
     'src/core/stb_sprintf.c',
+    'src/core/system.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

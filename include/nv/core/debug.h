@@ -23,7 +23,7 @@
 
 #else
 
-#include "nv/core/core_types.h"
+#include "nv/core/algo.h"
 
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x

@@ -4,6 +4,7 @@
 
 #include "nv/core/log.h"
 
+#include <asm-generic/errno-base.h>
 #include <err.h>
 #include <errno.h>
 #include <execinfo.h>
@@ -125,4 +126,10 @@ void print_error(const char* fmt, ...) {
   va_end(args);
 }
 /// @see [print_error]
-void vprint_error(const char* fmt, va_list args) { vwarn(fmt, args); }
+void vprint_error(const char* fmt, va_list args) {
+  if (errno == 0) {
+    vwarnx(fmt, args);
+  } else {
+    vwarn(fmt, args);
+  }
+}

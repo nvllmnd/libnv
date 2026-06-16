@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nv/core/algo.h"
-#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/core/spad.h"

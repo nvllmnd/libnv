@@ -13,7 +13,6 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
-#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
@@ -42,38 +41,9 @@ alias(Stuff);
 alias(Point);
 
 void fmap_loads_files(void) {
-  // FILE* file = fopen("../../tests/data/file1.txt", "r");
-
-  // fseek(file, 0, SEEK_END);
-  // const i64 size = ftell(file);
-  // rewind(file);
-  //
-  // // char* map = mmap(0, size + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, fileno(file), 0);
-  //
-  // char* map = mmap(0, size + 1, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-  // LOG("%s", map);
-  //
-  // // char* buf = calloc(size + 1, 1);
-  // const i32 e = fread(map, 1, size, file);
-  //
-  // fclose(file);
-  // assert(e != -1);
-  //
-  // LOG("%s", map);
-  //
   FileMap fm = {};
 
-  NvError err = fmap_load_init(&fm, "../../tests/data/file1.txt");
-  TEST_ASSERT_EQUAL(Error__Ok, err);
-
-  LOG("FILEMAP1: data_size: %li, data_start: %li, data_end: %li, data: %s", fm.data_size, fm.data_start, fm.data_end,
-      fm.data);
-
-  const sslice file_string = fmap_as_string(&fm);
-
-  LOG("Loaded File: %.*s", RSSPREAD(file_string));
-
-  fmap_destroy(&fm);
+  NvError err = OK;
 
   err = fmap_load_all_init(&fm, "../../tests/data/file1.txt", "../../tests/data/file2.txt");
   TEST_ASSERT_EQUAL(Error__Ok, err);

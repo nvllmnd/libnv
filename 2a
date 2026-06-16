@@ -5,7 +5,6 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,16 +17,43 @@
 #include "nv/core/log.h"
 #include "nv/core/system.h"
 #include "nv/memory/error.h"
-#include "nv/core/stb_sprintf.h"
 
-PARAMS_NONNULL(1)
-static inline i64 file_size(FILE* self) {
-  fseek(self, 0, SEEK_END);
-  const i64 n = ftell(self);
+// NvError fmap_load_init(FileMap*, const char* path) {}
 
-  rewind(self);
-  return n;
+NvError fmap_load(FileMap* self, const char* path) {
+  if UNLIKELY (is_null(self)) {
+    return Error__ParamInvalidMethod;
+  }
+
+  if UNLIKELY (!fmap_is_none(self)) {
+    return Error__FileMapAlreadyInitialized;
+  }
+
+  File f = {};
+  const NvError err = file_open(&f, path);
+  if (err != OK) {
+    return err;
+  }
+
+  char* map = mmap(nullptr, f.size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE, f.fd, 0);
+  if UNLIKELY (map == MAP_FAILED) {
+    DERR("failed to initialize virtual memory for file: %s of size %li bytes", path, f.size);
+    return Error__FailedMemMap;
+  }
+
+  self->base = map;
+  self->data_size = f.size;
+  self->data = map;
+  self->offset_len = 0;
+  self->offsets = nullptr;
+  self->data_start = 0;
+  self->data_end = f.size;
+
+  assert(file_close(&f) == OK);
+  return OK;
 }
+
+/// FileMap fmap_load_directory(const char* path, bool recursive)
 
 NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) {
   LOG("LOADING %d files", file_count);
@@ -44,21 +70,20 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
   }
 
   NvError err = OK;
-  FILE* fds[file_count] = {};
+  i32 fds[file_count] = {};
   i64 file_sizes[file_count] = {};
   i64 total = 0;
 
   for (i32 i = 0; i < file_count; i++) {
     const char* path = files[i];
-    // i32 file = -1;
+    i32 file = -1;
 
-    FILE* file = fopen(path, "r");
-    if (is_null(file)) {
+    i64 size = 0;
+    err |= open_file(&file, &size, path);
+    if (err != OK) {
       DERR("Failed to open file: %s", path);
       goto cleanup;
     }
-
-    i64 size = file_size(file);
 
     fds[i] = file;
     total += size;
@@ -78,16 +103,22 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
 
   char* cursor = map + offsets_size;
   FileOffset* offsets = (FileOffset*)map;
-
   for (i32 i = 0; i < file_count; i++) {
-    FILE* f = fds[i];
+    i32 f = fds[i];
     const i64 size = file_sizes[i];
 
-    const i64 start = cursor - map;
-    assert(start >= 0);
+    // const i64 fd = fileno(f);
 
-    const usize bytes_read = fread(cursor, 1, size, f);
-    if (bytes_read != (u64)size) {
+    const i64 start = cursor - map;
+
+    // LOG("READ %.*s", (i32)size, cursor);
+
+    i64 n = size;
+    while (n > 0) {
+      n -= read(f, cursor, size);
+    }
+
+    if (n != size) {
       DERR(
           "Initializing Memory Mapped File of size: %li succeeded, but mapping file: %s into the memory mapped region"
           "@ offset: %li "
@@ -96,9 +127,21 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
       err |= Error__FileMapFailedToLoad;
       goto cleanup;
     }
+    // const char* fmap = mmap(cursor, size, PROT_READ, MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, f, 0);
+    // if (fmap == MAP_FAILED) {
+    //   DERR(
+    //       "Initializing Memory Mapped File of size: %li succeeded, but mapping file: %s into the memory mapped region
+    //       "
+    //       "@ offset: %li "
+    //       "failed!",
+    //       size, files[i], start);
+    //   err |= Error__FileMapFailedToLoad;
+    //   goto cleanup;
+    // }
+    // // }
 
-    fclose(f);
-    fds[i] = nullptr;
+    close(f);
+    fds[i] = -1;
 
     cursor += size;
 
@@ -115,7 +158,6 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
   self->data_end = map_size;
   self->offsets = offsets;
   self->offset_len = file_count;
-
   // sanity check
   assert((map_size - total) == offsets_size);
 
@@ -123,15 +165,15 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
 
 cleanup:
   for (i32 i = 0; i < file_count; i++) {
-    FILE* f = fds[i];
-    if (is_not_null(f)) {
-      fclose(f);
+    i32 f = fds[i];
+    if (f != -1) {
+      close(f);
     }
   }
   if (is_not_null(map)) {
     assert(munmap(map, map_size) == 0);
   }
-
+  LOG("IN CLEANUP");
   return err | Error__FailedMemMap;
 }
 
