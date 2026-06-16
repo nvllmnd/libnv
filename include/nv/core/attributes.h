@@ -24,12 +24,9 @@
 
 #define LIBNV_USE_SHORT_NAMES (LIBNV_NO_USE_SHORT_NAMES == 0 ? 1 : 0)
 
-
-
 #if defined(__clang__) && __clang__
 
 // HEDLEY_PRAGMA(clang diagnostic push);
-
 
 #define CLANG_LIKELY [[clang::likely]]
 #define CLANG_UNLIKELY [[clang::unlikely]]
@@ -65,7 +62,6 @@
 #define LIBNV_HAS_ATTRIBUTE_SUPPORT 0
 #endif
 
-
 // NOTE: For support with older compilers
 // for use primarily in header files
 #if LIBNV_HAS_ATTRIBUTE_SUPPORT
@@ -77,7 +73,6 @@
 #define no_nodiscard
 #define constexpr
 #endif
-
 
 #ifndef LIBNV_USE_SHORT_ATTRIBUTE_NAMES
 #define LIBNV_USE_SHORT_ATTRIBUTE_NAMES 1
@@ -98,7 +93,6 @@
 // #define nodiscard_msg nv_nodiscard_msg
 // #endif
 
-    
 // #pragma clang assume_nonnull begin
 // #if defined(__clang__) && __clang__
 // #pragma clang assume_nonnull end
@@ -352,23 +346,24 @@
 #define UNPREDICTABLE(expr) PREDICT(expr, 1, 0.5)
 #endif
 
-
-
 // ###################################################
 // ######### Custom Extensions to hedley.h ###########
 // ###################################################
 
-
-
 #if HEDLEY_HAS_ATTRIBUTE(counted_by)
 #ifndef ATTR_COUNTED_BY
 #define ATTR_COUNTED_BY(_field) __attribute__((counted_by(_field)))
-#endif // ifndef ATTR_COUNTED_BY
+#endif  // ifndef ATTR_COUNTED_BY
 #ifndef ATTR_COUNTED_BY
 
 #define ATTR_COUNTED_BY
-#endif // ifndef ATTR_COUNTED_BY
+#endif  // ifndef ATTR_COUNTED_BY
 
-#endif // HEDLEY_HAS_ATTRIBUTE(counted_by) 
+#endif  // HEDLEY_HAS_ATTRIBUTE(counted_by)
 
-
+#if defined(__has_include)
+#define HAS_INCLUDE(...) __has_include(__VA_ARGS__)
+#else
+#warning "Compiler does not support __has_include! using HAS_INCLUDE macro will always return 0"
+#define HAS_INCLUDE(...) 0
+#endif

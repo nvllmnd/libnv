@@ -7,6 +7,7 @@
 #include <bits/floatn.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef uint8_t u8;
 typedef int8_t i8;
@@ -18,8 +19,20 @@ typedef uint32_t u32;
 typedef int64_t i64;
 typedef uint64_t u64;
 
-typedef size_t usize;
+// NOTE: Not using HAS_INCLUDE macro here so we dont have to #include <uinstd.h>,
+//  just in case i decide i want to support Windoze one day =P
+#if defined(__has_include)
+#if __has_include(<unistd.h>)
+#include <unistd.h>
+typedef ssize_t isize;
+#else
 typedef ptrdiff_t isize;
+#endif
+#else
+typedef ptrdiff_t isize;
+#endif
+
+typedef size_t usize;
 /// AKA index :: same as `std::size_t` or `usize`
 typedef usize index_t;
 /// AKA: pointer offset :: same as `std::ptrdiff_t` or `isize`
@@ -33,7 +46,7 @@ typedef double f64;
 typedef _Float128 f128;
 typedef long double ldouble;
 
-typedef typeof(void *) voidptr;
+typedef typeof(void*) voidptr;
 
 #if LIBNV_INTERNAL == 1
 
@@ -43,11 +56,11 @@ typedef typeof(void *) voidptr;
 #undef LIBNV_USE_SHORT_NAMES
 #define LIBNV_USE_SHORT_NAMES 1
 
-#endif // LIBNV_INTERNAL == 1
+#endif  // LIBNV_INTERNAL == 1
 
 #ifndef LIBNV_NO_USE_SHORT_NAMES
 #define LIBNV_NO_USE_SHORT_NAMES 1
-#endif //  LIBNV_NO_USE_SHORT_NAMES
+#endif  //  LIBNV_NO_USE_SHORT_NAMES
 
 #if LIBNV_USE_SHORT_NAMES == 1
 /// type alias to help clarify functions that return errors.

@@ -3,15 +3,21 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "nv/core/ext.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
-#include "nv/core/core_types.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
+#include "nv/memory/fmap.h"
 #include "nv/memory/mpool.h"
 #include "nv/memory/vmem.h"
 #include "unity.h"
@@ -34,11 +40,26 @@ alias(Stuff);
 
 alias(Point);
 
+void fmap_loads_files(void) {
+  FileMap fm = {};
+
+  NvError err = OK;
+
+  err = fmap_load_all_init(&fm, "../../tests/data/file1.txt", "../../tests/data/file2.txt");
+  TEST_ASSERT_EQUAL(Error__Ok, err);
+
+  LOG("FILEMAP2: data_size: %li, data_start: %li, data_end: %li, offsets: %li, data: %s", fm.data_size, fm.data_start,
+      fm.data_end, fm.offset_len, fm.data);
+
+  fmap_destroy(&fm);
+}
+
 void mpool_alloc_free(void) {
   static constexpr const i64 STORAGE_SIZE = KB(2);
   char storage[STORAGE_SIZE] = {};
 
   auto pool = mpool_new(Point, storage, storage + STORAGE_SIZE);
+
   TEST_ASSERT_TRUE(mpool_is_ok(pool));
 
   auto mp = &pool;
@@ -137,6 +158,7 @@ i32 main(void) {
   RUN_TEST(varena_marker_and_reset);
   RUN_TEST(varena_lock_and_commit);
   RUN_TEST(mpool_alloc_free);
+  RUN_TEST(fmap_loads_files);
 
   return UNITY_END();
 }

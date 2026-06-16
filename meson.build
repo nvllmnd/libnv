@@ -65,6 +65,7 @@ core_lib = static_library(
     'src/core/algo.c',
     'src/core/spad.c',
     'src/core/stb_sprintf.c',
+    'src/core/system.c',
   ),
   include_directories: inc,
   dependencies: dependencies,
@@ -86,7 +87,7 @@ memory_lib = static_library(
   files(
     'src/memory/alloc.c',
     'src/memory/static_alloc.c',
-    # 'src/memory/arena.c',
+    'src/memory/fmap.c',
     'src/memory/vmem.c',
     'src/memory/mpool.c',
   ),

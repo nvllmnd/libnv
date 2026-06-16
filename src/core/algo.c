@@ -8,23 +8,13 @@
 #include <string.h>
 
 #include "nv/core/constants.h"
-#include "nv/core/core_types.h"
+#include "nv/core/algo.h"
 #include "nv/core/log.h"
 #include "nv/core/spad.h"
 #include "nv/core/sslice.h"
 #include "nv/core/stb_sprintf.h"
 #include "nv/iter/iterators.h"
 #include "nv/memory/error.h"
-
-void* ptr_expect_(const void* ptr, const char* msg) {
-  if UNLIKELY (nullptr == ptr) {
-    log_fatal("%s", msg);
-  }
-  // NOTE: We dont mutate this pointer at all, so its safe to cast this back to non-const, since
-  // we cast it back to exactly the same type as the pointer was before being passed to this function though the
-  // implementation macro
-  return pcast(void, ptr);
-}
 
 bool stringeq(const char* left, const char* right) {
   if (left == right) {
@@ -100,10 +90,6 @@ i32 sslice_cmp(sslice left, sslice right) {
   return strncmp(left.begin, right.begin, min(left.len, right.len));
 }
 
-void* ptr_nonnull_(const void* ptr) {
-  return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
-}
-
 static inline i64 find_term(const char* str) {
   if UNLIKELY (is_null(str)) {
     LOG_FATAL("Cannot find null terminal with nullptr!");
@@ -121,82 +107,6 @@ static inline i64 find_term(const char* str) {
       "than: "
       "%li, which is libnv's upper limit for finding the length of C-style null-terminated strings)",
       SAMPLE_SIZE, str, STRLEN_UPPER_BOUND);
-}
-
-isize ptr_align_offset(const void* ptr, isize align) {
-  assert(ptr);
-  assert(IS_POWER_OF_2(align));
-
-  const u64ptr mask = align - 1;
-  return cast(isize, cast(u64ptr, ptr) & mask);
-}
-
-bool ptr_is_aligned(const void* ptr, isize align) {
-  assert(ptr);
-  assert(IS_POWER_OF_2(align));
-
-  const auto addr = cast(uintptr_t, ptr);
-  const uintptr_t mask = align - 1;
-  return (addr & mask) == 0;
-}
-
-void* ptr_alignup(void* ptr, isize align) {
-  assert(ptr);
-  assert(IS_POWER_OF_2(align));
-  if (ptr_is_aligned(ptr, align)) {
-    return ptr;
-  }
-
-  const uintptr_t addr = cast(uintptr_t, ptr);
-  const uintptr_t mask = align - 1;
-
-  const uintptr_t aligned = (addr + mask) & (~mask);
-
-  LOG_DBG("Pointer: %p not currently aligned! aligning to: %p", ptr, (void*)aligned);
-
-  return pcast(void, aligned);
-}
-
-u8* ptr_alignto(u8* ptr, u8* end, Layout layout) {
-  assert(ptr);
-  assert(end);
-  assert(end >= ptr);
-  assert(IS_POWER_OF_2(layout.align));
-  assert(layout.size > 0);
-
-  u8* const top = ptr_alignup(ptr, layout.align);
-
-  if (top + layout.size >= end) {
-    return nullptr;
-  }
-
-  return top;
-}
-
-u8* ptr_alignin(u8* ptr, i32* space, Layout layout) {
-  assert(ptr);
-  assert(space);
-  assert(IS_POWER_OF_2(layout.align));
-  assert(layout.size > 0);
-
-  const i32 avail = *space;
-
-  if (avail < layout.size) {
-    return nullptr;
-  }
-
-  u8* const end = ptr + *space;
-
-  u8* const aligned = ptr_alignto(ptr, end, layout);
-
-  if (is_null(aligned)) {
-    return nullptr;
-  }
-
-  const i32 delta = aligned - ptr;
-  *space -= delta;
-
-  return aligned;
 }
 
 i32 fstring_length(const char* fmt, ...) {
@@ -223,7 +133,7 @@ i32 vfstring_length(const char* fmt, va_list args) {
 const char* error_string(NvError err) {
   if (err == 0) {
     return STRINGIFY(Error__Ok) " :: Ok! no error.";
-  } else if (err == Error__UnknownError) {
+  } else if (err == ERROR) {
     return STRINGIFY(Error__UnknownError);
   }
   // TODO: Write a print_error version of this function. OR change this functions parameters to take a string
@@ -247,12 +157,6 @@ const char* error_string(NvError err) {
     case Error__OOM: {
       return STRINGIFY(Error__OOM) " :: General/Unspecified Out of Memory Error.";
     } break;
-    case Error__ValTooLargeFoDataType: {
-      return STRINGIFY(Error__ValTooLargeForDataType) " :: Alias for ERRNO: EOVERFLOW";
-    } break;
-    case Error__ResourceTempUnavail: {
-      return STRINGIFY(Error__ResourceTempUnavail) " :: Alias for ERRNO: EAGAIN";
-    } break;
     case Error__VMapCannotBeResized:
       return STRINGIFY(Error__VMapCannotBeResized);
     case Error__VMapInvalidRemapFlags:
@@ -273,9 +177,6 @@ const char* error_string(NvError err) {
       return STRINGIFY(Error__VMapCannotExpandInPlace);
     case Error__NotEnoughPhysicalRAMAavailable:
       return STRINGIFY(Error__NotEnoughPhysicalRAMAavailable);
-    case Error__VMemLimitReached:
-      return STRINGIFY(Error__VMemLimitReached);
-      break;
     case Error__CannotUnlockRAM:
       return STRINGIFY(Error__CannotUnlockRAM);
     case Error__MAdviseWillNeedFailed:

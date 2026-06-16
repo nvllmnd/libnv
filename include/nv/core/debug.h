@@ -4,16 +4,14 @@
 
 #pragma once
 
-
-
 #ifndef LIBNV_DEBUG
 
-#ifdef NDEBUG 
+#ifdef NDEBUG
 #define LIBNV_DEBUG 0
 #else
 #define LIBNV_DEBUG 1
-#endif //  NDEBUG  
-#endif // LIBNV_DEBUG
+#endif  //  NDEBUG
+#endif  // LIBNV_DEBUG
 
 #if LIBNV_DEBUG == 1
 
@@ -25,22 +23,28 @@
 
 #else
 
-#include "nv/core/core_types.h"
+#include "nv/core/algo.h"
 
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x
 #define ASSERT_PTR(_p) punwrap(_p)
 
-#endif // if LIBNV_DEBUG == 1
+#endif  // if LIBNV_DEBUG == 1
 
 #include "hedley.h"
 
-#if HEDLEY_HAS_BUILTIN(__builtin_trap) 
+#if HEDLEY_HAS_BUILTIN(__builtin_trap)
 #ifndef EXIT_FATAL
 #define EXIT_FATAL() __builtin_trap()
-#endif // ifndef EXIT_FATAL
+#endif  // ifndef EXIT_FATAL
 #ifndef EXIT_FATAL
 #define EXIT_FATAL() abort()
-#endif // ifndef EXIT_FATAL
-#endif // HEDLEY_HAS_BUILTIN(__builtin_trap)
+#endif  // ifndef EXIT_FATAL
+#endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
 
+#define TODO_MSG(_msg, ...) (log_fatal((_msg)__VA_OPT__(, ) __VA_ARGS__))
+
+#define TODO() TODO_MSG("%s: %s @ LINE: %d => Not Yet Implemented!", __FILE__, __func__, __LINE__)
+
+#define TODO_FN(_ret, _fn_name, ...) \
+  _ret _fn_name(__VA_ARGS__) { TODO(); }

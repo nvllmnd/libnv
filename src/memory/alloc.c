@@ -16,6 +16,97 @@ void* vtable_realloc_no_impl(void*, void*, Layout, Layout) { return nullptr; }
 void* vtable_zalloc_no_impl(void*, Layout) { return nullptr; }
 void* vtable_expand_no_impl(void*, void*, Layout, Layout) { return nullptr; }
 
+void* ptr_expect_(const void* ptr, const char* msg) {
+  if UNLIKELY (nullptr == ptr) {
+    log_fatal("%s", msg);
+  }
+  // NOTE: We dont mutate this pointer at all, so its safe to cast this back to non-const, since
+  // we cast it back to exactly the same type as the pointer was before being passed to this function though the
+  // implementation macro
+  return pcast(void, ptr);
+}
+
+isize ptr_align_offset(const void* ptr, isize align) {
+  assert(ptr);
+  assert(IS_POWER_OF_2(align));
+
+  const u64ptr mask = align - 1;
+  return cast(isize, cast(u64ptr, ptr) & mask);
+}
+
+bool ptr_is_aligned(const void* ptr, isize align) {
+  assert(ptr);
+  assert(IS_POWER_OF_2(align));
+
+  const auto addr = cast(uintptr_t, ptr);
+  const uintptr_t mask = align - 1;
+  return (addr & mask) == 0;
+}
+
+void* ptr_alignup(void* ptr, isize align) {
+  assert(ptr);
+  assert(IS_POWER_OF_2(align));
+  if (ptr_is_aligned(ptr, align)) {
+    return ptr;
+  }
+
+  const uintptr_t addr = cast(uintptr_t, ptr);
+  const uintptr_t mask = align - 1;
+
+  const uintptr_t aligned = (addr + mask) & (~mask);
+
+  LOG_DBG("Pointer: %p not currently aligned! aligning to: %p", ptr, (void*)aligned);
+
+  return pcast(void, aligned);
+}
+
+u8* ptr_alignto(u8* ptr, u8* end, Layout layout) {
+  assert(ptr);
+  assert(end);
+  assert(end >= ptr);
+  assert(IS_POWER_OF_2(layout.align));
+  assert(layout.size > 0);
+
+  u8* const top = ptr_alignup(ptr, layout.align);
+
+  if (top + layout.size >= end) {
+    return nullptr;
+  }
+
+  return top;
+}
+
+u8* ptr_alignin(u8* ptr, i32* space, Layout layout) {
+  assert(ptr);
+  assert(space);
+  assert(IS_POWER_OF_2(layout.align));
+  assert(layout.size > 0);
+
+  const i32 avail = *space;
+
+  if (avail < layout.size) {
+    return nullptr;
+  }
+
+  u8* const end = ptr + *space;
+
+  u8* const aligned = ptr_alignto(ptr, end, layout);
+
+  if (is_null(aligned)) {
+    return nullptr;
+  }
+
+  const i32 delta = aligned - ptr;
+  *space -= delta;
+
+  return aligned;
+}
+
+
+
+void* ptr_nonnull_(const void* ptr) {
+  return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
+}
 void* allocate_raw(IterByte* self, const Layout layout) {
   assert(iter_is_ok(self));
   assert(self->cursor);
@@ -147,8 +238,8 @@ char* strndup_raw(IterByte* self, const char* str, i32 len) {
     return nullptr;
   }
   if UNLIKELY (len > avail) {
-    LOG_INFO("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
-             len, str, len, (i32)avail, str, avail);
+    DWARN("String: %.*s of length: %d will be truncated to %.*s to fit inside vallocator with %li bytes available!",
+          len, str, len, (i32)avail, str, avail);
     len = avail;
   }
 
@@ -199,8 +290,6 @@ char* strdup_raw(IterByte* self, const char* str) {
   const i64 len = stringlen(str);
   return strndup_raw(self, str, len);
 }
-
-
 
 char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...) {
   assert(self);

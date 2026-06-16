@@ -9,7 +9,296 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
-#include "nv/memory/alloc.h"
+#include <math.h>
+#include <string.h>
+
+#include "nv/core/log.h"
+
+#define CONCAT_(a, b) a##b
+#define CONCAT(a, b) CONCAT_(a, b)
+
+#define CONCAT3_(a, b, c) a##b##c
+#define CONCAT3(a, b, c) CONCAT3_(a, b, c)
+
+// NOTE: Ngl, i got this from duckduckgo Claude Haiku ai chat lmao. This is literally the first piece of code ive
+// taken from any kind of AI. Which, would you lookie here, not even 5 min of searching on internet, Claude stole this
+// code from here: https://github.com/donmccaughey/va_args_count/blob/master/va_args_count.h 11 years ago!!! I gotta
+// give credit where credit is due. Fuck AI. Fuck Claude.
+#define VA_ARGS_LEN(...) \
+  VA_ARGS_LEN_(__VA_ARGS__, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0)
+
+#define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, \
+                     ...)                                                                                          \
+  N
+
+#define array(T, N)                                                    \
+  /* conveinence for declaring static array of type (T) of size (N) */ \
+  __typeof__(T[N])
+
+#define ptr(T)                                                 \
+  /* conveinence for declaring pointer types. bye, bye '*'! */ \
+  __typeof__(T)*
+
+#define type_eq(a, b)                                                         \
+  /* compares an expression (a) with given type (b) to see if their types are \
+   * the same */                                                              \
+  _Generic((a), __typeof__(b): true, default: false)
+
+#define typeof_ptr(_p) __typeof(*(_p))*
+
+#define assert_type_eq(a, b)                                               \
+  /* same as [type_eq] macro, but fails a static assertion if types do not \
+   * match */                                                              \
+  static_assert(type_eq(a, b))
+
+#define is_string(s)                                                      \
+  /* checks to see if s is of type [const char*] */                       \
+  /* Do not that this will return false if given string is a mutable char \
+   * buffer (char*) */                                                    \
+  type_eq((s), char*)
+
+#define cast(T, _src)                                                          \
+  /* casts expression _src to be of type T */                                  \
+  /* for a version of this macro that is specialized for casting pointers, see \
+   * [pcast]*/                                                                 \
+  ((__typeof__(T))(_src))
+
+#define pcast(T, _ptr)                                                    \
+  /* casts a given pointer (_ptr) to be of type T */                      \
+  /* for a version of this macro that just does general casts between any \
+   * given type and an expresion; see: [cast]*/                           \
+  (cast(__typeof__(T*), (_ptr)))
+
+#define size_of(_e) /* Same as the standard keyword 'sizeof', but may be a little more 'correct' and 'type-safe'(ish), \
+                       as it wraps the target of sizeof in __typeof first */                                           \
+  sizeof(__typeof((_e)))
+
+#define align_of(_e) /*Same as the standard keyword 'alignof', but may be a little more 'correct' and \
+                        'type-safe'(ish), as it wraps the target of alignof in __typeof first  */     \
+  alignof(__typeof((_e)))
+
+#define fmin(a, b)                     \
+  (cast(__typeof__((a)), _Generic((a), \
+            i8: fmin,                  \
+            u8: fmin,                  \
+            i16: fmin,                 \
+            u16: fmin,                 \
+            i32: fmin,                 \
+            u32: fmin,                 \
+            i64: fmin,                 \
+            u64: fmin,                 \
+            f32: fmin,                 \
+            f64: fmin,                 \
+            f128: fminl)(a, b)))
+
+#define fmax(a, b)                     \
+  (cast(__typeof__((a)), _Generic((a), \
+            i8: fmax,                  \
+            u8: fmax,                  \
+            i16: fmax,                 \
+            u16: fmax,                 \
+            i32: fmax,                 \
+            u32: fmax,                 \
+            i64: fmax,                 \
+            u64: fmax,                 \
+            f32: fmax,                 \
+            f64: fmax,                 \
+            f128: fmaxl)(a, b)))
+
+#define cmin(_a_, _b_)                          \
+  ({                                            \
+    constexpr const __typeof__(_a_) _a = (_a_); \
+    constexpr const __typeof__(_b_) _b = (_b_); \
+    _a < _b ? _a : _b;                          \
+  })
+
+#define cmax(_a_, _b_)                          \
+  ({                                            \
+    constexpr const __typeof__(_a_) _a = (_a_); \
+    constexpr const __typeof__(_b_) _b = (_b_); \
+    _a > _b ? _a : _b;                          \
+  })
+
+#define min(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a < _b ? _a : _b;                \
+  })
+
+#define max(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a > _b ? _a : _b;                \
+  })
+
+#define is_null(_p)                                   \
+  /* checks if given pointer (p) is equal to null. */ \
+  (nullptr == (_p))
+
+#define is_not_null(_p)                                  \
+  /* checks if given pointer (p) is not equal to null */ \
+  (!(is_null((_p))))
+
+#define clamp(_x, _min, _max)                                          \
+  /* clamps a value values (x) to be between (min) and (max) */        \
+  /* i.e.: 'clamp(-1, 0, 5) == 0;', or 'clamp(650, 0, 100) == 100;' */ \
+  (max((_min), min((_x), (_max))))
+
+// NOTE: I kind of like these 2 macros in a guilty pleasure kind of way lmao...
+//  i might one day use them, but idk its kinda ugg and seems too distant to C
+//  for it to make any sense to other developers coming across it while reading
+//  this codebase
+//  #define deref(p) (*(p))
+//  #define ref &
+//
+
+#define UNUSED(_v) ((void)_v)
+
+#define make(T, ...) /* Conveinence macro for creating new structs on stack. its possible  to pass a value instead of \
+                        a type as the first parameter to this   macro. the type of the resulting struct will be the   \
+                        type of value  given. Note that this does not do anything with the value, and   does not      \
+                        create a copy of the value passed in (if any)*/                                               \
+  ((__typeof__(T)){__VA_ARGS__})
+
+#define make_zeroed(T) /* Same as [make] macro, but initializes given type T's \
+                          fields to all be set to 0. */                        \
+  (make(T))
+
+/// Offsetof polyfill
+#ifndef offsetof
+#define offsetof(T, _m) ((isize)(&((T*)0)->_m))
+#endif
+
+#define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
+
+#define sizeof_field(T, _name_) (sizeof(__typeof(make_zeroed(T)._name_)))
+
+#define alias(T) /* conveinence macro for defining structs to avoid having to \
+                    write out the struct name 3 times*/                       \
+  typedef struct T T
+
+#define bailerr_with(_expr, _retval)                                         \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (_expr);                                              \
+    if (_err != 0) {                                                         \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
+      return (_retval);                                                      \
+    }                                                                        \
+  } while (0)
+
+#define bailerr_withv(_expr)                                                 \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (_expr);                                              \
+    if (_err != 0) {                                                         \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
+      return;                                                                \
+    }                                                                        \
+  } while (0)
+
+#define bailerr(_expr)                                                       \
+  /* evaluates given expression that returns [error] (int), and returns from \
+   * surrounding function with the error value if it is no equal to 0. This  \
+   * macro can only be used inside functions that return [error](int) */     \
+  do {                                                                       \
+    const error _err = (_expr);                                              \
+    if (_err != 0) {                                                         \
+      LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
+      return _err;                                                           \
+    }                                                                        \
+  } while (0)
+
+#define tryerr bailerr
+
+// #define tryerr_or(expr, orelse) do {\
+//     const error _err = (expr); \
+//     if (_er != 0) { (orelse); }\
+// } while(0)
+
+#define tryerr_or(_expr, _orelse)                                             \
+  /* Same as [tryerr] macro, but instead of returning error value in the case \
+   * it is not equal to 0, a given expression is ran. you can use this macro  \
+   * anywhere in the case you want to handle an error dynamicaly inside a     \
+   * function that does not return [error](int)*/                             \
+  do {                                                                        \
+    const error _err = (_expr);                                               \
+    if (_err != 0) {                                                          \
+      (_orelse);                                                              \
+    }                                                                         \
+  } while (0)
+
+#define tryerr_or_cb(_expr, _cb, ...)                                          \
+  /* Same as [tryerr_or], but instead of running a given expression in the     \
+   * case where error is not equal to 0, a given callback function is called.  \
+   * Callback function can have any signature, as long as it has at least a    \
+   * parameter of type [error](int) as its first parameter. extra parameters   \
+   * to this macro are forwarded to error handling callback function. For a    \
+   * version of this macro that returns from the surrounding function with the \
+   * return value of given callback, see: [tryerr_or_ret]*/                    \
+  do {                                                                         \
+    const error _err = (_expr);                                                \
+    if (_err != 0) {                                                           \
+      (_cb)(_err, __VA_ARGS__);                                                \
+    }                                                                          \
+  } while (0)
+
+#define tryerr_or_ret(_expr, _cb, ...)                                 \
+  /* Same as [tryerr_or_cb], but returns from the surrounding function \
+     with the value returned by given callback function. Due to this,  \
+     this macro can only be called inside functions with the same      \
+     return type as the surrounding function. */                       \
+  (tryerr_or_cb((_expr), (_cb), __VA_ARGS__))
+
+// #define tryerr_orelse(_try_expr, _else_expr, _def) ({ (_try_expr) != OK ? (_else_expr) : (_def); })
+
+#define tptr_new(p, enable) /*create a tagged pointer that uses unused bits for a boolean flag  */ \
+  (__typeof((p)))(((addr)(p)) | ((enable) ? 1 : 0))
+#define tptr_ptr(p) /* get original pointer value from a tagged pointer */ ((__typeof((p)))((addr)(p) & ~1UL))
+#define tptr_tag(p) /*get the tag value from a tagged pointer*/ (((addr)(p)) & 1)
+
+#define prefix_offset(                                                                                         \
+    _ptr, T) /*jump pointer backwards to where its metadata is. Used in implementations of opaque pointers  */ \
+  (&((pcast(T, (_ptr)))[-1]))
+
+#define bitset(_set, _flag) ((_set) |= (_flag))
+
+#define bitclear(_set, _flag) ((_set) &= ~(_flag))
+#define bittoggle(_set, _flag) ((_set) ^= (_flag))
+#define bithas(_set, _flag) (cast(bool, (_set) & (_flag)))
+
+#define bithasall(_set, _flags) (((_set) & (_flags)) == (_flags))
+#define bithasany(_set, _flags) ((_set) & (_flags))
+
+#define is_empty(_v) /* generic over any type with a 'len' field */ ((_v).len == 0)
+#define is_invalid(_v) /* generic over any type with a 'len' field */ ((_v).len <= 0)
+#define is_falsey(_v) /* does value coerce to false?  */ ((bool)(!(_v)))
+#define is_truthy(_v) /* does value coerce to true?  */ (!is_falsey((_v)))
+
+#define zeroed(T) /* Easily get a zeroed struct of any type */ ((__typeof(T){})
+
+#define is_none(_v)                                              \
+  ({                                                             \
+    static constexpr const auto _NONE = zeroed(__typeof(*(_v))); \
+    const __typeof((_v))* _val = (_v);                           \
+    memcmp(_val, &_NONE, sizeof(__typeof(_NONE))) == 0;          \
+  })
+
+#define DynSizeType(T, ...) \
+  struct {                  \
+    __VA_ARGS__;            \
+    __typeof(T) data[];     \
+  }
+
+#define SlimDST(T) DynSizeType(T, i64 size; i64 size2)
+
+typedef SlimDST(byte) ByteDST;
 
 #define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
@@ -26,24 +315,22 @@ static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 
 /// @brief a safer, more efficient [strncat]
 /// @details Its not required that dest string ends with a null terminal, however after this function returns
-/// there is gauranteed to be a null terminal, which will get overwritten on the next invokation of this function using the
-/// original dest buffer
+/// there is gauranteed to be a null terminal, which will get overwritten on the next invokation of this function using
+/// the original dest buffer
 /// @param (i64 dest_count) :: The current number of characters in dest string, not including null terminal (if any)
-/// @param (i64* out_new_count) new count of destination string, not including null character. You can use this value to pass to the next invokation of
-/// this function using same original destination string
-NvError try_stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen, i64* out_new_count) PARAMS_NONNULL(1,4);
+/// @param (i64* out_new_count) new count of destination string, not including null character. You can use this value to
+/// pass to the next invokation of this function using same original destination string
+NvError try_stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen, i64* out_new_count)
+    PARAMS_NONNULL(1, 4);
 
-
-/// @brief fastpath version of [try_stringcat] 
+/// @brief fastpath version of [try_stringcat]
 /// @details [try_stringcat] does a lot of checking to verify that its parameters are valid, this function
 /// does not do any of it and operates under the assumption that the caller is passing good parameters
-/// it only does the bare minimum and asserts pointer parameters are non-null, and checking the input string can fit in dest buffer, truncating it if it doesnt
+/// it only does the bare minimum and asserts pointer parameters are non-null, and checking the input string can fit in
+/// dest buffer, truncating it if it doesnt
 /// @returns  new character count of destination string, not including null terminal. You can use this value to
 /// pass to the next invokation of stringcat
-i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) PARAMS_NONNULL(1,4);
-
-
-
+i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) PARAMS_NONNULL(1, 4);
 
 // CLANG_NON_NULL_BEGIN
 
@@ -65,7 +352,7 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 
 #if LIBNV_USE_SHORT_NAMES == 1
 
-#ifndef punwrap  
+#ifndef punwrap
 #define punwrap ptr_nonnull
 #endif
 
@@ -126,33 +413,6 @@ PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
 PARAMS_NONNULL(1)
-isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-
-/// Checks if a given pointer is aligned to given alignment.
-/// @param (align) MUST BE A POWER OF 2. If it is not this funciton returns
-/// false
-PURE_FUNC
-PARAMS_NONNULL(1)
-bool ptr_is_aligned(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-
-/// Aligns pointer up to given alignment, or returns the same pointer if it
-/// already is aligned
-/// @param (align) MUST BE A POWER OF 2.  If it is not, then this function
-/// returns the exact same pointer, doing no calulations and possiby causing
-/// confusion if given pointer is misaligned
-PARAMS_NONNULL(1)
-RETURNS_NON_NULL
-void* ptr_alignup(void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
-
-PARAMS_NONNULL(1, 2)
-PURE_FUNC
-u8* ptr_alignto(u8* ptr, u8* end, Layout layout) WHERE(IS_POWER_OF_2(layout.align) && end >= ptr);
-
-/// behaves similarly to C++'s std::align
-PARAMS_NONNULL(1, 2)
-u8* ptr_alignin(u8* ptr, i32* space, Layout layout);
-
-PARAMS_NONNULL(1)
 static inline void* move(void** from) {
   void* tmp = *from;
   *from = nullptr;
@@ -185,12 +445,8 @@ i32 fstring_length(const char* fmt, ...);
 PURE_FUNC
 i32 vfstring_length(const char* fmt, va_list args);
 
+/// @brief concat no more than dest_len bytes of expanded printf-style string to dest
+sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va_list args) PARAMS_NONNULL(1, 4);
 
-/// @brief concat no more than dest_len bytes of expanded printf-style string to dest 
-sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va_list args) PARAMS_NONNULL(1,4);
-
-
-/// @brief concat no more than dest_len bytes of expanded printf-style string to dest 
+/// @brief concat no more than dest_len bytes of expanded printf-style string to dest
 sslice fconcat(char* dest, i64 dest_len, i64 dest_capaccity, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(4, 5);
-
-

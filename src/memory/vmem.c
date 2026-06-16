@@ -15,7 +15,6 @@
 
 #include "nv/common.h"
 #include "nv/core/algo.h"
-#include "nv/core/core_types.h"
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
 #include "nv/memory/alloc.h"
