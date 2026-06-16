@@ -281,7 +281,7 @@
 #define is_falsey(_v) /* does value coerce to false?  */ ((bool)(!(_v)))
 #define is_truthy(_v) /* does value coerce to true?  */ (!is_falsey((_v)))
 
-#define zeroed(T) /* Easily get a zeroed struct of any type */ ((__typeof(T){})
+#define zeroed /* Easily get a zeroed struct of any type */ make_zeroed
 
 #define is_none(_v)                                              \
   ({                                                             \
