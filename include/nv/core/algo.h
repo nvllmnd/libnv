@@ -18,9 +18,6 @@
 #define CONCAT(a, b) CONCAT_(a, b)
 
 #define CONCAT3_(a, b, c) a##b##c
-#define CONCAT3(a, b, c) CONCAT3_(a, b, c)
-
-// NOTE: Ngl, i got this from duckduckgo Claude Haiku ai chat lmao. This is literally the first piece of code ive
 // taken from any kind of AI. Which, would you lookie here, not even 5 min of searching on internet, Claude stole this
 // code from here: https://github.com/donmccaughey/va_args_count/blob/master/va_args_count.h 11 years ago!!! I gotta
 // give credit where credit is due. Fuck AI. Fuck Claude.
@@ -286,9 +283,12 @@
 #define is_none(_v)                                              \
   ({                                                             \
     static constexpr const auto _NONE = zeroed(__typeof(*(_v))); \
-    const __typeof((_v))* _val = (_v);                           \
+    const auto _val = (_v);                           \
     memcmp(_val, &_NONE, sizeof(__typeof(_NONE))) == 0;          \
   })
+
+#define is_zeroed is_none
+
 
 #define DynSizeType(T, ...) \
   struct {                  \
