@@ -11,6 +11,7 @@
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
 #include "nv/iter/iterators.h"
+#include "nv/memory/vmem.h"
 
 void* vtable_realloc_no_impl(void*, void*, Layout, Layout) { return nullptr; }
 void* vtable_zalloc_no_impl(void*, Layout) { return nullptr; }
@@ -102,8 +103,6 @@ u8* ptr_alignin(u8* ptr, i32* space, Layout layout) {
   return aligned;
 }
 
-
-
 void* ptr_nonnull_(const void* ptr) {
   return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
 }
@@ -137,7 +136,7 @@ bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) {
   assert(self);
   assert(ptr);
   if (old.size == new.size) {
-    return false;
+    return true;
   }
   byte* last = (self->cursor - old.size);
   if (last == (byte*)ptr) {
@@ -152,10 +151,6 @@ bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) {
 }
 
 void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) {
-  if UNLIKELY (old.size == new.size) {
-    return ptr;
-  }
-
   if (resize_raw(self, ptr, old, new)) {
     return ptr;
   }
@@ -222,7 +217,7 @@ void warn_usage(void) {
 #endif  // LIBNV_FREE_RAW_WARN == 1
 }
 
-char* va_strdup(IterByte* self, const char* str) {
+char* strdup_raw(IterByte* self, const char* str) {
   const i64 len = stringlen(str);
   return strndup_raw(self, str, len);
 }
@@ -286,11 +281,6 @@ sslice vfslice_raw(IterByte* self, const char* fmt, va_list args) {
   return sslice_new(.begin = begin, .len = len);
 }
 
-char* strdup_raw(IterByte* self, const char* str) {
-  const i64 len = stringlen(str);
-  return strndup_raw(self, str, len);
-}
-
 char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...) {
   assert(self);
   assert(fmt);
@@ -314,24 +304,143 @@ char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args) 
     return nullptr;
   }
 
-  const i32 len = min(avail, vfstring_length(fmt, args) + 1);  // +1 for null terminator!
+  const i32 len = vfstring_length(fmt, args) + 1;  // +1 for null terminator!
 
-  char* str = punwrap(allocate_raw(self, mlayout_bytes(len)));
+  char* str = allocate_raw(self, mlayout_bytes(len));
+  if UNLIKELY (is_null(str)) {
+    LOG_ERROR("Failed to allocate formatted string: %s, with expanded size: %li, only %li bytes left available!", fmt,
+              len, avail);
+    return nullptr;
+  }
 
   const i64 n = stbsp_vsnprintf(str, len, fmt, args);
-
-  if (n >= len) {
-    LOG_DBG(
-        "vfstring_raw expanded format string is longer than expected! A truncation has most likely occured with "
-        "unexpanded format string: %s",
-        fmt);
-    *len_out = len - 1;
-  } else {
-    *len_out = n;
-  }
+  
+  assert(n >= 0);
 
   if (len_out) {
     *len_out = len - 1;  // dont include null terminal in length calc
   }
   return str;
 }
+
+Arena arena_new(byte* begin, isize size) {
+  assert(begin);
+  assert(size > 0);
+
+  byte* end = begin + size;
+  return arena_range_new(begin, end);
+}
+
+Arena arena_vmem_new(struct VMem* vm, isize size, isize offset) {
+  if UNLIKELY (offset + size >= vm->size) {
+    return ARENA_NONE;
+  }
+  byte* vm_end = vmem_end(vm);
+  byte* begin = vmem_begin(vm) + offset;
+  assert(begin < vm_end);
+  byte* end = begin + size;
+  assert(end < vm_end);
+  return arena_range_new(begin, end);
+}
+
+Arena arena_va_new(struct Vallocator* va, isize size) {
+  const i64 avail = va_available(va);
+  if UNLIKELY (size > avail) {
+    return ARENA_NONE;
+  }
+
+  byte* begin = va_allocate(va, mlayout_bytes(size));
+  byte* end = begin + size;
+  return arena_range_new(begin, end);
+}
+
+Arena arena_from(Allocator alloc, isize size) {
+  byte* begin = allocator_allocate(alloc, mlayout_bytes(size));
+  if UNLIKELY (is_null(begin)) {
+    return ARENA_NONE;
+  }
+  byte* end = begin + size;
+  return arena_range_new(begin, end);
+}
+
+void* arena_alloc(Arena* self, Layout layout) {
+  IterByte iter = arena_iter(self);
+  void* ptr = allocate_raw(&iter, layout);
+  if UNLIKELY (is_null(ptr)) {
+    LOG_ERROR(
+        "Arena of size: %li only has %li bytes available and cannot allocate object of size :%li and alignment: %li",
+        arena_size(self), arena_avail(self), layout.size, layout.align);
+    return nullptr;
+  }
+  self->cursor = iter.cursor;
+  return ptr;
+}
+
+void* arena_zalloc(Arena* self, Layout layout) {
+  void* ptr = arena_alloc(self, layout);
+  if UNLIKELY (is_null(ptr)) {
+    return ptr;
+  }
+  memset(ptr, 0, layout.size);
+  return ptr;
+}
+
+bool arena_resize(Arena* self, void* ptr, Layout old, Layout new) {
+  IterByte iter = arena_iter(self);
+  const bool res = resize_raw(&iter, ptr, old, new);
+  self->cursor = iter.cursor;
+  return res;
+}
+
+void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new) {
+  IterByte iter = arena_iter(self);
+  void* res = reallocate_raw(&iter, ptr, old, new);
+  self->cursor = iter.cursor;
+  return res;
+}
+
+char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) {
+  va_list args = {};
+  va_start(args);
+
+  char* ptr = arena_vfstring(self, slen_out, fmt, args);
+
+  va_end(args);
+  return ptr;
+}
+
+PARAMS_NONNULL(1, 3)
+char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args) {
+
+  IterByte iter = arena_iter(self);
+  char* ptr = vfstring_raw(&iter, slen_out,fmt, args);
+
+
+  if UNLIKELY (is_null(ptr)) {
+    return nullptr;
+  }
+
+  self->cursor = iter.cursor;
+
+  return ptr;
+}
+
+PARAMS_NONNULL(1, 2)
+char* arena_strndup(Arena* self, const char* str, isize len) {
+  return arena_fstring(self, nullptr, "%.*s", (i32)len, str);
+}
+
+METHOD
+sslice arena_strdup(Arena* self, sslice str) {
+  const char* ptr = arena_strndup(self, str.begin, str.len);
+
+  return sslice_new(.begin = ptr, .len = str.len);
+}
+
+void arena_clone(const Arena* src, Arena dest) {
+  assert(src);
+  assert(!is_none(&dest));
+  memcpy(dest.begin, src->begin, arena_size(&dest));
+}
+
+

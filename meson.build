@@ -89,7 +89,6 @@ memory_lib = static_library(
     'src/memory/static_alloc.c',
     'src/memory/fmap.c',
     'src/memory/vmem.c',
-    'src/memory/mpool.c',
   ),
   include_directories: inc,
   dependencies: dependencies,

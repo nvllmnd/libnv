@@ -22,9 +22,16 @@
 #include "nv/memory/vmem.h"
 #include "unity.h"
 
-void setUp(void) {}
+static constexpr const auto STORAGE_SIZE = 1 << 16;
+static byte STORAGE[STORAGE_SIZE] = {};
+static Arena ARENA = {};
 
-void tearDown(void) {}
+void setUp(void) { arena_init(&ARENA, STORAGE, STORAGE_SIZE); }
+
+void tearDown(void) {
+  memset(STORAGE, 0, STORAGE_SIZE);
+  memset(&ARENA, 0, sizeof(Arena));
+}
 
 struct Stuff {
   char buf[4096];
@@ -39,6 +46,30 @@ struct Stuff {
 alias(Stuff);
 
 alias(Point);
+
+void arena_static_mem_works(void) {
+  TEST_ASSERT_FALSE(is_none(&ARENA));
+  Stuff* val = arena_alloc(&ARENA, mlayout_new(Stuff));
+  TEST_ASSERT_NOT_NULL(val);
+
+  const byte* old = ARENA.cursor;
+  {
+    ScopedArena child = arena_scoped(&ARENA);
+
+    isize len = 0;
+    const char* str = arena_fstring(&child, &len, "AYOO WE FORMATTED THIS BI: %li", 4206969L);
+    TEST_ASSERT_NOT_NULL(str);
+    TEST_ASSERT_EQUAL_STRING_LEN("AYOO WE FORMATTED THIS BI: 4206969", str, len);
+  }
+
+  TEST_ASSERT_EQUAL(old, ARENA.cursor);
+
+  isize len = 0;
+
+  const char* str = arena_fstring(&ARENA, &len, "%s", "TEST AFTER");
+  TEST_ASSERT_NOT_NULL(str);
+  TEST_ASSERT_EQUAL_STRING_LEN("TEST AFTER", str, len);
+}
 
 void fmap_loads_files(void) {
   FileMap fm = {};
@@ -159,6 +190,7 @@ i32 main(void) {
   RUN_TEST(varena_lock_and_commit);
   RUN_TEST(mpool_alloc_free);
   RUN_TEST(fmap_loads_files);
+  RUN_TEST(arena_static_mem_works);
 
   return UNITY_END();
 }

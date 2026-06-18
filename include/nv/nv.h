@@ -24,7 +24,6 @@
 
 #include "nv/memory/alloc.h"
 #include "nv/memory/static_alloc.h"
-#include "nv/memory/arena.h"
 #include "nv/memory/error.h"
 #include "nv/memory/vmem.h"
 

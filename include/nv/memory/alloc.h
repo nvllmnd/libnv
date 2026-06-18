@@ -9,7 +9,10 @@
 #include "nv/core/algo.h"
 #include "nv/common.h"
 
+#include "nv/core/attributes.h"
 #include "nv/iter/iterators.h"
+#include "nv/memory/alloc.h"
+// #include "nv/memory/vmem.h"
 
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
 struct Layout {
@@ -63,7 +66,6 @@ CONST_FUNC
 static inline Layout mlayout_add(Layout lhs, Layout rhs) {
   return (Layout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
 }
-
 
 PARAMS_NONNULL(1)
 isize ptr_align_offset(const void* ptr, isize align) WHERE(IS_POWER_OF_2(align));
@@ -298,7 +300,6 @@ static inline bool allocator_is_ok(Allocator self) {
 // Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
 // IterByte pointing to any memory you want to allocate into
 
-
 //
 // @basic Fundamental malloc
 //
@@ -340,10 +341,6 @@ bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNUL
 // IterByte pointing to any memory you want to allocate into//
 void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
 
-
-
-
-
 char* strdup_raw(IterByte* self, const char* str);
 
 char* strndup_raw(IterByte* self, const char* str, i32 len);
@@ -360,10 +357,6 @@ char* fstring_raw(IterByte* self, i64* len_out, const char* fmt, ...);
 
 char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args);
 
-
-
-
-
 METHOD
 /// @brief Zeroes memory at pointer with size layout
 /// @details does not free any memory and pointers and memory are still valid for reads and writes after this function
@@ -372,3 +365,106 @@ METHOD
 /// just pass 0
 void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern);
 
+struct Arena {
+  IterData(byte);
+};
+alias(Arena);
+
+typedef Arena ScopedArena;
+
+static constexpr const Arena ARENA_NONE = {};
+
+PARAMS_NONNULL(1)
+Arena arena_new(byte* begin, isize size);
+
+static inline void arena_init(Arena* self, byte* begin, isize size) {
+  if LIKELY (is_not_null(self) && is_not_null(begin) && size > 0) {
+    *self = arena_new(begin, size);
+  }
+}
+
+PARAMS_NONNULL(1, 2)
+static inline Arena arena_range_new(byte* begin, byte* end) {
+  return (Arena){.begin = begin, .cursor = begin, .end = end};
+}
+
+METHOD
+PURE_FUNC
+static inline isize arena_avail(const Arena* self) { return self->end - self->cursor; }
+
+METHOD
+PURE_FUNC
+static inline isize arena_used_bytes(const Arena* self) { return self->cursor - self->begin; }
+
+METHOD
+PURE_FUNC
+static inline isize arena_size(const Arena* self) { return self->end - self->begin; }
+
+
+METHOD
+PURE_FUNC
+static inline CIterByte arena_citer(const Arena* self) {
+  return (CIterByte){.begin = self->begin, .cursor = self->cursor, .end = self->end};
+}
+
+METHOD
+static inline IterByte arena_iter(const Arena* self) {
+  return (IterByte){.begin = self->begin, .cursor = self->cursor, .end = self->end};
+}
+
+struct VMem;
+struct Vallocator;
+
+/// @brief Creates an Arena that will allocate into given [VMem] at given byte offset of given size bytes
+Arena arena_vmem_new(struct VMem* vm, isize size, isize offset);
+
+/// @brief uses [Vallocator] to request a block of given size and creates new Arena to allocate into it
+Arena arena_va_new(struct Vallocator* va, isize size);
+
+/// @brief Same as [arena_va_new], but polymorphic over [Allocator]
+Arena arena_from(Allocator alloc, isize size);
+
+/// @brief creates a copy of this Arena, but with its begin pointer set to the current value of this Arena's cursor.
+/// @details You should not use the original Arena while this scoped arena is actively being used, doing so will cause
+/// parent arena to overwrite memory used by copy created by this function
+/// After the retured 'ScopedArena' has gone out of scope, you can continue using the original arena, and we will use
+/// the same space the scoped child arena used
+/// @remarks this is a clean way of doing a watermark system, where offsets are saved. I like this way better tbh,
+/// little more room for error but its a lot cleaner, and child allocator cannot touch memory of its parent
+METHOD
+static inline ScopedArena arena_scoped(const Arena* self) {
+  byte* const cursor = self->cursor;
+  return (ScopedArena){.begin = cursor, .cursor = cursor, .end = self->end};
+}
+
+METHOD
+void* arena_alloc(Arena* self, Layout layout);
+METHOD
+void* arena_zalloc(Arena* self, Layout layout);
+
+METHOD
+bool arena_resize(Arena* self, void* ptr, Layout old, Layout new);
+METHOD
+void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new);
+
+HEDLEY_PRINTF_FORMAT(3, 4)
+METHOD
+char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...);
+
+PARAMS_NONNULL(1, 3)
+char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args);
+
+PARAMS_NONNULL(1, 2)
+char* arena_strndup(Arena* self, const char* str, isize len);
+
+METHOD
+sslice arena_strdup(Arena* self, sslice str);
+
+/// @brief performs a deep copy of all bytes in the iterator range of this Arena.
+/// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator
+/// pointers
+void arena_clone(const Arena* src, Arena dest);
+
+#define arena_make(_self, T) ((__typeof(T)*)arena_allocate((_self), mlayout_new(T)))
+#define arena_array_alloc(_self, T, N) ((__typeof(T)*)arena_allocate((_self), mlayout_array(T, N)))
+#define arena_array_allocn(_self, T, _n) ((__typeof(T)*)arena_allocate((_self), mlayout_vec(T, (_n))))
