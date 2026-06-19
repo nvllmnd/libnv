@@ -283,12 +283,11 @@
 #define is_none(_v)                                              \
   ({                                                             \
     static constexpr const auto _NONE = zeroed(__typeof(*(_v))); \
-    const auto _val = (_v);                           \
+    const auto _val = (_v);                                      \
     memcmp(_val, &_NONE, sizeof(__typeof(_NONE))) == 0;          \
   })
 
 #define is_zeroed is_none
-
 
 #define DynSizeType(T, ...) \
   struct {                  \
@@ -450,3 +449,52 @@ sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
 sslice fconcat(char* dest, i64 dest_len, i64 dest_capaccity, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(4, 5);
+
+static constexpr const i32 ONE = 1;
+#define IS_BIG_ENDIAN() ((*(char*)&ONE) == 0)
+
+typedef enum Endianness { LITTLE_ENDIAN, BIG_ENDIAN, NETWORK_BYTEORDER = BIG_ENDIAN } Endianness;
+
+PURE_FUNC
+Endianness endianness(void);
+
+PURE_FUNC
+bool is_little_endian(void);
+
+PURE_FUNC
+bool is_big_endian(void);
+
+#define Bytes(N)  \
+  struct {        \
+    byte data[N]; \
+  }
+
+#define BytesOf(T)                   \
+  union {                            \
+    __typeof(T) val;                 \
+    byte bytes[sizeof(__typeof(T))]; \
+  }
+
+#define bytesof_new(_val) ((BytesOf(__typeof((_val)))){.val = (_val)})
+#define bytes_of(_val)                                  \
+  ({                                                    \
+    static constexpr const auto _SIZE = sizeof((_val)); \
+    auto _v = (_val);                                   \
+    auto _bs = (BytesOf(__typeof(_v))){.val = _v};                 \
+    Bytes(_SIZE) _res = {};\
+    memcpy(_res.data, _bs.bytes, _SIZE);\
+    _res;\
+  })
+
+
+typedef BytesOf(bool) BoolBytes;
+typedef BytesOf(i16) Int16Bytes;
+typedef BytesOf(u16) UInt16Bytes;
+typedef BytesOf(i32) Int32Bytes;
+typedef BytesOf(u32) UInt32Bytes;
+typedef BytesOf(i64) Int64Bytes;
+typedef BytesOf(u64) UInt64Bytes;
+typedef BytesOf(usize) UsizeBytes;
+typedef BytesOf(isize) IsizeBytes;
+typedef BytesOf(f32) FloatBytes;
+typedef BytesOf(f64) Float64Bytes;

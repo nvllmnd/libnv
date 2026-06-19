@@ -353,3 +353,22 @@ sslice fconcat(char* dest, i64 dest_size, const i64 dest_cap, const char* fmt, .
   va_end(args);
   return sl;
 }
+
+Endianness endianness(void) {
+  static bool isinit = false;
+  static Endianness E = {};
+  if UNLIKELY (!isinit) {
+    E = IS_BIG_ENDIAN() ? BIG_ENDIAN : LITTLE_ENDIAN; 
+  }
+  return E;
+
+}
+
+bool is_little_endian(void) {
+  return endianness() == LITTLE_ENDIAN;
+}
+
+bool is_big_endian(void) {
+  return endianness() == BIG_ENDIAN;
+}
+
