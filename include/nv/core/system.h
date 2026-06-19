@@ -26,4 +26,4 @@ const char* get_pwd(void);
 /// @brief calls [getcwd] and puts the result in given Allocator
 const char* get_cwd_in(Allocator alloc);
 
-const char* get_cwd(char* out, i32 out_len);
+const char* get_cwd(char* out, i32* out_len);

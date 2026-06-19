@@ -102,11 +102,15 @@ void vprint_error(const char* fmt, va_list args);
 
 #define LOG_ERROR(fmt, ...)
 
-#define LOG_FATAL(fmt, ...) (log_fatal(fmt, __VA_OPT__(,) __VA_ARGS__)
+#define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(,) __VA_ARGS__))
 
 #define PERROR_FATAL() (LOG_FATAL(""))
 
 #define DNVERROR(_fmt, ...)
+
+#define DWARN(...)
+
+#define DERR(...)
 
 #else
 

@@ -57,14 +57,23 @@ NvError open_file(i32* out, i64* size, const char* path) {
   return OK;
 }
 
-const char* get_cwd(char* out, i32 out_len) {
+const char* get_cwd(char* out, i32* out_len) {
   char cwd[PATH_MAX] = {};
   const char* full_cwd = getcwd(cwd, PATH_MAX);
   if UNLIKELY (is_null(full_cwd)) {
     return nullptr;
   }
 
-  assert(stbsp_snprintf(out, out_len, "%s", cwd) >= 0);
+  const isize len = stringlen(full_cwd) + 1;
+
+  const auto n = stbsp_snprintf(out, len, "%s", cwd) >= 0;
+  if (n < 0 ) {
+    LOG_ERROR("stbsp_snprintf error! Returned -1!");
+    return nullptr;
+  }
+  if (out_len) {
+    *out_len = len - 1;
+  }
   return out;
 }
 

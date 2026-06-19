@@ -173,52 +173,16 @@ void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) {
   return res;
 }
 
-#if LIBNV_INTERNAL == 0
-
-#ifndef LIBNV_FREE_RAW_WARN
-#define LIBNV_FREE_RAW_WARN 1
-#endif
-
-#else
-// NOTE: Suppress warnings for internal use
-#define LIBNV_FREE_RAW_WARN 0
-#undef LIBNV_SUPPRESS_MILD_ERRORS
-#define LIBNV_SUPPRESS_MILD_ERRORS 0
-
-#endif
-
-#ifndef LIBNV_SUPPRESS_MILD_ERRORS
-#define LIBNV_SUPPRESS_MILD_ERRORS 0
-#endif
-
-static inline void warn_usage(void);
 
 void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
   assert(self);
-
-  warn_usage();
 
   if (ptr && contains(*self, ptr)) {
     memset(ptr, pattern, layout.size);
   }
 }
 
-void warn_usage(void) {
-#if LIBNV_FREE_RAW_WARN == 1
 
-#if LIBNV_SUPPRESS_MILD_ERRORS == 0
-#warning \
-    "function: free_raw  only zeroes memory, it does not actually release memory. you can suppress this message by defining LIBNV_FREE_RAW_WARN as 0. If you have are using -Werror, you must also define LIBNV_SUPPRESS_MILD_ERRORS to a non-zero value";
-#endif  // LIBNV_SUPPRESS_MILD_ERRORS == 0
-
-  LOG_INFO(
-      "RAW FREE => Attempting to zero memory of size: %li bytes and alignment: %li with byte pattern: %lu. If you are "
-      "sure of what you are doing, and are aware that calling raw_free does not release any memory, instead is used to "
-      "mark memory as available for reuse, you can safely ignore this. You can also turn this message off by compiling "
-      "libnv with the flag: '-DLIBNV_FREE_RAW_WARN=0'",
-      layout.size, layout.align, pattern);
-#endif  // LIBNV_FREE_RAW_WARN == 1
-}
 
 char* strdup_raw(IterByte* self, const char* str) {
   const i64 len = stringlen(str);
@@ -317,8 +281,10 @@ char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args) 
   }
 
   const i64 n = stbsp_vsnprintf(str, len, fmt, args);
+  if UNLIKELY (n == -1) {
+    DERROR("stbsp_vsnprintf returned -1!");
+  }
 
-  assert(n >= 0);
 
   if (len_out) {
     *len_out = len - 1;  // dont include null terminal in length calc
@@ -353,7 +319,11 @@ Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) {
   byte* vm_end = vmem_end(vm);
   byte* begin = vmem_begin(vm) + offset;
 
-  assert(begin < vm_end);
+  if UNLIKELY (begin >= vm_end) {
+    LOG_FATAL("Offset calculation overflow!");
+  }
+  // assert(begin < vm_end);
+
   byte* end = begin + size;
   assert(end < vm_end);
   return arena_range_new(begin, end);

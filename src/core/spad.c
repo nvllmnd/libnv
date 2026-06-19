@@ -52,7 +52,11 @@ StringPad spad_new(char* begin, char* end) {
 
   assert(size_bytes > 0);
   Vallocator mem = va_new(size_bytes);
-  assert(va_isok(&mem));
+  if UNLIKELY (!va_isok(&mem)) {
+    LOG_ERROR("Filed to create VArena of size: %li bytes!", size_bytes);
+    return zeroed(StringPad); 
+  }
+
   return (StringPad){.inuse = false, .begin = begin, .cursor = begin, .end = begin + size_bytes};
 }
 void spad_build_start(StringPad* self) {
@@ -218,7 +222,6 @@ void spad_clear(StringPad* self) {
 
 void spad_clear_zeroed(StringPad* self) {
   assert(self);
-  spad_clear_zeroed(self);
 
 
   const i64 size = self->cursor - self->end;

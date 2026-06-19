@@ -21,6 +21,7 @@ struct StaticAlloc {
 /// Size of statically atlocated storage in bytes
 METHOD
 PURE_FUNC
+[[maybe_unused]]
 static inline i32 salloc_size(const StaticAlloc* self) {
   assert(self);
   // 'self' is pointing to the start of this statically sized buffer's memory, so subtracting from 'self' gives the full

@@ -230,6 +230,10 @@ sslice sslice_from_range(const char* string, const isize from, const isize to) {
 
 static inline i64 stringcat_impl(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) {
   const i64 size = dest_count + srclen;
+  if (size >= dest_size) {
+    LOG_ERROR("Size: %li overflows destination size: %li!", size, dest_size);
+   return -1; 
+  }
   assert(size < dest_size);
 
   if (dest[dest_count] != 0) {
