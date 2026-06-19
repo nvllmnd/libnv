@@ -109,5 +109,5 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
   return sslice_eq(left, right);
 }
 
-#define SSPREAD(slice) ((i32)(slice).begin), ((slice).len)
+#define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
 #define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
