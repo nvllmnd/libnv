@@ -7,4 +7,5 @@
 #include "nv/memory/static_alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/vmem.h"
-
+#include "nv/memory/fmap.h"
+#include "nv/memory/mpool.h"

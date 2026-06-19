@@ -400,7 +400,6 @@ METHOD
 PURE_FUNC
 static inline isize arena_size(const Arena* self) { return self->end - self->begin; }
 
-
 METHOD
 PURE_FUNC
 static inline CIterByte arena_citer(const Arena* self) {
@@ -408,7 +407,7 @@ static inline CIterByte arena_citer(const Arena* self) {
 }
 
 METHOD
-static inline IterByte arena_iter(const Arena* self) {
+static inline IterByte arena_iter(Arena* self) {
   return (IterByte){.begin = self->begin, .cursor = self->cursor, .end = self->end};
 }
 
@@ -437,28 +436,31 @@ static inline ScopedArena arena_scoped(const Arena* self) {
   return (ScopedArena){.begin = cursor, .cursor = cursor, .end = self->end};
 }
 
-METHOD
-void* arena_alloc(Arena* self, Layout layout);
-METHOD
-void* arena_zalloc(Arena* self, Layout layout);
+void* arena_alloc(Arena* self, Layout layout) METHOD;
 
-METHOD
-bool arena_resize(Arena* self, void* ptr, Layout old, Layout new);
-METHOD
-void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new);
+void* arena_zalloc(Arena* self, Layout layout) METHOD;
 
-HEDLEY_PRINTF_FORMAT(3, 4)
-METHOD
-char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...);
+bool arena_resize(Arena* self, void* ptr, Layout old, Layout new) METHOD;
 
-PARAMS_NONNULL(1, 3)
-char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args);
+void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new) METHOD;
+
+char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) METHOD HEDLEY_PRINTF_FORMAT(3, 4);
+
+char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args) PARAMS_NONNULL(1, 3);
+
+char* arena_strndup(Arena* self, const char* str, isize len) PARAMS_NONNULL(1, 2);
+
+sslice arena_strdup(Arena* self, sslice str) METHOD;
+
+/// @brief reads file at given path into this Arena as a readonly null-terminated string
+const char* arena_fread_string(Arena* self, const char* path, isize* file_size_out) PARAMS_NONNULL(1, 2);
 
 PARAMS_NONNULL(1, 2)
-char* arena_strndup(Arena* self, const char* str, isize len);
-
-METHOD
-sslice arena_strdup(Arena* self, sslice str);
+static inline sslice arena_fread_slice(Arena* self, const char* path) {
+  isize len = 0;
+  const char* str = arena_fread_string(self, path, &len);
+  return sslice_new(.begin = str, .len = len);
+}
 
 /// @brief performs a deep copy of all bytes in the iterator range of this Arena.
 /// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator
