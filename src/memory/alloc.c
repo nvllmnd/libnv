@@ -177,7 +177,7 @@ void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) {
 void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
   assert(self);
 
-  if (ptr && contains(*self, ptr)) {
+  if (ptr && span_contains(*self, ptr)) {
     memset(ptr, pattern, layout.size);
   }
 }

@@ -15,7 +15,8 @@
 // ZError runetab_init(i32 entry_len, i32 storage_size);
 
 // PURE_FUNC
-// f32 runetab_load_factor(void);
+#include "nv/core/intdefs.h"
+f32 runetab_load_factor(void);
 
 // /// Resizes entry array, returns new length of array. Does nothing if new_entry_len <= current entry count
 // i32 runetab_grow(i32 new_entry_len);
