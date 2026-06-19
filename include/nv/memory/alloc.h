@@ -365,6 +365,8 @@ METHOD
 /// just pass 0
 void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern);
 
+/// @brief a non-owning Arena-style allocator
+/// @details Callers are responsible for managing buffer used by this Arena
 struct Arena {
   IterData(byte);
 };
@@ -385,6 +387,8 @@ static inline void arena_init(Arena* self, byte* begin, isize size) {
 
 PARAMS_NONNULL(1, 2)
 static inline Arena arena_range_new(byte* begin, byte* end) {
+  assert(begin);
+  assert(end);
   return (Arena){.begin = begin, .cursor = begin, .end = end};
 }
 
@@ -415,13 +419,20 @@ struct VMem;
 struct Vallocator;
 
 /// @brief Creates an Arena that will allocate into given [VMem] at given byte offset of given size bytes
-Arena arena_vmem_new(struct VMem* vm, isize size, isize offset);
+Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) PARAMS_NONNULL(1);
+
+/// @brief same as [arena_vmem_at_new], but uses all memory in given VMem
+Arena arena_vmem_new(struct VMem* vm) PARAMS_NONNULL(1);
 
 /// @brief uses [Vallocator] to request a block of given size and creates new Arena to allocate into it
-Arena arena_va_new(struct Vallocator* va, isize size);
+Arena arena_va_new(struct Vallocator* va, isize size) PARAMS_NONNULL(1);
 
 /// @brief Same as [arena_va_new], but polymorphic over [Allocator]
-Arena arena_from(Allocator alloc, isize size);
+Arena arena_new_in(Allocator alloc, isize size);
+
+void arena_clear(Arena* self) METHOD;
+
+void arena_clear_zeroed(Arena* self) METHOD;
 
 /// @brief creates a copy of this Arena, but with its begin pointer set to the current value of this Arena's cursor.
 /// @details You should not use the original Arena while this scoped arena is actively being used, doing so will cause
@@ -465,7 +476,7 @@ static inline sslice arena_fread_slice(Arena* self, const char* path) {
 /// @brief performs a deep copy of all bytes in the iterator range of this Arena.
 /// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator
 /// pointers
-void arena_clone(const Arena* src, Arena dest);
+void arena_clone(const Arena* src, Arena dest) METHOD;
 
 #define arena_make(_self, T) ((__typeof(T)*)arena_allocate((_self), mlayout_new(T)))
 #define arena_array_alloc(_self, T, N) ((__typeof(T)*)arena_allocate((_self), mlayout_array(T, N)))

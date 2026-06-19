@@ -20,8 +20,6 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
- 
-
 #define vmem_lock_prefault_check(_self, _from, _size)                                \
   {                                                                                  \
     NvError err = OK;                                                                \
@@ -48,10 +46,9 @@ Vallocator va_new_ex(i64 vmem_size, bool noreserve) {
     return VALLOC_NONE;
   }
 
-  byte* begin = vmem_begin(mem);
-  byte* cursor = begin;
-  byte* end = vmem_end(mem);
-  return (Vallocator){.mem = mem, .iter = (IterByte){.begin = begin, .cursor = cursor, .end = end}};
+  Arena ar = arena_vmem_new(mem);
+  assert(!is_none(&ar));
+  return (Vallocator){.mem = mem, .ar = ar};
 }
 
 NvError vmem_ram_lock(VMem* self, void* from, i64 size) {
@@ -235,7 +232,7 @@ bool vmem_contains(const VMem* self, const void* ptr) {
 
 VMark va_checkpoint(const Vallocator* self) {
   assert(self);
-  const VMark m = iter_head(self->iter);
+  const VMark m = arena_used_bytes(&self->ar);
   assert(m >= 0 && m < self->mem->size);
   return m;
 }
@@ -249,15 +246,13 @@ i64 va_reset_to(Vallocator* self, VMark mark) {
 
   byte* top = &self->mem->data[mark];
   i64 delta = 0;
-  if (top < self->iter.cursor) {
-    delta = self->iter.cursor - top;
+  if (top < self->ar.cursor) {
+    delta = self->ar.cursor - top;
   }
   return delta;
 }
 
-
 char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...) {
-
   va_list args = {};
   va_start(args);
 
@@ -267,7 +262,6 @@ char* va_fstring(Vallocator* self, i64* len_out, const char* fmt, ...) {
   return ptr;
 }
 
-
 sslice va_fslice(Vallocator* self, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
@@ -276,9 +270,7 @@ sslice va_fslice(Vallocator* self, const char* fmt, ...) {
 
   va_end(args);
   return sl;
-  
 }
-
 
 void va_destroy(Vallocator* self) {
   if (self && is_not_null(self->mem)) {
@@ -297,14 +289,10 @@ void va_destroy(Vallocator* self) {
 void va_clear(Vallocator* self) {
   assert(self);
 
-  iter_reset(&self->iter);
+  arena_clear(&self->ar);
 }
 
-void va_clear_zeroed(Vallocator* self) {
-  const i64 used = va_used_bytes(self);
-  va_clear(self);
-  memset(vmem_begin(self->mem), 0, used);
-}
+void va_clear_zeroed(Vallocator* self) { arena_clear_zeroed(&self->ar); }
 
 METHOD
 static void va_free(VArena*, void*) {}

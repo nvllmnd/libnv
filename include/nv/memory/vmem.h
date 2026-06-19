@@ -13,7 +13,6 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
-
 /// @brief allocated virtual memory
 /// @details Header is kept small so this type is easier to extend, its also harder to
 /// accidently add redundant data as callers can see the full impl
@@ -30,14 +29,11 @@ struct nv_nodiscard_msg("Hey! Where did my memory go? ;P Seriously tho dont igno
 };
 alias(VMem);
 
-
-
 /// @brief magic number used to mark VMem created with custom header data
-/// @details location: (&VMem::data[0]) is set to this magic value when 
+/// @details location: (&VMem::data[0]) is set to this magic value when
 static constexpr const i64 VMEM_PREFIX_SIZE = sizeof(VMem);
 
 i64 os_page_size(void);
-
 
 PURE_FUNC
 METHOD
@@ -138,10 +134,12 @@ NvError vmem_prefault_range(VMem* self, void* from, i64 size) METHOD;
 void vmem_destroy(VMem* self) METHOD;
 
 /// @brief Arena-style allocator fully backed by a single VMem virutal memory mapping
-/// @details for an Arena-style allocator also backed by virtual memory, but grows as mappings are exhausted, @see [Arena] in arena.h
+/// @details for an Arena-style allocator also backed by virtual memory, but grows as mappings are exhausted, @see
+/// [Arena] in arena.h
 struct Vallocator {
   VMem* mem;
-  IterByte iter;
+  Arena ar;
+  // IterByte iter;
 };
 alias(Vallocator);
 
@@ -170,9 +168,7 @@ static inline Vallocator va_new(i64 vmem_size) { return va_new_ex(vmem_size, VME
 /// Created Vallocator takes ownership of given VMem, and will destroy it when/if this instance is destroyed as well
 static inline Vallocator va_take(VMem* mem) {
   assert(mem);
-  byte* begin = vmem_begin(mem);
-  byte* end = vmem_end(mem);
-  return (Vallocator){.mem = mem, .iter = (IterByte){.begin = begin, .cursor = begin, .end = end}};
+  return (Vallocator){.mem = mem, .ar = arena_vmem_new(mem)};
 }
 
 /// @brief checkpoint marker used to reset memory back to an earlier point
@@ -189,53 +185,58 @@ METHOD
 PURE_FUNC
 static inline i64 va_available(const Vallocator* self) {
   assert(self);
-  return iter_tail(self->iter);
+  return arena_avail(&self->ar);  // iter_tail(self->iter);
 }
 
 METHOD
 PURE_FUNC
 static inline i64 va_used_bytes(const Vallocator* self) {
   assert(self);
-  return iter_head(self->iter);
+  return arena_used_bytes(&self->ar);  // iter_head(self->iter);
 }
 
 METHOD
-static inline void* va_allocate(Vallocator* self, Layout layout) { return allocate_raw(&self->iter, layout); }
+static inline void* va_allocate(Vallocator* self, Layout layout) { return arena_alloc(&self->ar, layout); }
 
 METHOD
-static inline void* va_zallocate(Vallocator* self, Layout layout) { return zallocate_raw(&self->iter, layout); }
+static inline void* va_zallocate(Vallocator* self, Layout layout) { return arena_zalloc(&self->ar, layout); }
 
 PARAMS_NONNULL(1, 2)
 static inline bool va_resize(Vallocator* self, void* ptr, Layout old, Layout new) {
-  return resize_raw(&self->iter, ptr, old, new);
+  return arena_resize(&self->ar, ptr, old, new);
 }
 
 PARAMS_NONNULL(1, 2)
 static inline void* va_reallocate(Vallocator* self, void* ptr, Layout old, Layout new) {
-  return reallocate_raw(&self->iter, ptr, old, new);
+  return arena_realloc(&self->ar, ptr, old, new);
 }
 
 PARAMS_NONNULL(1, 2)
-static inline char* va_strdup(Vallocator* self, const char* str) { return strdup_raw(&self->iter, str); }
+static inline char* va_strdup(Vallocator* self, const char* str) {
+  return arena_strndup(&self->ar, str, stringlen(str));
+}
 
 PARAMS_NONNULL(1, 2)
 static inline char* va_strndup(Vallocator* self, const char* str, i32 len) {
-  return strndup_raw(&self->iter, str, len);
+  return arena_strndup(&self->ar, str, len);
 }
 
 PARAMS_NONNULL(1, 2)
 static inline sslice va_sslice_dup(Vallocator* self, const char* str, i32 len) {
-  return sslice_dup_raw(&self->iter, str, len);
+  const char* ptr = arena_strndup(&self->ar, str, len);
+  return sslice_new(.begin = ptr, .len = len);
 }
 
 PARAMS_NONNULL(1, 2)
 static inline sslice va_vfslice(Vallocator* self, const char* fmt, va_list args) {
-  return vfslice_raw(&self->iter, fmt, args);
+  isize len = 0;
+  const char* ptr = arena_vfstring(&self->ar, &len, fmt, args);
+  return sslice_new(.begin = ptr, .len = len);
 }
 
 PARAMS_NONNULL(1, 3)
 static inline char* va_vfstring(Vallocator* self, i64* len_out, const char* fmt, va_list args) {
-  return vfstring_raw(&self->iter, len_out, fmt, args);
+  return arena_vfstring(&self->ar, len_out, fmt, args);
 }
 
 #define va_make(_self, T) ((__typeof(T)*)va_allocate((_self), mlayout_new(T)))
@@ -258,10 +259,9 @@ void va_clear_zeroed(Vallocator* self);
 
 void va_destroy(Vallocator* self);
 
-#define vmem_meta_new(_size, _meta) ({\
-  VMem* _self = vmem_new((_size));\
-  if (is_not_null(_self)) {\
-    \
-  }\
-})
-
+#define vmem_meta_new(_size, _meta)  \
+  ({                                 \
+    VMem* _self = vmem_new((_size)); \
+    if (is_not_null(_self)) {        \
+    }                                \
+  })

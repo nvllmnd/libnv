@@ -314,7 +314,7 @@ char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args) 
   }
 
   const i64 n = stbsp_vsnprintf(str, len, fmt, args);
-  
+
   assert(n >= 0);
 
   if (len_out) {
@@ -331,12 +331,25 @@ Arena arena_new(byte* begin, isize size) {
   return arena_range_new(begin, end);
 }
 
-Arena arena_vmem_new(struct VMem* vm, isize size, isize offset) {
-  if UNLIKELY (offset + size >= vm->size) {
+Arena arena_vmem_new(struct VMem* vm) {
+  assert(vm);
+  LOG("Creating Arena with VMem of size: %li at offset 0!", vm->size);
+  Arena res = arena_vmem_at_new(vm, vm->size - 1, 0);
+
+  return res;
+}
+
+Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) {
+  assert(vm);
+  assert(size > 0);
+  assert(offset >= 0);
+  if UNLIKELY (offset + size > vm->size) {
+    LOG_ERROR("Offset :%li + size: %li overflows VMem size: %li!", offset, size, vm->size);
     return ARENA_NONE;
   }
   byte* vm_end = vmem_end(vm);
   byte* begin = vmem_begin(vm) + offset;
+
   assert(begin < vm_end);
   byte* end = begin + size;
   assert(end < vm_end);
@@ -354,7 +367,7 @@ Arena arena_va_new(struct Vallocator* va, isize size) {
   return arena_range_new(begin, end);
 }
 
-Arena arena_from(Allocator alloc, isize size) {
+Arena arena_new_in(Allocator alloc, isize size) {
   byte* begin = allocator_allocate(alloc, mlayout_bytes(size));
   if UNLIKELY (is_null(begin)) {
     return ARENA_NONE;
@@ -411,10 +424,8 @@ char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) {
 
 PARAMS_NONNULL(1, 3)
 char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args) {
-
   IterByte iter = arena_iter(self);
-  char* ptr = vfstring_raw(&iter, slen_out,fmt, args);
-
+  char* ptr = vfstring_raw(&iter, slen_out, fmt, args);
 
   if UNLIKELY (is_null(ptr)) {
     return nullptr;
@@ -443,4 +454,10 @@ void arena_clone(const Arena* src, Arena dest) {
   memcpy(dest.begin, src->begin, arena_size(&dest));
 }
 
+void arena_clear(Arena* self) { self->cursor = self->begin; }
 
+void arena_clear_zeroed(Arena* self) {
+  const isize used = arena_used_bytes(self);
+  memset(self->begin, 0L, used);
+  arena_clear(self);
+}

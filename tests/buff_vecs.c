@@ -18,15 +18,12 @@ static Allocator ALLOC;
 void setUp(void) {
   ARENA = va_new(GB(2));
   ALLOC = va_allocator(&ARENA);
-
-  
 }
 
 void tearDown(void) {
   va_destroy(&ARENA);
   ARENA = (VArena){};
 }
-
 
 void vecs_works(void) {
   Vec(i32) v = vec_new(i32, 100, ALLOC);
@@ -42,11 +39,7 @@ void vecs_works(void) {
   TEST_ASSERT_EQUAL(100, v[1]);
 
   TEST_ASSERT_EQUAL(2, vec_len(v));
-  
-  
 }
-
-
 
 i32 main(void) {
   UNITY_BEGIN();

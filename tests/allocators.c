@@ -79,9 +79,6 @@ void fmap_loads_files(void) {
   err = fmap_load_all_init(&fm, "../../tests/data/file1.txt", "../../tests/data/file2.txt");
   TEST_ASSERT_EQUAL(Error__Ok, err);
 
-  LOG("FILEMAP2: data_size: %li, data_start: %li, data_end: %li, offsets: %li, data: %s", fm.data_size, fm.data_start,
-      fm.data_end, fm.offset_len, fm.data);
-
   fmap_destroy(&fm);
 }
 
