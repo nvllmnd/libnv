@@ -21,7 +21,7 @@ strings_test = executable(
   c_args: cargs,
 )
 
-test('strings', strings_test)
+test('strings', strings_test, suite: 'libnv')
 
 core_test = executable(
   'tests_core',
@@ -33,7 +33,7 @@ core_test = executable(
   c_args: cargs,
 )
 
-test('core-test', core_test)
+test('core-test', core_test, suite: 'libnv')
 
 
 
@@ -48,7 +48,7 @@ format_io_test = executable(
   c_args: cargs,
 )
 
-test('format_io', format_io_test)
+test('format_io', format_io_test, suite: 'libnv')
 
 
 
@@ -63,7 +63,7 @@ allocators_test = executable(
   c_args: cargs,
 )
 
-test('allocators', allocators_test)
+test('allocators', allocators_test, suite: 'libnv')
 
 buff_vecs_test = executable(
   'tests_buffs_and_vecs',
@@ -75,5 +75,5 @@ buff_vecs_test = executable(
   c_args: cargs,
 )
 
-test('buff_vecs', buff_vecs_test)
+test('buff_vecs', buff_vecs_test, suite: 'libnv')
 
