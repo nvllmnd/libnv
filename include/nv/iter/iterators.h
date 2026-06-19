@@ -128,13 +128,7 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
     _p && (_p >= _begin && _p < _end);     \
   })
 
-#if LIBNV_USE_SHORT_NAMES == 1
 
-#ifndef contains
-#define contains span_contains
-#endif
-
-#endif
 
 #define span_set(_self, _index, _val)      \
   ({                                       \
