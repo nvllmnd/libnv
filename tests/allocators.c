@@ -74,7 +74,7 @@ void arena_static_mem_works(void) {
 void fmap_loads_files(void) {
   FileMap fm = {};
 
-  NvError err = OK;
+  NvError err = NVOK;
 
   err = fmap_load_all_init(&fm, "../../tests/data/file1.txt", "../../tests/data/file2.txt");
   TEST_ASSERT_EQUAL(Error__Ok, err);

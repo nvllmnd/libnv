@@ -22,7 +22,7 @@
 
 #define vmem_lock_prefault_check(_self, _from, _size)                                \
   {                                                                                  \
-    NvError err = OK;                                                                \
+    NvError err = NVOK;                                                                \
     if UNLIKELY (is_null(_from)) {                                                   \
       bitset(err, Error__ParamInvalidNull);                                          \
     }                                                                                \
@@ -67,7 +67,7 @@ NvError vmem_ram_lock(VMem* self, void* from, i64 size) {
     return Error__VMemFailedToLockRangeToRAM;
   }
 
-  return OK;
+  return NVOK;
 }
 
 NvError vmem_ram_release(VMem* self, void* from, i64 size) {
@@ -82,7 +82,7 @@ NvError vmem_ram_release(VMem* self, void* from, i64 size) {
     return Error__VMemFailedToUnlockRangeFromRAM;
   }
 
-  return OK;
+  return NVOK;
 }
 
 NvError vmem_prefault_range(VMem* self, void* from, i64 size) {
@@ -113,7 +113,7 @@ NvError vmem_prefault_range(VMem* self, void* from, i64 size) {
     return Error__VMemFailedToLockRangeToRAM;
   }
 
-  return OK;
+  return NVOK;
 }
 
 i64 os_page_size(void) {
@@ -158,7 +158,7 @@ NvError vmem_init(VMem** s, const i64 size_bytes, const bool noreserve) {
   ptr->size = size_bytes;
 
   *s = ptr;
-  return OK;
+  return NVOK;
 }
 
 typedef enum VRemapMode {

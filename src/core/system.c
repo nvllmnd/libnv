@@ -54,7 +54,7 @@ NvError open_file(i32* out, i64* size, const char* path) {
   *out = fd;
   LOG("File Size; %li FD: %d", *size, *out);
 
-  return OK;
+  return NVOK;
 }
 
 const char* get_cwd(char* out, i32* out_len) {
@@ -105,7 +105,7 @@ NvError close_file(i32 fd) {
     DERR("Failed to close file with descriptor value: %d", fd);
     return Error__FileIO;
   }
-  return OK;
+  return NVOK;
 }
 
 NvError file_open(File* self, const char* path) {
@@ -113,7 +113,7 @@ NvError file_open(File* self, const char* path) {
   i32 fd = -1;
   i64 size = 0;
   const NvError err = open_file(&fd, &size, path);
-  if (err != OK) {
+  if (err != NVOK) {
     DERR("Failed to open file with path: %s", path);
     return err | Error__FileIO;
   }
@@ -123,7 +123,7 @@ NvError file_open(File* self, const char* path) {
   self->fd = fd;
   self->size = size;
 
-  return OK;
+  return NVOK;
 }
 
 NvError file_close(File* self) {
@@ -132,5 +132,5 @@ NvError file_close(File* self) {
     return err | Error__FileIO;
   }
   memset(self, 0, sizeof(File));
-  return OK;
+  return NVOK;
 }

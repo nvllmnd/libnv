@@ -76,14 +76,14 @@ NvError print_stack_trace(const i32 depth) {
   eprintln("#### End Stack Trace ####");
   free(tsyms);
 
-  return OK;
+  return NVOK;
 }
 
 static inline NvError trace_abort(void) {
 #if LIBNV_TRACE_ON_ABORT == 1
   return print_stack_trace(LIBNV_STACK_TRACE_DEPTH);
 #else
-  return OK;
+  return NVOK;
 #endif
 }
 
@@ -94,7 +94,7 @@ void vlog_fatal(const char* fmt, va_list args) {
   // library functions that may set errno
   const error err = errno;
 
-  if UNLIKELY (trace_abort() != OK) {
+  if UNLIKELY (trace_abort() != NVOK) {
     eprintln("#### Failed to print stack trace! ####");
   }
 

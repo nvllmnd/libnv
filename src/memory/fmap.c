@@ -43,7 +43,7 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
     return Error__FileMapAlreadyInitialized;
   }
 
-  NvError err = OK;
+  NvError err = NVOK;
   FILE* fds[file_count] = {};
   i64 file_sizes[file_count] = {};
   i64 total = 0;
@@ -119,7 +119,7 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count) 
   // sanity check
   assert((map_size - total) == offsets_size);
 
-  return OK;
+  return NVOK;
 
 cleanup:
   for (i32 i = 0; i < file_count; i++) {

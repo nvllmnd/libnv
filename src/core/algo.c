@@ -251,7 +251,7 @@ static inline i64 stringcat_impl(char* dest, i64 dest_count, i64 dest_size, cons
 
 NvError try_stringcat(char* dest, const i64 dest_count, const i64 dest_size, const char* src, const i64 srclen,
                       i64* out_new_count) {
-  NvError err = OK;
+  NvError err = NVOK;
 
   if UNLIKELY (is_null(dest)) {
     bitset(err, Error__ParamInvalidMethod);
@@ -282,7 +282,7 @@ NvError try_stringcat(char* dest, const i64 dest_count, const i64 dest_size, con
     bitset(err, Error__ParamUnexpectedNegOrZeroInt);
   }
 
-  if UNLIKELY (err != OK) {
+  if UNLIKELY (err != NVOK) {
     LOG_ERROR("String Concat Error: %s", error_string(err));
     return err;
   }
@@ -295,7 +295,7 @@ NvError try_stringcat(char* dest, const i64 dest_count, const i64 dest_size, con
     *out_new_count = size;
   }
 
-  return OK;
+  return NVOK;
 }
 
 i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) {
