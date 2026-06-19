@@ -50,7 +50,7 @@ typedef struct StaticString StaticString;
   ({                                                                                                      \
     static_assert(HEDLEY_IS_CONSTANT((_ss)), "Static Strings can only be created with string literals!"); \
     (StaticString) {                                                                                      \
-      .begin = (_ss);                                                                                     \
+      .begin = (_ss),                                                                                     \
       .len = (sizeof((_ss)) - 1)                                                                          \
     };                                                                                                    \
   })
