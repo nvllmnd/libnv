@@ -48,6 +48,10 @@ typedef long double ldouble;
 
 typedef typeof(void*) voidptr;
 
+#ifndef ATOMIC
+#define ATOMIC(T) _Atomic(T)
+#endif
+
 #if LIBNV_INTERNAL == 1
 
 // force allow short names for internal use

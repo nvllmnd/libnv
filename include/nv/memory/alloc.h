@@ -5,6 +5,7 @@
 #pragma once
 
 #include <assert.h>
+#include <stdatomic.h>
 
 #include "nv/core/algo.h"
 #include "nv/common.h"
@@ -392,6 +393,8 @@ static inline Arena arena_range_new(byte* begin, byte* end) {
   return (Arena){.begin = begin, .cursor = begin, .end = end};
 }
 
+Allocator arena_allocator(Arena* self);
+
 METHOD
 PURE_FUNC
 static inline isize arena_avail(const Arena* self) { return self->end - self->cursor; }
@@ -445,6 +448,29 @@ METHOD
 static inline ScopedArena arena_scoped(const Arena* self) {
   byte* const cursor = self->cursor;
   return (ScopedArena){.begin = cursor, .cursor = cursor, .end = self->end};
+}
+
+/// @brief resets this Arena back to state before most recetn allocation.
+/// @details pointer and layout parameters are for verifying that this poitner and layout was indeed the last allocation
+/// made by this Arena If given pointer and layout where are not the same as the most recent allocation made by this
+/// Arena, nothing about this arena is changed and false is returned
+/// @returns true on success, false otherwise.
+/// @remarks you can use this to undo a recent allocation. For example, you use this arena to allocate some memory, but
+/// after allocation, caller encounters some error and has to abort the allocation. Without this function such scenarios
+/// would cause uneccessary memory leaks. Leaks are not as detrimental to runtimes since we are using an Arena, but
+/// still it certainly does not help to avoid it if possible!
+bool arena_alloc_undo(Arena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
+
+/// @brief same as @see [arena_alloc_undo] but zeroes the freed memory upon success
+bool arena_alloc_undo_zeroed(Arena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
+
+PURE_FUNC
+METHOD
+static inline bool arena_contains(const Arena* self, void* ptr) {
+  assert(self);
+
+  byte* p = ptr;
+  return p >= self->begin && p < self->end;
 }
 
 void* arena_alloc(Arena* self, Layout layout) METHOD;

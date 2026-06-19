@@ -5,12 +5,15 @@
 #include "nv/memory/alloc.h"
 
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "nv/core/algo.h"
 #include "nv/core/log.h"
 #include "nv/core/stb_sprintf.h"
+#include "nv/core/system.h"
 #include "nv/iter/iterators.h"
+#include "nv/memory/error.h"
 #include "nv/memory/vmem.h"
 
 void* vtable_realloc_no_impl(void*, void*, Layout, Layout) { return nullptr; }
@@ -460,4 +463,92 @@ void arena_clear_zeroed(Arena* self) {
   const isize used = arena_used_bytes(self);
   memset(self->begin, 0L, used);
   arena_clear(self);
+}
+
+void arena_free(Arena*, void*) {}
+
+#define VT_DEFINE(_rest, _name) static VT_DEFINE_AS(Arena, _rest, _name)
+
+VT_DEFINE(ALLOC, arena_alloc)
+VT_DEFINE(ZALLOC, arena_zalloc)
+VT_DEFINE(REALLOC, arena_realloc)
+VT_DEFINE(RESIZE, arena_resize)
+VT_DEFINE(FREE, arena_free)
+
+#define VT_NAME(_ty) VT_NAMEOF(Arena, _ty)
+
+static constexpr const AllocVTable ARENA_VT = (AllocVTable){.allocate = VT_NAME(ALLOC),
+                                                            .zallocate = VT_NAME(ZALLOC),
+                                                            .resize = VT_NAME(RESIZE),
+                                                            .reallocate = VT_NAME(REALLOC),
+                                                            .free = VT_NAME(FREE),
+                                                            .mask = VT__All};
+
+Allocator arena_allocator(Arena* self) { return (Allocator){.ctx = self, .vtable = &ARENA_VT}; }
+
+const char* arena_fread_string(Arena* self, const char* path, isize* file_size_out) {
+  FILE* file = fopen(path, "r");
+  if (is_null(file)) {
+    DERROR("Failed to open file at path: %li in readonly mode!");
+    return nullptr;
+  }
+  fseek(file, 0, SEEK_END);
+  const isize file_size = ftell(file);
+  rewind(file);
+
+  const Layout layout = mlayout_bytes(file_size + 1);
+  char* buf = arena_alloc(self, layout);
+  if UNLIKELY (is_null(buf)) {
+    LOG_ERROR(
+        "Failed to read file at path: %s into memory! File size requires allocation of %li bytes, but only %li bytes "
+        "left available in this Arena!",
+        path, file_size, arena_avail(self));
+    fclose(file);
+    return nullptr;
+  }
+
+  const isize n = fread(buf, 1, file_size, file);
+  if (n != file_size) {
+    DERROR(
+        "Failed to read file at path: %s into memory! fread returned: %li but we expected it to return: %li! Possible "
+        "truncation or error!",
+        path, n, file_size);
+
+    assert(arena_alloc_undo(self, buf, layout));
+    fclose(file);
+    return nullptr;
+  }
+
+  if (file_size_out) {
+    *file_size_out = file_size;
+  }
+
+  fclose(file);
+  return buf;
+}
+
+bool arena_alloc_undo(Arena* self, void* ptr, Layout layout) {
+  assert(self);
+  // requested pointer layout is larger than the number of bytes we currently have allocated, this forsure isnt our
+  // pointer
+  if UNLIKELY (layout.size < arena_used_bytes(self)) {
+    return false;
+  }
+  if (!arena_contains(self, ptr)) {
+    return false;
+  }
+  byte* last = self->cursor -= layout.size;
+  if (ptr == last) {
+    self->cursor = last;
+    return true;
+  }
+  return false;
+}
+
+bool arena_alloc_undo_zeroed(Arena* self, void* ptr, Layout layout) {
+  if (arena_alloc_undo(self, ptr, layout)) {
+    memset(self->cursor, 0L, layout.size);
+    return true;
+  }
+  return false;
 }
