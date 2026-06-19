@@ -15,7 +15,7 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
   /// General catchall error.
   /// Generally, catchall errors are equal exactly to 1, but dont have to be,
   /// and an error may have this bit set as well as other bits set
-  ERROR = 1,
+  NVERROR = 1,
 
   /// mmap errors...
   Error__FailedMemMap = 1L << 1,
@@ -77,7 +77,7 @@ typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could l
 
   // Error__ParamExpectedPosNonZeroFloat= 1 << 30,
 
-  ERROR_COUNT = 47,
+  ERROR_COUNT = 47L,
 } HEDLEY_FLAGS NvError;
 
 static constexpr const NvError NVOK = Error__Ok;

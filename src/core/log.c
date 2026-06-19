@@ -66,7 +66,7 @@ NvError print_stack_trace(const i32 depth) {
   if UNLIKELY (is_null(tsyms)) {
     errno = err;
     perror("backtrace_symbols returned nullptr!");
-    return ERROR;
+    return NVERROR;
   }
 
   eprintln("##### Stack Trace ####");
