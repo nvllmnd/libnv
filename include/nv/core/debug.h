@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
-
 #pragma once
+
+#include "nv/core/log.h"
 
 #ifndef LIBNV_DEBUG
 
@@ -21,6 +22,8 @@
 #define IF_RELEASE(x)
 #define ASSERT_PTR(_p) assert((_p))
 
+#define assert_debug assert
+
 #else
 
 #include "nv/core/algo.h"
@@ -28,6 +31,8 @@
 #define IF_DEBUG(x)
 #define IF_RELEASE(x) x
 #define ASSERT_PTR(_p) punwrap(_p)
+
+#define assert_debug
 
 #endif  // if LIBNV_DEBUG == 1
 
@@ -48,3 +53,13 @@
 
 #define TODO_FN(_ret, _fn_name, ...) \
   _ret _fn_name(__VA_ARGS__) { TODO(); }
+
+#define expectm(x, _msg, ...)                      \
+  do {                                             \
+    const bool _res = (x);                         \
+    if UNLIKELY (!_res) {                          \
+      LOG_FATAL((_msg)__VA_OPT__(, ) __VA_ARGS__); \
+    }                                              \
+  } while (0)
+#define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
+
