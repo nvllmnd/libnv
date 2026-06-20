@@ -101,7 +101,7 @@ void vprint_error(const char* fmt, va_list args);
 
 #define LOG_ERROR(fmt, ...)
 
-#define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(,) __VA_ARGS__))
+#define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(, ) __VA_ARGS__))
 
 #define PERROR_FATAL() (LOG_FATAL(""))
 
@@ -128,7 +128,7 @@ void vprint_error(const char* fmt, va_list args);
 #define SLOG_DBG(slice) (sprintln((slice)))
 #define SELOG_DBG(slice) (seprintln((slice)))
 
-#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!__VA_OPT__(, ) __VA_ARGS__)))
+#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!, __VA_OPT__(, ) __VA_ARGS__)))
 
 #define PERROR_FATAL() (LOG_FATAL(""))
 
