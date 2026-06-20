@@ -61,5 +61,9 @@
       LOG_FATAL((_msg)__VA_OPT__(, ) __VA_ARGS__); \
     }                                              \
   } while (0)
+
 #define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
+
+
+
 
