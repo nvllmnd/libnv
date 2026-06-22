@@ -184,16 +184,3 @@ void vprint_error(const char* fmt, va_list args);
 #define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
 
 
-static inline void fun() {
-  DERROR();
-  LOG_FATAL("");
-  PERROR_FATAL();
-  DNVERROR();
-  
-  LOG_DBG();
-  ELOG_DBG();
-  LOG_ERROR();
-}
-
-
-
