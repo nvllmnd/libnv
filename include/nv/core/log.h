@@ -129,9 +129,6 @@ void vprint_error(const char* fmt, va_list args);
 
 #endif
 
-#undef LIBNV_DEBUG
-#define LIBNV_DEBUG 1
-
 
 #if  LIBNV_DEBUG == 0
 
