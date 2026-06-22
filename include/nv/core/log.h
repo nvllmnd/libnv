@@ -44,6 +44,24 @@ extern FILE* NV_ERR_STREAM;
 
 #endif
 
+/// @brief print a formatted string message,alongside [strerror] and aborts the program
+/// @details also prints a stack trace if debug build (LIBNV_DEBUG == 1) and LIBNV_TRACE_ON_ABORT is defined to a
+/// non-zero value.
+/// @returns does not return
+HEDLEY_NO_RETURN
+FORMAT_FUNC(1, 2)
+void log_fatal(const char* fmt, ...);
+
+HEDLEY_NO_RETURN
+void vlog_fatal(const char* fmt, va_list args);
+
+/// @brief uses backtrace in execinfo.h,
+/// @details i dont think this is available on musl...
+/// @param (i32 depth) number of function calls that will be printed. if there are any more they are truncated and not
+/// reported
+/// @returns this function calls [backtrace_symbols], which mallocs some strings
+/// containing stack call information. so if any of those calls fail, an error is returned
+NvError print_stack_trace(i32 depth);
 /// Prints a given string [sslice] to
 /// a file. This is a verstion of [print_fd] that does not require
 /// null-terminated strings. However this function does not
@@ -89,7 +107,33 @@ void vprint_error(const char* fmt, va_list args);
 
 #define NVERROR(_fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
-#if LIBNV_DEBUG == 0 || LIBNV_SUPPRESS_RUNTIME_ERROR_LOG != 0
+
+
+#ifdef NDEBUG
+
+#undef LIBNV_DEBUG
+#define LIBNV_DEBUG 0
+
+#ifndef LIBNV_VERBOSE_LOGGING
+#define LIBNV_VERBOSE_LOGGING 0
+#endif
+
+#else
+
+#undef LIBNV_DEBUG
+#define LIBNV_DEBUG 1
+
+#ifndef LIBNV_VERBOSE_LOGGING
+#define LIBNV_VERBOSE_LOGGING 1
+#endif
+
+#endif
+
+#undef LIBNV_DEBUG
+#define LIBNV_DEBUG 1
+
+
+#if  LIBNV_DEBUG == 0
 
 #define LOG_DBG(fmt, ...)
 #define ELOG_DBG(fmt, ...)
@@ -128,7 +172,8 @@ void vprint_error(const char* fmt, va_list args);
 #define SLOG_DBG(slice) (sprintln((slice)))
 #define SELOG_DBG(slice) (seprintln((slice)))
 
-#define LOG_FATAL(fmt, ...) (log_fatal(FILE_FMT fmt, FILE_FMT_ARGS(!!FATAL !!, __VA_OPT__(, ) __VA_ARGS__)))
+#define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(, ) __VA_ARGS__))
+
 
 #define PERROR_FATAL() (LOG_FATAL(""))
 
@@ -138,21 +183,17 @@ void vprint_error(const char* fmt, va_list args);
 
 #define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
 
-/// @brief print a formatted string message,alongside [strerror] and aborts the program
-/// @details also prints a stack trace if debug build (LIBNV_DEBUG == 1) and LIBNV_TRACE_ON_ABORT is defined to a
-/// non-zero value.
-/// @returns does not return
-HEDLEY_NO_RETURN
-FORMAT_FUNC(1, 2)
-void log_fatal(const char* fmt, ...);
 
-HEDLEY_NO_RETURN
-void vlog_fatal(const char* fmt, va_list args);
+static inline void fun() {
+  DERROR();
+  LOG_FATAL("");
+  PERROR_FATAL();
+  DNVERROR();
+  
+  LOG_DBG();
+  ELOG_DBG();
+  LOG_ERROR();
+}
 
-/// @brief uses backtrace in execinfo.h,
-/// @details i dont think this is available on musl...
-/// @param (i32 depth) number of function calls that will be printed. if there are any more they are truncated and not
-/// reported
-/// @returns this function calls [backtrace_symbols], which mallocs some strings
-/// containing stack call information. so if any of those calls fail, an error is returned
-NvError print_stack_trace(i32 depth);
+
+
