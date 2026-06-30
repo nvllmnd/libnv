@@ -1,57 +1,70 @@
 #include "nv/memory/heap.h"
 
 #include <assert.h>
+#include <stddef.h>
+#include "nv/core/algo.h"
+#include "nv/core/attributes.h"
+#include "nv/core/debug.h"
+#include "nv/core/log.h"
+#include "nv/iter/iterators.h"
+#include "nv/memory/alloc.h"
+#include "nv/memory/vmem.h"
 
-#include "nv/nv.h"
-
-#define asblock(bl) (&((Block*)(bl))[-1])
-
-/// A Block of memory used and chained together by [BlockAllocator].
 struct Block {
-  struct Block* next;
+  // alignas(4) union {
+  struct {
+    u16 size;
+    /// @brief Size Class index that this allocation belongs to
+    u16 size_class_slot;
+  };
+  // u32 _pad;
+  // };
 
-  ///  points to the end of this block in memory
-  u8* end;
-
-  u8 storage[];
+  ATTR_COUNTED_BY(size)
+  byte data[];
 };
 alias(Block);
 
-/// Min allocation size for requested allocations. The rational for this is that allocations smaller than the size of
+#define asblock(bl) (&((Block*)(bl))[-1])
+/// Min allocation size for requested allocations. The rational for this is that allocations smaller than the size
+// of
 /// each block's header is wasteful, so we either can enforce callers to only request allocations larger than
-/// sizeof(Block), or we simple round up to 24 for allocation requests smaller than that, then at least those blocks can
+/// sizeof(Block), or we simple round up to 24 for allocation requests smaller than that, then at least those blocks
+// can
 /// be later reused by more allocations (smaller allocations have a less chance of being reused after free.)
-static constexpr const isize BA_MIN_ALLOC_SIZE = sizeof(Block);
+// static constexpr const isize BA_MIN_ALLOC_SIZE = sizeof(Block);
 
-#define bl_begin(b) (&((b)->storage[0]))
+#define bl_begin(b) (&((b)->data[0]))
 
-static constexpr const i32 SIZE_CLASS_LIST_LEN = 32;
+static constexpr const u32 SIZE_CLASS_LIST_LEN = 200;
 
+/// @brief we use u16s to save space, plus the largest size class is only 8k, which fits nicely inside a u16
 struct SizeClass {
+  u16 len;
   /// Size in bytes of this size class. Blocks of size <= to this size class are put into this size classes' free list
   /// ring buffer
-  i32 class_size;
-  /// Length of Ring Buffer Free List.
-  i32 len;
-  /// pointer to start of this Size Classes' Free List Ring Buffer
-  Block** start;
-  /// Pointer to end of this Size Classes' Free List Ring Buffer
-  Block** end;
-  /// A Ring buffer of pointers to freed blocks, segregated by size. Sizes >= [BA_FREE_LIST_MAX_SIZE] are not added to
-  /// any Size Class lists and are allocated and freed separately, as blocks of that size are likley to hang around for
-  /// a while
-  Block* list[SIZE_CLASS_LIST_LEN];
+  u16 class_size;
+
+  /// @brief begin and end  pointers for ringbuffer list so that we can
+  /// pop from the front of it, so that we always pop off the block that has been sitting in this free list the longest
+  u32* first;
+  u32* last;
+
+  /// @brief byte offsets to where freed block sits in this heap
+  /// @details offset if from the start of heap
+  u32 list[SIZE_CLASS_LIST_LEN];
 };
 alias(SizeClass);
 
-static constexpr const i32 SIZE_CLASSES_LEN = 11;
+static constexpr const i32 SIZE_CLASSES_LEN = 10;
 
-static constexpr const i32 SIZE_CLASS_MIN_SIZE = 16;
+static constexpr const i32 SIZE_CLASS_MIN_SIZE = 24;
 
+[[maybe_unused]]
 static constexpr const i32 SIZE_CLASS_SIZES[SIZE_CLASSES_LEN] = {
-    SIZE_CLASS_MIN_SIZE, 24, 1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13};
+    SIZE_CLASS_MIN_SIZE, 1 << 5, 1 << 6, 1 << 8, 1 << 9, 1 << 10, 1 << 11, 1 << 12, 1 << 13, 1 << 14};
 
-static constexpr const i32 BA_FREE_LIST_MAX_SIZE = SIZE_CLASS_SIZES[SIZE_CLASSES_LEN - 1];
+static constexpr const i32 FREE_LIST_MAX_SIZE = SIZE_CLASS_SIZES[SIZE_CLASSES_LEN - 1];
 
 struct FreeList {
   i32 blocks_free;
@@ -59,375 +72,309 @@ struct FreeList {
 };
 alias(FreeList);
 
-PURE_FUNC
-METHOD
-static inline isize bl_size(const Block* self) { return self->end - bl_begin(self); }
-
-PURE_FUNC
-METHOD
-static inline isize bl_full_size(const Block* self) { return sizeof(Block) + bl_size(self); }
-
-/// Adds given Block to FreeList.
-/// Returns true if block was successfully added to FreeList, otherwise false
-METHOD
-static bool fl_push(FreeList* self, Block* val);
-
-struct BlockAllocator {
+struct Heap {
   VMem* vm;
-  bool exclusive;
+  IterByte iter;
 
-  Block* head;
-  Block* tail;
-
-  FreeList free_list;
+  FreeList freelist;
 };
-alias(BlockAllocator);
-METHOD
-static Block* ba_next_free_block(BlockAllocator* self, isize size);
 
-BlockAllocator* ba_owned_new(isize vm_mb) {
-  VirtMem* vm = nullptr;
-  if UNLIKELY (vmem_init(&vm, vm_mb) != OK) {
-    return nullptr;
+/// @brief returns size class index of given block size
+static isize size_class_of(const FreeList* self, usize block_size);
+
+METHOD
+RETURNS_NON_NULL
+PURE_FUNC
+static inline const u32* size_class_end(SizeClass* self) { return &self->list[SIZE_CLASS_LIST_LEN]; }
+
+PARAMS_NONNULL(1, 2)
+RETURNS_NON_NULL
+static inline Block* pop_size_class(Heap* self, SizeClass* sc) {
+  // we are full!
+  if UNLIKELY (sc->first == sc->last) {
+    // we are just going to reset to beginnng regardless of where these 2 poitners are pointing
+    sc->first = &sc->list[0];
+    sc->last = sc->first + 1;
   }
-  return ba_new(vm, true);
+  const u32 offset = *sc->first;
+  sc->first++;
+
+  Block* block = (Block*)(vmem_begin(self->vm) + sizeof(Heap)) + offset;
+  if UNLIKELY ((byte*)block >= heap_end(self)) {
+    LOG_FATAL("Offset: %d caused block calculation to be out of bounds! this is a bug!", offset);
+  }
+  return block;
 }
 
-MemError ba_init(BlockAllocator** out, VirtMem* backing, bool exclusive) {
-  assert(out);
-  if (is_null(backing)) {
-    exclusive = true;
-    tryerr(vmem_init(&backing, BA_BACKING_VIRTMEM_SIZE_MB));
+PARAMS_NONNULL(1, 2)
+static inline void push_size_class(Heap* self, Block* freed) {
+  SizeClass* sc = &self->freelist.sclasses[freed->size_class_slot];
+
+  const intptr_t offset = (byte*)freed - heap_begin(self);
+  expectm(offset >= 0, "calculation of freed block offset resulted in a negative number. This is a bug!!");
+  const u32 slot = offset;
+
+  // we have hit the end, so we wrap around
+  if UNLIKELY (sc->last >= size_class_end(sc)) {
+    sc->last = &sc->list[0];
+  }
+  // we are completely full, warn caller and advance last +2 beyond first (wrapping if at end) to attempt to leak as
+  // little memory as possible
+  if UNLIKELY (sc->last == sc->first) {
+    // wrap around to beginning if we pass end
+    sc->last = clamp(sc->last + 2, &sc->list[0], &sc->list[SIZE_CLASS_LIST_LEN]);
   }
 
-  const MemLayout layout = mlayout_new(BlockAllocator);
-  BlockAllocator* self = vmem_allocate(backing, layout);
-  if UNLIKELY (is_null(self)) {
-    LOG_DBG(
-        "Call to %s Failed! Inner call to function vmem_allocate returned nullptr! Virtual Memory region only has %li "
-        "bytes of available memory and cannot acommidate an allocation of size: %d",
-        __func__, vmem_available(backing), mlayout_new(BlockAllocator).size);
-    return MemError__VirtMemOutOfMemory;
+  if (*sc->last != 0) {
+    LOG_WARN("pushing into size class list that is full! Freed block at offset: %li will leak!", *sc->last);
   }
 
-  self->exclusive = exclusive;
-  self->vm = backing;
-  self->head = nullptr;
-  self->tail = nullptr;
-  self->free_list = make(FreeList, .blocks_free = 0, .sclasses = {});
+  *sc->last = slot;
+  sc->last++;
+}
+
+static Block* next_free_block(Heap* self, usize block_size) METHOD;
+
+isize heap_avail_ptr_size(const Heap* self, const void* ptr) {
+  assert(self);
+  if UNLIKELY (is_null(ptr)) {
+    DERROR("Attempted to find available block memory from a nullptr!");
+    return -1;
+  }
+
+  if (!heap_contains(self, ptr)) {
+    DERROR(
+        "Attempted to check avail block size with pointer that does not belong in this heap! call this function with "
+        "the correct heap!");
+    return -1;
+  }
+
+  const Block* block = asblock(ptr);
+  // validate this poitner belongs to some heap and its metadata has not been corrupted
+  expect(block->size_class_slot < SIZE_CLASSES_LEN && block->size <= FREE_LIST_MAX_SIZE);
+
+  const isize size = block->size;
+  const isize block_size = SIZE_CLASS_SIZES[block->size_class_slot];
+  return block_size - size - sizeof(Block);
+}
+
+usize heap_size_of(const Heap* self, const void* ptr) {
+  assert(self);
+  assert(ptr);
+
+  Block* b = asblock(ptr);
+  return b->size;
+}
+
+usize heap_full_size_of(const Heap* self, const void* ptr) { return heap_size_of(self, ptr) + sizeof(Block); }
+
+isize heap_min_size(void) { return sizeof(Heap); }
+
+isize heap_good_size(void) { return heap_min_size() * 3; }
+
+Heap* heap_new(const isize vmem_size) {
+  const isize size = max(heap_good_size(), vmem_size);
+  VMem* vm = vmem_new(size);
+  if UNLIKELY (is_null(vm)) {
+    DERROR("Failed to create VMem of size %li bytes!", size);
+    return nullptr;
+  }
+
+  return heap_from_vmem(vm);
+}
+
+Heap* heap_from_vmem(VMem* vm) {
+  IterByte iter = {.begin = vmem_begin(vm), .cursor = vmem_begin(vm), .end = vmem_end(vm)};
+
+  Heap* self = allocate_raw(&iter, mlayout_new(Heap));
+  if (is_null(self)) {
+    DERROR(
+        "Could not allocate inner Heap type with vmem of size: %li bytes! minimum size is %li bytes and suggested "
+        "minimum size is: %li",
+        vmem_size(vm), heap_min_size(), heap_good_size());
+    return nullptr;
+  }
+
+  self->vm = vm;
+  self->iter = iter;
+  self->freelist.blocks_free = 0;
+
+  SizeClass* sc = &self->freelist.sclasses[0];
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
-    SizeClass* sc = &self->free_list.sclasses[i];
-    sc->class_size = SIZE_CLASS_SIZES[i];
-    LOG_DBG("Creating Size class of size: %d", sc->class_size);
-    sc->start = &sc->list[0];
-    sc->end = sc->start;
+    sc[i].class_size = SIZE_CLASS_SIZES[i];
+    sc[i].len = 0;
   }
 
-  *out = self;
-
-  return OK;
-}
-
-BlockAllocator* ba_new(VirtMem* backing, bool exclusive) {
-  BlockAllocator* self = nullptr;
-  if UNLIKELY (ba_init(&self, backing, exclusive) != OK) {
-    return nullptr;
-  }
-  assert(self);
   return self;
 }
 
-void* ba_allocate(BlockAllocator* self, MemLayout layout) {
-  assert(self);
-  assert(layout.size > 0 && IS_POWER_OF_2(layout.align));
-
-  layout.size = layout.size < BA_MIN_ALLOC_SIZE ? BA_MIN_ALLOC_SIZE : layout.size;
-
-  if (self->free_list.blocks_free > 0) {
-    Block* next_free = ba_next_free_block(self, layout.size);
-
-    if (next_free) {
-      assert(ptr_is_aligned(next_free, alignof(Block)));
-      u8* s = bl_begin(next_free);  //&next_free->storage[0];
-      assert(asblock(s) == next_free);
-      Block* back = asblock(s);
-      assert(back);
-      return s;
-    }
-  }
-  const MemLayout block_layout = mlayout_fma(Block, layout.size);
-  Block* next = vmem_allocate(self->vm, block_layout);
-  if UNLIKELY (is_null(next)) {
-    LOG_DBG(
-        "Call to %s Failed! Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-        "available memory and cannot accomidate an allocation of size %d bytes!",
-        __func__, vmem_available(self->vm), block_layout.size);
-
+void* heap_alloc(Heap* self, isize size, isize align) {
+  if (size > FREE_LIST_MAX_SIZE) {
+    LOG_WARN("Requested allocation size: %li is larger than max allocation size of %li (%dKB). Rejected", size,
+             FREE_LIST_MAX_SIZE, OF_KB(FREE_LIST_MAX_SIZE));
     return nullptr;
   }
-  *next = make_zeroed(Block);
-  next->next = nullptr;
-  next->end = &next->storage[layout.size - 1];
-  if UNLIKELY (is_null(self->head)) {
-    self->head = next;
+
+  Block* block = next_free_block(self, size);
+  if (is_not_null(block)) {
+    // next_free_block fills out metadata for new block for us so we can just return here
+    return &block->data[0];
   }
-  if LIKELY (is_not_null(self->tail)) {
-    self->tail->next = next;
+
+  block = allocate_raw(&self->iter, (Layout){.size = size, .align = align});
+  if UNLIKELY (is_null(block)) {
+    DERROR("Failed to allocate object of size %li bytes. heap only has %li bytes available!", size,
+           iter_tail(self->iter));
+    return nullptr;
   }
-  self->tail = next;
-  return bl_begin(next);  //&next->storage[0];
+
+  // NOTE: We have to scan size class list again here, but since its literally 10 items (and i dont plan on ever making
+  // it larger than 10, unless i go the dynamic size class list route) this is not something we should worry about
+  block->size_class_slot = size_class_of(&self->freelist, size);
+  block->size = size;
+
+  return &block->data[0];
 }
 
-void* ba_zallocate(BlockAllocator* self, MemLayout layout) {
-  assert(self);
-  assert(layout.size > 0 && IS_POWER_OF_2(layout.align));
-
-  void* ptr = ba_allocate(self, layout);
-  if UNLIKELY (is_null(ptr)) {
-    LOG_DBG("%s[%s::%s]:%d => Inner call to ba_allocate returned nullptr!", __FILE__, STRINGIFY(BlockAllocator),
-            __func__, __LINE__);
-    return nullptr;
+void* heap_zalloc(Heap* self, isize size, isize align) {
+  void* ptr = heap_alloc(self, size, align);
+  if (is_null(ptr)) {
+    return ptr;
   }
-
-  memset(ptr, 0, layout.size);
-
+  memset(ptr, 0, size);
   return ptr;
 }
 
-void* ba_reallocate(BlockAllocator* self, void* ptr, MemLayout old_layout, MemLayout new_layout) {
+void* heap_realloc(Heap* self, void* ptr, const isize new_size, const isize align) {
   assert(self);
-  if (is_null(ptr)) {
-    LOG_DBG(
-        "%s[%s::%s]:%d => Reallocation Function does not support nullptr as pointer to relocate! Please pass a pointer "
-        "that was allocated by this %s",
-        __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, STRINGIFY(BlockAllocator*));
+  assert(IS_POWER_OF_2(align));
+
+  if UNLIKELY (is_null(ptr)) {
+    DERROR("Attempted reallocation of nullptr! if you want to allcoate memory in this heap use heap_alloc!");
     return nullptr;
   }
 
-  Block* bptr = asblock(ptr);
+  const usize old_size = heap_size_of(self, ptr);
 
-  const isize old_size = bl_size(bptr);
+  const Layout old_layout = (Layout){.size = old_size, .align = align};
+  const Layout new_layout = (Layout){.size = new_size, .align = align};
 
-  // Fall back to size of block if old_size layout does not match with expected size.
-  // Doing this makes the old_layout parameter entirely optional as it will be ignored
-  // for the most part
-  if (old_layout.size != old_size) {
-    old_layout.size = old_size;
+  return heap_reallocate(self, ptr, old_layout, new_layout);
+}
+
+void* heap_reallocate(Heap* self, void* ptr, Layout old, Layout new) {
+  assert(self);
+
+  if (!heap_contains(self, ptr)) {
+    DERROR(
+        "Attempted to reallocate memory not owned by this heap! (or given ptr is null!) call with appropriate heap!");
+    return nullptr;
   }
 
-  if UNLIKELY (new_layout.size == old_layout.size) {
+  if (new.size == old.size) {
+    return ptr;
+  }
+  Block* b = asblock(ptr);
+  if (new.size < old.size) {
+    b->size = new.size;
     return ptr;
   }
 
-  if (new_layout.size < old_layout.size) {
-    bptr->end = &bptr->storage[new_layout.size - 1];
-    return bl_begin(bptr);
+  const isize avail = heap_avail_ptr_size(self, ptr);
+
+  const isize delta = new.size - old.size;
+  // we can resize in place! this avoids having to search for free blocks
+  if (delta <= avail) {
+    b->size = new.size;
+    return ptr;
   }
 
-  if (new_layout.size > old_layout.size) {
-    u8* new_end = &bptr->storage[new_layout.size - 1];
-    // we can grow in place!
-    if UNLIKELY (new_end <= bptr->end) {
-      bptr->end = new_end;
-
-      return bl_begin(bptr);
-    }
-
-    const MemLayout block_layout = mlayout_fma(Block, new_layout.size);
-
-    Block* next = vmem_allocate(self->vm, block_layout);
-    if UNLIKELY (is_null(next)) {
-      LOG_DBG(
-          "%s[%s::%s]:%d Inner call to vmem_allocate returned nullptr! Virtual Memory region only has %li bytes of "
-          "available memory and cannot accomadate an allocation of size %d bytes!",
-          __FILE__, STRINGIFY(BlockAllocator), __func__, __LINE__, vmem_size(self->vm), new_layout.size);
-      return nullptr;
-    }
-
-    memcpy(next, bptr, bl_full_size(bptr));
-    ba_free(self, bptr);
-    return bl_begin(next);  //&next->storage[0];
-  }
-
-  // should never reach this point. as we have check if new.size == old.size, new.size < old.size and finally new.size <
-  // old.size
-  HEDLEY_UNREACHABLE();
-}
-
-void ba_free(BlockAllocator* self, void* ptr) {
-  assert(self);
-
-  if UNLIKELY (is_null(ptr)) {
-    LOG_DBG("%s[%s::%s]:%d => Attempted to free null pointer!", __FILE__, STRINGIFY(BlockAllocator), __func__,
-            __LINE__);
-    return;
-  }
-  assert(vmem_contains(self->vm, ptr));
-
-  u8* p = ptr;
-  u8* ps = p - sizeof(Block);
-  Block* b = pcast(Block, ps);
-
-  if (fl_push(&self->free_list, b)) {
-    self->free_list.blocks_free += 1;
-  }
-}
-
-MemError ba_destroy(BlockAllocator* self) {
-  // TODO: Might want to add the ability to zero out memory used by this BlockAllocator entirely if
-  // it does not exclusively own its backing VirtMem. For now im just going to zero out the BlockAllocator header to
-  // prevent it from being used to allocate after this function returns
-  if (self->exclusive) {
-    tryerr(vmem_destroy(self->vm));
-    return OK;
-  }
-
-  memset(self, 0, sizeof(BlockAllocator));
-
-  return OK;
-}
-
-const AllocVTable* ba_vtable(void);
-
-Allocator ba_allocator(BlockAllocator* self);
-
-Block* ba_next_free_block(BlockAllocator* self, isize size) {
-  assert(self);
-
-  LOG_DBG("About to search for next free block");
-
-  if (size > BA_FREE_LIST_MAX_SIZE) {
+  Block* new_block = heap_alloc(self, new.size, new.align);
+  if UNLIKELY (is_null(new_block)) {
+    DERROR("Heap has no free space and no freed blocks are large enough for allocation of size: %li!", new.size);
     return nullptr;
   }
 
-  FreeList* const fl = &self->free_list;
+  mempcpy(&new_block->data[0], &b->data[0], b->size);
 
-  SizeClass* klass = nullptr;
-
-  if (size <= BA_MIN_ALLOC_SIZE) {
-    size = SIZE_CLASS_MIN_SIZE;
-    klass = &fl->sclasses[0];
-  } else {
-    for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
-      SizeClass* const sc = &fl->sclasses[i];
-      if (size <= sc->class_size) {
-        klass = sc;
-        break;
-      }
-    }
-  }
-  if LIKELY (klass) {
-    assert(klass->start);
-
-    assert(klass->end);
-    if (klass->len <= 0) {
-      return nullptr;
-    }
-
-    // If start has gotten to end of list, then end has forsure already wrapped around
-    // we check start != end, because it could be that start >= &list[SIZE_CLASS_LIST_LEN], but that means we are full
-    if (klass->start != klass->end && klass->start >= &klass->list[SIZE_CLASS_LIST_LEN]) {
-      klass->start = &klass->list[0];
-      // sanity check to make sure wrapping is working properly
-      assert(*klass->start);
-    }
-
-    // pop (unshift) the beginning of our free list ring buffer, selecting the
-    // block that has been in this queue the longest
-
-    Block* b = *klass->start;
-    klass->start++;
-
-    if UNLIKELY (is_null(b)) {
-      LOG_DBG("Tried to pop a block off of FreeList SizeClass of size: %d of len 1, but popped element was null!",
-              klass->class_size);
-      assert(b);
-    }
-
-    LOG_DBG("poping block of size: %li bytes from Size Class of %d bytes!", bl_size(b), klass->class_size);
-
-    klass->len -= 1;
-    self->free_list.blocks_free -= 1;
-
-    return b;
-  }
-
-  LOG_DBG(
-      "Unreachable section reached! tried to find next free block for allocation of size: %li, which should fit into a "
-      "size class, but did not.",
-      size);
-
-  assert(klass);
-
-  HEDLEY_UNREACHABLE();
+  heap_free(self, b);
+  return &new_block->data[0];
 }
 
-bool fl_push(FreeList* self, Block* val) {
+bool heap_resize(Heap* self, void* ptr, Layout old, Layout new) METHOD;
+
+void heap_free(Heap* self, void* ptr) {
   assert(self);
-  assert(val);
 
-  const i32 size = bl_size(val);
-
-  if (size > BA_FREE_LIST_MAX_SIZE) {
-    LOG_DBG(
-        "Attempted to push block of size: %d bytes into FreeList, which does not support blocks of size greater than "
-        "%d bytes!  Check size before attempting to add block to FreeList!",
-        size, BA_FREE_LIST_MAX_SIZE);
-
-    assert(size <= BA_FREE_LIST_MAX_SIZE);
-    return false;
+  if (is_null(ptr)) {
+    return;
   }
 
-  SizeClass* klass = nullptr;
+  if (!heap_contains(self, ptr)) {
+    LOG_WARN("Attempted to free pointer not owned by given Heap!");
+    return;
+  }
+
+  Block* b = asblock(ptr);
+
+  push_size_class(self, b);
+  self->freelist.blocks_free += 1;
+}
+
+void heap_destroy(Heap* self) {
+  if (is_not_null(self) && is_not_null(self->vm)) {
+    // NOTE: Heap header is allocated at the start of its owning VMem, so
+    // everything in Heap is cleaned up after vmem_destroy returns. So dont access any of its fields! doing so will
+    // trigger Segfault!
+    vmem_destroy(self->vm);
+  }
+}
+
+const byte* heap_begin(const Heap* self) { return vmem_begin(self->vm) + sizeof(Heap); }
+
+const byte* heap_end(const Heap* self) { return vmem_end(self->vm); }
+
+bool heap_contains(const Heap* self, const void* ptr) {
+  assert(self);
+
+  const byte* p = ptr;
+
+  return p >= heap_begin(self) && p < heap_end(self);
+}
+
+usize heap_max_alloc_size(void) { return FREE_LIST_MAX_SIZE; }
+
+static Block* next_free_block(Heap* self, usize block_size) {
+  // TODO: Try out delaying searching through free blocks only when load factor is above a pre-determined threshold
+  if (self->freelist.blocks_free <= 0 || block_size > FREE_LIST_MAX_SIZE) {
+    // we dont have any free blocks, or block size is not supported
+    return nullptr;
+  }
 
   for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
-    SizeClass* const sc = &self->sclasses[i];
-    if (size <= sc->class_size) {
-      klass = sc;
-      break;
+    SizeClass* sc = &self->freelist.sclasses[i];
+    const usize class_size = sc->class_size;
+    if (class_size >= block_size) {
+      Block* block = pop_size_class(self, sc);
+      block->size_class_slot = i;
+      block->size = block_size;
+      self->freelist.blocks_free -= 1;
+      return block;
     }
   }
 
-  if UNLIKELY (is_null(klass)) {
-    LOG_DBG(
-        "Unrecoverable Error! Block of size %d bytes is less than max size of %d bytes, but for some reason was not "
-        "able to find a SizeClass of appropriate size. Definitely a logic error. check initialization is properly "
-        "done!!",
-        size, BA_FREE_LIST_MAX_SIZE);
-
-    assert(klass);
-    UNREACHABLE();
-  }
-
-  LOG_DBG("Pushing Block of size %d bytes into Size Class of %d bytes", size, klass->class_size);
-
-  if (klass->len >= SIZE_CLASS_LIST_LEN) {
-    LOG_DBG(
-        "Size class of size: %d bytes has no more space available to add freed block of size: %d. Memory will be "
-        "silently leaked, which is not entirely undesireable in this allocation model...",
-        klass->class_size, size);
-    return false;
-  }
-
-  if (klass->len <= 0 || klass->start == klass->end) {
-    klass->start = &klass->list[0];
-    klass->end = klass->start;  // will insert val into first index slot below, then gets properly incremented as well
-    klass->len = 0;  // will be incremented to 1 below, this is just to ensure that len is never a negative value
-
-  } else if (klass->end >= &klass->list[SIZE_CLASS_LIST_LEN]) {
-    klass->end = &klass->list[0];
-  }
-
-  *klass->end = val;
-  klass->end++;
-  klass->len += 1;
-  return true;
+  // NOTE: We should never get to this point.
+  // TODO: Check that this actually is the case, and if so add an UNREACHABLE()
+  return nullptr;
 }
 
-bool ba_contains(const BlockAllocator* self, const void* ptr) { return vmem_contains(self->vm, ptr); }
-
-struct Block {};
-alias(Block);
-
-struct Heap {};
+static isize size_class_of(const FreeList* self, const usize block_size) {
+  for (i32 i = 0; i < SIZE_CLASSES_LEN; i++) {
+    const SizeClass* sc = &self->sclasses[i];
+    if (sc->class_size >= block_size) {
+      return i;
+    }
+  }
+  return -1;
+}
