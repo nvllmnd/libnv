@@ -41,6 +41,10 @@ endif
 
 if not meson.is_subproject()
   cargs += '-DLIBNV_INTERNAL=1'
+  cargs += '-D_GNU_SOURCE=1'
+  cargs += '-D_DEFAULT_SOURCE=1'
+  cargs += '-D_POSIX_C_SOURCE=1'
+  cargs += '-D__STDC_WANT_LIB_EXT1__=1'
 endif
 
 dependencies = [

@@ -1,5 +1,4 @@
 // SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
-// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -18,6 +17,7 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/fmap.h"
+#include "nv/memory/heap.h"
 #include "nv/memory/mpool.h"
 #include "nv/memory/vmem.h"
 #include "unity.h"
@@ -46,6 +46,45 @@ struct Stuff {
 alias(Stuff);
 
 alias(Point);
+
+void heap_can_allocate(void) {
+  Heap* h = heap_new(MB(128));
+  TEST_ASSERT_NOT_NULL(h);
+  Stuff* x = heap_alloc(h, sizeof(Stuff), alignof(Stuff));
+  TEST_ASSERT_NOT_NULL(x);
+
+  TEST_ASSERT_EQUAL(sizeof(Stuff), heap_size_of(h, x));
+
+  x->counter = 6969;
+
+  TEST_ASSERT_EQUAL(6969, x->counter);
+  heap_free(h, x);
+  x = nullptr;
+
+  heap_destroy(h);
+  h = nullptr;
+}
+
+void heap_can_reallocate(void) {
+  Heap* h = heap_new(MB(128));
+  TEST_ASSERT_NOT_NULL(h);
+
+  Stuff* x = heap_alloc(h, sizeof(Stuff) * 4, alignof(Stuff));
+  TEST_ASSERT_NOT_NULL(x);
+
+  TEST_ASSERT_EQUAL(sizeof(Stuff) * 4, heap_size_of(h, x));
+
+  x = heap_realloc(h, x, sizeof(Stuff) * 8, alignof(Stuff));
+  TEST_ASSERT_NOT_NULL(x);
+
+  TEST_ASSERT_EQUAL(sizeof(Stuff) * 8, heap_size_of(h, x));
+
+  heap_free(h, x);
+  x = nullptr;
+
+  heap_destroy(h);
+  h = nullptr;
+}
 
 void arena_static_mem_works(void) {
   TEST_ASSERT_FALSE(is_none(&ARENA));
@@ -188,6 +227,8 @@ i32 main(void) {
   RUN_TEST(mpool_alloc_free);
   RUN_TEST(fmap_loads_files);
   RUN_TEST(arena_static_mem_works);
+  RUN_TEST(heap_can_allocate);
+  RUN_TEST(heap_can_reallocate);
 
   return UNITY_END();
 }

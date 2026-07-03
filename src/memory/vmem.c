@@ -22,7 +22,7 @@
 
 #define vmem_lock_prefault_check(_self, _from, _size)                                \
   {                                                                                  \
-    NvError err = NVOK;                                                                \
+    NvError err = NVOK;                                                              \
     if UNLIKELY (is_null(_from)) {                                                   \
       bitset(err, Error__ParamInvalidNull);                                          \
     }                                                                                \
@@ -161,10 +161,10 @@ NvError vmem_init(VMem** s, const i64 size_bytes, const bool noreserve) {
   return NVOK;
 }
 
-typedef enum VRemapMode {
-  VRemap__ExpandInPlace = 0,
-  VRemap__AllowRelocate,
-} VRemapMode;
+// typedef enum VRemapMode {
+//   VRemap__ExpandInPlace = 0,
+//   VRemap__AllowRelocate,
+// } VRemapMode;
 
 VMem* vmem_remap(VMem* self, i64 new_size, VRemapMode mode) {
   assert(self);
