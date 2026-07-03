@@ -10,7 +10,6 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include <math.h>
-#include <string.h>
 
 #include "nv/core/log.h"
 
@@ -480,12 +479,11 @@ bool is_big_endian(void);
   ({                                                    \
     static constexpr const auto _SIZE = sizeof((_val)); \
     auto _v = (_val);                                   \
-    auto _bs = (BytesOf(__typeof(_v))){.val = _v};                 \
-    Bytes(_SIZE) _res = {};\
-    memcpy(_res.data, _bs.bytes, _SIZE);\
-    _res;\
+    auto _bs = (BytesOf(__typeof(_v))){.val = _v};      \
+    Bytes(_SIZE) _res = {};                             \
+    memcpy(_res.data, _bs.bytes, _SIZE);                \
+    _res;                                               \
   })
-
 
 typedef BytesOf(bool) BoolBytes;
 typedef BytesOf(i16) Int16Bytes;

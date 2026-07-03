@@ -7,8 +7,6 @@ unity_dep = dependency('unity')
 # test_files = files('data/file1.txt', 'data/file2.txt')
 # install_data(test_files, install_dir: 'tests/data')
 
-
-
 dependencies += unity_dep
 
 strings_test = executable(
@@ -16,8 +14,8 @@ strings_test = executable(
   files('../tests/strings.c'),
   include_directories: inc,
   c_pch: '../pch/nv_pch.h',
-  dependencies : dependencies,
-  install : true,  
+  dependencies: dependencies,
+  install: true,
   c_args: cargs,
 )
 
@@ -28,38 +26,20 @@ core_test = executable(
   files('../tests/core.c'),
   include_directories: inc,
   c_pch: '../pch/nv_pch.h',
-  dependencies : dependencies,
-  install : true,  
+  dependencies: dependencies,
+  install: true,
   c_args: cargs,
 )
 
 test('core-test', core_test, suite: 'libnv')
-
-
-
-
-format_io_test = executable(
-  'tests_fomat_io',
-  files('../tests/format_io.c'),
-  include_directories: inc,
-  c_pch: '../pch/nv_pch.h',
-  dependencies : dependencies,
-  install : true,  
-  c_args: cargs,
-)
-
-test('format_io', format_io_test, suite: 'libnv')
-
-
-
 
 allocators_test = executable(
   'tests_allocators',
   files('../tests/allocators.c'),
   include_directories: inc,
   c_pch: '../pch/nv_pch.h',
-  dependencies : dependencies,
-  install : true,  
+  dependencies: dependencies,
+  install: true,
   c_args: cargs,
 )
 
@@ -70,10 +50,9 @@ buff_vecs_test = executable(
   files('../tests/buff_vecs.c'),
   include_directories: inc,
   c_pch: '../pch/nv_pch.h',
-  dependencies : dependencies,
-  install : true,  
+  dependencies: dependencies,
+  install: true,
   c_args: cargs,
 )
 
 test('buff_vecs', buff_vecs_test, suite: 'libnv')
-

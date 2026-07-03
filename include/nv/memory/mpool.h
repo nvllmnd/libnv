@@ -53,7 +53,7 @@ static constexpr const MemPool(byte) MPOOL_EMPTY = {};
     MemPool(T) _mp = {};                                                                                    \
     if (_size > (i64)PBLOCK_HEADER_SIZE) {                                                                  \
       const i64 _cap = _size / (pb_sizeof(T));                                                              \
-      auto _pool = (typeof_field(MemPool(T), pool))(void*)(_begin);                                         \
+      auto _pool = (__typeof(_mp.pool))(void*)(_begin);                                                     \
       _mp.capacity = _cap;                                                                                  \
       _mp.pool = _pool;                                                                                     \
       for (i32 i = 0; i < _cap; i++) {                                                                      \
@@ -90,7 +90,7 @@ static constexpr const MemPool(byte) MPOOL_EMPTY = {};
     const auto _ptr = (byte*)(_p);           \
     const auto _begin = (byte*)_self.pool;   \
     const auto _end = (byte*)mpool_end(_mp); \
-    _ptr >= _begin && _ptr < _end;            \
+    _ptr >= _begin&& _ptr < _end;            \
   })
 
 #define MPOOL_TRACK_ALLOC(_self) \
@@ -99,19 +99,19 @@ static constexpr const MemPool(byte) MPOOL_EMPTY = {};
     _self->dead_count -= 1;      \
   } while (0)
 
-#define mpool_free(_mp, _elem)                                                         \
-  ({                                                                                   \
-    auto _self = (_mp);                                                                \
-    if (is_not_null((_elem))) {                                                        \
+#define mpool_free(_mp, _elem)                                                            \
+  ({                                                                                      \
+    auto _self = (_mp);                                                                   \
+    if (is_not_null((_elem))) {                                                           \
       auto _pblock = ((PBlock(__typeof((_elem)))*)((byte*)(_elem) - PBLOCK_HEADER_SIZE)); \
-                                                                                       \
-      if (mpool_contains(*_mp, _pblock)) {                                                 \
+                                                                                          \
+      if (mpool_contains(*_mp, _pblock)) {                                                \
         _pblock->alive = false;                                                           \
         _pblock->next = _self->next_avail;                                                \
         _self->next_avail = _pblock->id;                                                  \
-        MPOOL_TRACK_FREE(_self);                                                       \
-      }                                                                                \
-    }                                                                                  \
+        MPOOL_TRACK_FREE(_self);                                                          \
+      }                                                                                   \
+    }                                                                                     \
   })
 
 #define mpool_allocate(_mp)                                \
