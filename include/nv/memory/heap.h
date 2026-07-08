@@ -4,7 +4,7 @@
 #include "nv/core/intdefs.h"
 #include "nv/memory/vmem.h"
 
-HEDLEY_BEGIN_C_DECLS
+BEGIN_C_DECLS
 
 // TODO: Just occurred to me that we can have a 1-2KB inline storage for small allocations, which will live as long as
 // this heap (or until a clear function is called, tbh), which would allow us to get ride of size classes smaller than
@@ -88,4 +88,4 @@ const byte* heap_end(const Heap* self) METHOD PURE_FUNC;
 /// @returns -1 if error occurs, otherwise the size in bytes of available space in this block
 isize heap_avail_ptr_size(const Heap* self, const void* ptr) METHOD PURE_FUNC;
 
-HEDLEY_END_C_DECLS
+END_C_DECLS

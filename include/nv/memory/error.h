@@ -7,6 +7,8 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
+BEGIN_C_DECLS
+
 typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could lead to segfaults!") NvError : uerror {
 
   /// Ok, No Error!
@@ -86,3 +88,5 @@ static constexpr const NvError NVOK = Error__Ok;
 /// but - also currently - this function can only detect if given error value exactly matches each [NvError] variant
 /// exactly, so it may report valid error values as invalid
 const char* error_string(NvError err) CONST_FUNC RETURNS_NON_NULL;
+
+END_C_DECLS

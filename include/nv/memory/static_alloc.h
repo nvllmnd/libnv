@@ -10,6 +10,8 @@
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 
+BEGIN_C_DECLS
+
 /// @brief Minimum size
 static constexpr const i32 STATIC_ALLOC_MIN_SIZE = 24;
 
@@ -94,3 +96,5 @@ char* salloc_strndup(StaticAlloc* self, const char* string, i32 n) WHERE(n > 0);
 
 CONST_FUNC
 i32 salloc_metadata_size(void);
+
+END_C_DECLS

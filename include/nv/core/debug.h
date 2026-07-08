@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #pragma once
 
+#include "nv/core/attributes.h"
 #include "nv/core/log.h"
+BEGIN_C_DECLS
 
 #ifndef LIBNV_DEBUG
 
@@ -47,7 +49,7 @@
 #endif  // ifndef EXIT_FATAL
 #endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
 
-#define TODO_MSG(_msg, ...) (log_fatal(_msg  __VA_OPT__(, ) __VA_ARGS__))
+#define TODO_MSG(_msg, ...) (log_fatal(_msg __VA_OPT__(, ) __VA_ARGS__))
 
 #define TODO() TODO_MSG("%s: %s @ LINE: %d => Not Yet Implemented!", __FILE__, __func__, __LINE__)
 
@@ -64,4 +66,4 @@
 
 #define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
 
-
+END_C_DECLS

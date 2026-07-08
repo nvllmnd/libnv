@@ -13,6 +13,8 @@
 
 #include "nv/core/log.h"
 
+BEGIN_C_DECLS
+
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
 
@@ -496,3 +498,5 @@ typedef BytesOf(usize) UsizeBytes;
 typedef BytesOf(isize) IsizeBytes;
 typedef BytesOf(f32) FloatBytes;
 typedef BytesOf(f64) Float64Bytes;
+
+END_C_DECLS

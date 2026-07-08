@@ -12,6 +12,8 @@
 #include "nv/core/sslice.h"
 #include "nv/memory/error.h"
 
+BEGIN_C_DECLS
+
 typedef enum FormatError { Format__Error = -1, Format__Ok = 0 } FormatError;
 
 FORMAT_FUNC(3, 4)
@@ -107,8 +109,6 @@ void vprint_error(const char* fmt, va_list args);
 
 #define NVERROR(_fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
-
-
 #ifdef NDEBUG
 
 #undef LIBNV_DEBUG
@@ -129,8 +129,7 @@ void vprint_error(const char* fmt, va_list args);
 
 #endif
 
-
-#if  LIBNV_DEBUG == 0
+#if LIBNV_DEBUG == 0
 
 #define LOG_DBG(fmt, ...)
 #define ELOG_DBG(fmt, ...)
@@ -171,7 +170,6 @@ void vprint_error(const char* fmt, va_list args);
 
 #define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(, ) __VA_ARGS__))
 
-
 #define PERROR_FATAL() (LOG_FATAL(""))
 
 #define DNVERROR(_fmt, ...) (NVERROR(_fmt __VA_OPT__(, ) __VA_ARGS__))
@@ -180,4 +178,4 @@ void vprint_error(const char* fmt, va_list args);
 
 #define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
 
-
+END_C_DECLS

@@ -1,6 +1,9 @@
 #pragma once
 
 #include "nv/common.h"
+#include "nv/core/attributes.h"
+
+BEGIN_C_DECLS
 
 #define PBlockData \
   i64 id;          \
@@ -147,3 +150,5 @@ typedef MemPool(i64) MemPoolInt64;
 typedef MemPool(u64) MemPoolUInt64;
 typedef MemPool(f32) MemPoolFloat32;
 typedef MemPool(f64) MemPoolFloat64;
+
+END_C_DECLS

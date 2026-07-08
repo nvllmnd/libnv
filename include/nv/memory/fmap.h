@@ -3,6 +3,9 @@
 #include <string.h>
 
 #include "nv/common.h"
+#include "nv/core/attributes.h"
+
+BEGIN_C_DECLS
 
 struct FileOffset {
   /// Entry number of this file
@@ -74,3 +77,5 @@ sslice fmap_file_data(const FileMap* self, i64 fileid) METHOD PURE_FUNC;
 sslice fmap_as_string(const FileMap* self) METHOD PURE_FUNC;
 
 void fmap_destroy(FileMap* self);
+
+END_C_DECLS

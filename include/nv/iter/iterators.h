@@ -12,7 +12,10 @@
 
 #include <string.h>
 
+#include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
+
+BEGIN_C_DECLS
 
 #define SpanData(T)   \
   __typeof(T)* begin; \
@@ -118,7 +121,6 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 #define iterlen(_iter) ((_iter).end - (_iter).cursor)
 #define itersize(_iter) (spanlen(_iter))
 
-
 #define span_contains(_iter, _ptr)         \
   ({                                       \
     const auto _it = (_iter);              \
@@ -127,8 +129,6 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
     const byte* _p = (byte*)(_ptr);        \
     _p && (_p >= _begin && _p < _end);     \
   })
-
-
 
 #define span_set(_self, _index, _val)      \
   ({                                       \
@@ -217,3 +217,5 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
   for (auto _name = _iter.begin; _name < _iter.end; _name++)
 
 #define iter_foreach_i(_iterator) iter_foreach(_iterator, i)
+
+END_C_DECLS

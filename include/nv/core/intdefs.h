@@ -9,6 +9,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include "nv/core/attributes.h"
+
+BEGIN_C_DECLS
 
 typedef uint8_t u8;
 typedef int8_t i8;
@@ -67,7 +70,6 @@ typedef typeof(void*) voidptr;
 #define LIBNV_NO_USE_SHORT_NAMES 1
 #endif  //  LIBNV_NO_USE_SHORT_NAMES
 
-
 typedef u64 uerror;
 typedef i64 ierror;
 typedef error_t error;
@@ -108,3 +110,5 @@ static constexpr const isize ISIZE_MIN = PTRDIFF_MIN;
 static constexpr const isize ISIZE_MAX = PTRDIFF_MAX;
 
 static constexpr const usize USIZE_MAX = SIZE_MAX;
+
+END_C_DECLS

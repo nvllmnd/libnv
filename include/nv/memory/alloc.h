@@ -13,6 +13,8 @@
 #include "nv/core/attributes.h"
 #include "nv/iter/iterators.h"
 #include "nv/memory/alloc.h"
+
+BEGIN_C_DECLS
 // #include "nv/memory/vmem.h"
 
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
@@ -507,3 +509,5 @@ void arena_clone(const Arena* src, Arena dest) METHOD;
 #define arena_make(_self, T) ((__typeof(T)*)arena_allocate((_self), mlayout_new(T)))
 #define arena_array_alloc(_self, T, N) ((__typeof(T)*)arena_allocate((_self), mlayout_array(T, N)))
 #define arena_array_allocn(_self, T, _n) ((__typeof(T)*)arena_allocate((_self), mlayout_vec(T, (_n))))
+
+END_C_DECLS

@@ -4,8 +4,11 @@
 
 #pragma once
 
+#include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
+
+BEGIN_C_DECLS
 
 #define Vec(T) __typeof(T)*
 
@@ -127,12 +130,12 @@ the loop index variable name. [vec_foreach] uses i' by default */               
     Allocator alloc; \
   }
 
-#define dvec_new(T, _cap, _alloc)                   \
-  ({                                                \
-    const auto _capacity = (_cap);                  \
-    auto _allocator = (_alloc);                     \
-    auto _self = vec_new(T, _capacity, _allocator); \
-    (VecDyn(T)){.data = _self, .alloc = _allocator};     \
+#define dvec_new(T, _cap, _alloc)                    \
+  ({                                                 \
+    const auto _capacity = (_cap);                   \
+    auto _allocator = (_alloc);                      \
+    auto _self = vec_new(T, _capacity, _allocator);  \
+    (VecDyn(T)){.data = _self, .alloc = _allocator}; \
   })
 
 #define dvec_index(_self, _index) (vec_index((_self).data, (_index)))
@@ -154,7 +157,7 @@ the loop index variable name. [vec_foreach] uses i' by default */               
   do {                                  \
     auto _s = (_self).data;             \
     auto _alloc = (_self).alloc;        \
-    const auto _len = vec_len(_s);           \
+    const auto _len = vec_len(_s);      \
     if (_len >= vec_capacity(_s)) {     \
       vec_resize(_s, _len * 3, _alloc); \
     }                                   \
@@ -173,4 +176,4 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 #define dvec_foreach_iter_const(_self, _iter_name) vec_foreach_iter_const((_self).data, _iter_name)
 #define dvec_foreach_const(_self) vec_foreach_const((_self).data)
 
-
+END_C_DECLS

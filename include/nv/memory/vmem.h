@@ -13,6 +13,8 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
+BEGIN_C_DECLS
+
 /// @brief allocated virtual memory
 /// @details Header is kept small so this type is easier to extend, its also harder to
 /// accidently add redundant data as callers can see the full impl
@@ -265,3 +267,5 @@ void va_destroy(Vallocator* self);
     if (is_not_null(_self)) {        \
     }                                \
   })
+
+END_C_DECLS

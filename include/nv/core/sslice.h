@@ -22,6 +22,8 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
+BEGIN_C_DECLS
+
 #define StringSliceData \
   const char* begin;    \
   i64 len
@@ -49,10 +51,7 @@ typedef struct StaticString StaticString;
 #define static_string(_ss)                                                                                \
   ({                                                                                                      \
     static_assert(HEDLEY_IS_CONSTANT((_ss)), "Static Strings can only be created with string literals!"); \
-    (StaticString) {                                                                                      \
-      .begin = (_ss),                                                                                     \
-      .len = (sizeof((_ss)) - 1)                                                                          \
-    };                                                                                                    \
+    (StaticString){.begin = (_ss), .len = (sizeof((_ss)) - 1)};                                           \
   })
 
 #define empty_string() static_string("")
@@ -111,3 +110,5 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
 
 #define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
 #define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
+
+END_C_DECLS

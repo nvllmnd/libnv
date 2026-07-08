@@ -11,7 +11,7 @@
 #include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 
-
+BEGIN_C_DECLS
 
 /// @brief A StringPad used for building Strings dynamically
 /// Essentially a [Vallocator] that only operates on strings, and extended for cloning/copying
@@ -23,7 +23,6 @@ struct StringPad {
   char* begin;
   char* cursor;
   char* end;
-
 };
 alias(StringPad);
 
@@ -41,9 +40,7 @@ sslice spad_clone_string(StringPad* self, Allocator alloc);
 
 METHOD
 PURE_FUNC
-static inline i64 spad_capacity(const StringPad* self) {
-  return self->end - self->begin;
-}
+static inline i64 spad_capacity(const StringPad* self) { return self->end - self->begin; }
 
 METHOD
 /// @brief ensures inner memory is reset back to start
@@ -61,7 +58,6 @@ sslice spad_build_end(StringPad* self, Allocator alloc);
 PARAMS_NONNULL(1, 2)
 i32 spad_clone_into(StringPad* self, char* buff_out, i32 buff_len);
 
-
 PARAMS_NONNULL(1, 2)
 i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len);
 
@@ -69,7 +65,6 @@ METHOD
 /// @brief Writes n characters of given string to this the end of this StringPad
 /// @details Concats a delimter to the end of string, if any delimiter is specified
 sslice spad_nappend(StringPad* self, const char* s, i32 len);
-
 
 METHOD
 /// @brief Writes string to the back of this StringPad.
@@ -83,21 +78,14 @@ sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) METHOD;
 /// literal and printf-style variadic format value args
 ///
 /// @param (const char* fmt) - printf-style format string literal
- sslice spad_fappend(StringPad* self, const char* fmt, ...);
-
-
+sslice spad_fappend(StringPad* self, const char* fmt, ...);
 
 PURE_FUNC
-static inline i64 spad_available(const StringPad* self) {
-  return self->end - self->cursor;
-}
+static inline i64 spad_available(const StringPad* self) { return self->end - self->cursor; }
 
 /// @brief size of string currently built so far
 PURE_FUNC
-static inline i64 spad_length(const StringPad* self) {
-  return self->cursor - self->begin;
-}
-
+static inline i64 spad_length(const StringPad* self) { return self->cursor - self->begin; }
 
 /// @brief Adds character to back of this StringPad
 METHOD
@@ -112,3 +100,5 @@ void spad_clear(StringPad* self);
 
 METHOD
 void spad_clear_zeroed(StringPad* self);
+
+END_C_DECLS

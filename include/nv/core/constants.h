@@ -7,6 +7,8 @@
 #include "attributes.h"
 #include "intdefs.h"
 
+BEGIN_C_DECLS
+
 static constexpr const i64 KB1 = 1024L;
 
 #define KILOBYTES(n) (KB1 * (n))
@@ -67,3 +69,5 @@ static inline i64 gigabytes(i64 n) { return GIGABYTES(n); }
 
 CONST_FUNC
 static inline i64 terabytes(i64 n) { return TERABYTES(n); }
+
+END_C_DECLS

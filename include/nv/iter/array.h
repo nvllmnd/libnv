@@ -4,8 +4,10 @@
 
 #pragma once
 
-
+#include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
+
+BEGIN_C_DECLS
 
 #define Array(T, N)      \
   struct {               \
@@ -107,4 +109,5 @@
 
 #define arr_clear_zeroed(_self) ({ memset(&(_self), 0, sizeof((_self))); })
 
+END_C_DECLS
 // TODO: Write tests for this module!

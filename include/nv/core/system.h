@@ -2,8 +2,11 @@
 
 #include <stdio.h>
 #include "nv/core/algo.h"
+#include "nv/core/attributes.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
+
+BEGIN_C_DECLS
 
 struct File {
   i64 fd;
@@ -27,3 +30,5 @@ const char* get_pwd(void);
 const char* get_cwd_in(Allocator alloc);
 
 const char* get_cwd(char* out, i32* out_len);
+
+END_C_DECLS
