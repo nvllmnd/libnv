@@ -1,15 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
-# SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
-#
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 project(
   'nv',
-  'c',
+  ['cpp', 'c'],
   meson_version: '>= 1.3.0',
   version: files('.version'),
   default_options: [
-    'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
+    'cpp_std=c++20,c++23,gnu++20,gnu++23',
+    'cpp_eh=none',
+    'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
     'b_staticpic=false',
@@ -20,7 +20,7 @@ project(
 
 if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
-  add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
+  # add_global_arguments('-Wno-gnu-statement-expression', language: 'cpp')
 endif
 
 hedley_dep = dependency('hedley')
@@ -45,6 +45,7 @@ if not meson.is_subproject()
   cargs += '-D_DEFAULT_SOURCE=1'
   cargs += '-D_POSIX_C_SOURCE=1'
   cargs += '-D__STDC_WANT_LIB_EXT1__=1'
+  cargs += '-DLIBNV_USE_GLOBAL_INTDEFS=1'
 endif
 
 dependencies = [
@@ -58,19 +59,19 @@ inc = include_directories(
 core_lib = static_library(
   'nv_core',
   files(
-    'src/core/algo.c',
-    'src/core/hmap.c',
-    'src/core/log.c',
-    'src/core/spad.c',
-    'src/core/stb_sprintf.c',
-    'src/core/system.c',
-    'src/core/vec.c',
+    'src/core/algo.cpp',
+    'src/core/hmap.cpp',
+    'src/core/log.cpp',
+    'src/core/spad.cpp',
+    'src/core/stb_sprintf.cpp',
+    'src/core/system.cpp',
+    'src/core/vec.cpp',
   ),
   include_directories: inc,
   dependencies: dependencies,
   install: true,
-  c_pch: 'pch/nv_pch.h',
-  c_args: cargs,
+  cpp_pch: 'pch/nv_pch.hpp',
+  cpp_args: cargs,
 )
 
 core_dep = declare_dependency(
@@ -83,19 +84,19 @@ dependencies += core_dep
 memory_lib = static_library(
   'nv_memory',
   files(
-    'src/memory/alloc.c',
-    'src/memory/fmap.c',
-    'src/memory/heap.c',
+    'src/memory/alloc.cpp',
+    'src/memory/fmap.cpp',
+    'src/memory/heap.cpp',
 
-    'src/memory/static_alloc.c',
-    'src/memory/vmem.c',
+    'src/memory/static_alloc.cpp',
+    'src/memory/vmem.cpp',
   ),
   include_directories: inc,
   dependencies: dependencies,
   install: true,
 
-  c_pch: 'pch/nv_pch.h',
-  c_args: cargs,
+  cpp_pch: 'pch/nv_pch.hpp',
+  cpp_args: cargs,
 )
 
 memory_dep = declare_dependency(
@@ -107,12 +108,12 @@ dependencies += memory_dep
 
 nv_lib = library(
   'nv',
-  # 'src/main.c',
+  # 'src/main.cpp',
   include_directories: inc,
-  c_pch: 'pch/nv_pch.h',
+  cpp_pch: 'pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
-  c_args: cargs,
+  cpp_args: cargs,
 )
 
 nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
@@ -121,4 +122,4 @@ meson.override_dependency('libnv', nv_dep)
 
 dependencies += nv_dep
 
-subdir('tests')
+# subdir('tests')

@@ -7,14 +7,11 @@
 #include <assert.h>
 #include <stdatomic.h>
 
-#include "nv/core/algo.h"
-#include "nv/common.h"
-
 #include "nv/core/attributes.h"
-#include "nv/iter/iterators.h"
-#include "nv/memory/alloc.h"
+#include "nv/core/intdefs.h"
 
-BEGIN_C_DECLS
+namespace mlayout {
+
 // #include "nv/memory/vmem.h"
 
 /// Simple struct used for sizing memory allocations, inspired from Rust's Layout type
@@ -24,17 +21,17 @@ struct Layout {
   /// Alignment of requested allocation. must be a multiple of 2 (or the value 1)
   isize align;
 };
-typedef struct Layout Layout;
 
-#define mlayout_static(s, a)                          \
-  ({                                                  \
-    constexpr const __typeof(s) _s = (s);             \
-    constexpr const __typeof(a) _a = (a);             \
-    static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
-    make(Layout, .size = _s, .align = _a);            \
-  })
+template <typename T>
+static constexpr Layout create() {
+  return {.size = sizeof(T), .align = alignof(T)};
+}
 
-#define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
+template <typename T, const usize N>
+static constexpr Layout make_array() {
+  return {.size = sizeof(T) * N, .align = alignof(T)};
+}
+
 #define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T)))
 #define mlayout_vec(T, _n) (make(Layout, .size = sizeof(T) * (_n), .align = alignof(T)))
 #define mlayout_fma(THeader, flex_member_size) \
@@ -42,18 +39,17 @@ typedef struct Layout Layout;
 
 /// @brief Creates a new [Layout] appropriate for allocating a buffer of bytes of size `nbytes`
 /// @param(i32 nbytes) size in bytes of allocation request. Must be > 0
-CONST_FUNC
-static inline Layout mlayout_bytes(i32 nbytes) {
+CONST_FUNC static inline Layout mlayout_bytes(i32 nbytes) {
   assert(nbytes > 0);
-  return make(Layout, .size = nbytes, .align = 1);
+  return {.size = nbytes, .align = 1};
 }
 
 /// @brief exteneds Layout by count. (if MemLayout represents a single element of a typed array, then MemLayout * count
 /// is the MemLayout of that typed array)
 CONST_FUNC
-static inline Layout mlayout_extend(Layout self, i32 count) {
+static constexpr Layout mlayout_extend(Layout self, i32 count) {
   assert(count > 0);
-  return (Layout){.size = self.size * count, .align = self.align};
+  return {.size = self.size * count, .align = self.align};
 }
 
 /// @brief Creates a new MemLayout calculated as such: multiplies self.size * count and adds the rhs.size to the result,
@@ -171,7 +167,7 @@ static inline bool vtmask_is_ok(AllocVTableMask mask) { return bithasall(mask, V
 struct AllocVTable {
   /// See [VTableAllocate]
   VTableAllocate allocate;
-  /// See [VTableReallocate]
+  /// See [VTableReallocate
   VTableReallocate reallocate;
   /// See [VTableZallocate]
   VTableZallocate zallocate;
@@ -510,4 +506,4 @@ void arena_clone(const Arena* src, Arena dest) METHOD;
 #define arena_array_alloc(_self, T, N) ((__typeof(T)*)arena_allocate((_self), mlayout_array(T, N)))
 #define arena_array_allocn(_self, T, _n) ((__typeof(T)*)arena_allocate((_self), mlayout_vec(T, (_n))))
 
-END_C_DECLS
+}  // namespace mlayout

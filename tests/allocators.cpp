@@ -4,9 +4,9 @@
 
 #include "nv/core/ext.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio.h>
+#include <cstdlib.h>
+#include <cstring.h>
 #include <sys/mman.h>
 #include <unistd.h>
 

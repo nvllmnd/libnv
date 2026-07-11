@@ -4,111 +4,47 @@
 
 #pragma once
 
-#include <bits/floatn.h>
-#include <bits/types/error_t.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "nv/core/attributes.h"
 
-BEGIN_C_DECLS
-
-typedef uint8_t u8;
-typedef int8_t i8;
-typedef uint8_t byte;
-typedef uint16_t u16;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef uint32_t u32;
-typedef int64_t i64;
-typedef uint64_t u64;
-
-// NOTE: Not using HAS_INCLUDE macro here so we dont have to #include <uinstd.h>,
-//  just in case i decide i want to support Windoze one day =P
-#if defined(__has_include)
-#if __has_include(<unistd.h>)
-#include <unistd.h>
-typedef ssize_t isize;
-#else
-typedef ptrdiff_t isize;
-#endif
-#else
-typedef ptrdiff_t isize;
+#if LIBNV_USE_GLOBAL_INTDEFS == 0
+namespace nv {
 #endif
 
-typedef size_t usize;
-/// AKA index :: same as `std::size_t` or `usize`
-typedef usize index_t;
-/// AKA: pointer offset :: same as `std::ptrdiff_t` or `isize`
-typedef isize poffset_t;
-typedef uintptr_t u64ptr;
+using u8 = uint8_t;
+using i8 = int8_t;
+using byte = u8;
+using u16 = uint16_t;
+using i16 = int16_t;
+using u32 = uint32_t;
+using i32 = int32_t;
+using u64 = uint64_t;
+using i64 = int64_t;
+using usize = size_t;
+using isize = ssize_t;
+using f32 = float;
+using f64 = double;
+using f128 = long double;
 
-typedef uintptr_t addr;
+static constexpr i8 I8_MAX = INT8_MAX;
+static constexpr i8 I8_MIN = INT8_MIN;
+static constexpr u8 U8_MAX = UINT8_MAX;
+static constexpr i16 I16_MAX = INT16_MAX;
+static constexpr u16 U16_MAX = UINT16_MAX;
 
-typedef float f32;
-typedef double f64;
-typedef _Float128 f128;
-typedef long double ldouble;
+static constexpr i32 I32_MIN = INT32_MIN;
+static constexpr i32 I32_MAX = INT32_MAX;
+static constexpr u32 U32_MAX = UINT32_MAX;
+static constexpr i64 I64_MIN = INT64_MIN;
+static constexpr i64 I64_MAX = INT64_MAX;
+static constexpr u64 U64_MAX = UINT64_MAX;
 
-typedef typeof(void*) voidptr;
+static constexpr isize ISIZE_MIN = PTRDIFF_MIN;
+static constexpr isize ISIZE_MAX = PTRDIFF_MAX;
 
-#ifndef ATOMIC
-#define ATOMIC(T) _Atomic(T)
+static constexpr usize USIZE_MAX = SIZE_MAX;
+
+#if LIBNV_USE_GLOBAL_INTDEFS == 0
+}  // namespace nv
 #endif
-
-#if LIBNV_INTERNAL == 1
-
-// force allow short names for internal use
-#undef LIBNV_NO_USE_SHORT_NAMES
-#define LIBNV_NO_USE_SHORT_NAMES 0
-#undef LIBNV_USE_SHORT_NAMES
-#define LIBNV_USE_SHORT_NAMES 1
-
-#endif  // LIBNV_INTERNAL == 1
-
-#ifndef LIBNV_NO_USE_SHORT_NAMES
-#define LIBNV_NO_USE_SHORT_NAMES 1
-#endif  //  LIBNV_NO_USE_SHORT_NAMES
-
-typedef u64 uerror;
-typedef i64 ierror;
-typedef error_t error;
-
-// #if LIBNV_USE_SHORT_NAMES == 1
-// /// type alias to help clarify functions that return errors.
-// /// also for setting the undlying type of an enum to : error.
-// /// Unless returned value is an enum, usually a value of 0 means that
-// /// no error has occured. positive values could also indicate success, but check
-// /// each funcitons documentation specifics. Negative numbers usually correlate
-// /// to some error code, assuming that numbers >= 0 are not errors
-// typedef i32 error;
-// typedef u64 uerror;
-// #else
-// typedef i32 nv_error;
-// #ifndef error
-// #define error nv_error
-// #endif
-// #endif
-
-#define bint(N) _BitInt(N)
-#define ubint(N) unsigned bint(N)
-
-static constexpr const i8 I8_MAX = INT8_MAX;
-static constexpr const i8 I8_MIN = INT8_MIN;
-static constexpr const u8 U8_MAX = UINT8_MAX;
-static constexpr const i16 I16_MAX = INT16_MAX;
-static constexpr const u16 U16_MAX = UINT16_MAX;
-
-static constexpr const i32 I32_MIN = INT32_MIN;
-static constexpr const i32 I32_MAX = INT32_MAX;
-static constexpr const u32 U32_MAX = UINT32_MAX;
-static constexpr const i64 I64_MIN = INT64_MIN;
-static constexpr const i64 I64_MAX = INT64_MAX;
-static constexpr const u64 U64_MAX = UINT64_MAX;
-
-static constexpr const isize ISIZE_MIN = PTRDIFF_MIN;
-static constexpr const isize ISIZE_MAX = PTRDIFF_MAX;
-
-static constexpr const usize USIZE_MAX = SIZE_MAX;
-
-END_C_DECLS

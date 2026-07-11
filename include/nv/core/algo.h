@@ -9,7 +9,6 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
-#include <math.h>
 
 #include "nv/core/log.h"
 
@@ -28,10 +27,6 @@ BEGIN_C_DECLS
 #define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, \
                      ...)                                                                                          \
   N
-
-#define array(T, N)                                                    \
-  /* conveinence for declaring static array of type (T) of size (N) */ \
-  __typeof__(T[N])
 
 #define ptr(T)                                                 \
   /* conveinence for declaring pointer types. bye, bye '*'! */ \

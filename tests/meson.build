@@ -11,9 +11,9 @@ dependencies += unity_dep
 
 strings_test = executable(
   'tests_strings',
-  files('../tests/strings.c'),
+  files('../tests/strings.cpp'),
   include_directories: inc,
-  c_pch: '../pch/nv_pch.h',
+  c_pch: '../pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
   c_args: cargs,
@@ -23,9 +23,9 @@ test('strings', strings_test, suite: 'libnv')
 
 core_test = executable(
   'tests_core',
-  files('../tests/core.c'),
+  files('../tests/core.cpp'),
   include_directories: inc,
-  c_pch: '../pch/nv_pch.h',
+  c_pch: '../pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
   c_args: cargs,
@@ -35,9 +35,9 @@ test('core-test', core_test, suite: 'libnv')
 
 allocators_test = executable(
   'tests_allocators',
-  files('../tests/allocators.c'),
+  files('../tests/allocators.cpp'),
   include_directories: inc,
-  c_pch: '../pch/nv_pch.h',
+  c_pch: '../pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
   c_args: cargs,
@@ -47,9 +47,9 @@ test('allocators', allocators_test, suite: 'libnv')
 
 buff_vecs_test = executable(
   'tests_buffs_and_vecs',
-  files('../tests/buff_vecs.c'),
+  files('../tests/buff_vecs.cpp'),
   include_directories: inc,
-  c_pch: '../pch/nv_pch.h',
+  c_pch: '../pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
   c_args: cargs,

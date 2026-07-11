@@ -4,7 +4,6 @@
 
 #pragma once
 
-
 #include "nv/core/ext.h"
 
 // #define __USE_POSIX 1
@@ -15,7 +14,6 @@
 
 // #endif
 // #define _POSIX_C_SOURCE 1
-
 
 #include <assert.h>
 #include <errno.h>
