@@ -9,6 +9,10 @@
 
 #include "nv/core/log.h"
 
+#ifdef __cplusplus
+
+#else
+
 #include <stdarg.h>
 #include <stddef.h>
 #include <math.h>
@@ -299,6 +303,8 @@ BEGIN_C_DECLS
 
 typedef SlimDST(byte) ByteDST;
 
+#define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
+
 #define Bytes(N)  \
   struct {        \
     byte data[N]; \
@@ -333,6 +339,15 @@ typedef BytesOf(isize) IsizeBytes;
 typedef BytesOf(f32) FloatBytes;
 typedef BytesOf(f64) Float64Bytes;
 
+HEDLEY_PRINTF_FORMAT(1, 2)
+PURE_FUNC
+i32 fstring_length(const char* fmt, ...);
+
+/// @brief Determines printf-style format string resulting length excluding, null-terminator
+/// @details does not modify va_list args
+PURE_FUNC
+i32 vfstring_length(const char* fmt, va_list args);
+
 BEGIN_C_DECLS
 
 PURE_FUNC
@@ -342,8 +357,6 @@ u32 fnv_hash32(const char* string, isize len) WHERE(len > 0);
 PURE_FUNC
 PARAMS_NONNULL(1)
 u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
-
-#define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
@@ -440,14 +453,6 @@ PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
 /// @brief Determines printf-style format string resulting length, excluding null-terminator
-HEDLEY_PRINTF_FORMAT(1, 2)
-PURE_FUNC
-i32 fstring_length(const char* fmt, ...);
-
-/// @brief Determines printf-style format string resulting length excluding, null-terminator
-/// @details does not modify va_list args
-PURE_FUNC
-i32 vfstring_length(const char* fmt, va_list args);
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
 sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va_list args) PARAMS_NONNULL(1, 4);
@@ -470,3 +475,5 @@ PURE_FUNC
 bool is_big_endian(void);
 
 END_C_DECLS
+
+#endif
