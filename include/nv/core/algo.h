@@ -216,11 +216,6 @@ BEGIN_C_DECLS
 
 #define tryerr bailerr
 
-// #define tryerr_or(expr, orelse) do {\
-//     const error _err = (expr); \
-//     if (_er != 0) { (orelse); }\
-// } while(0)
-
 #define tryerr_or(_expr, _orelse)                                             \
   /* Same as [tryerr] macro, but instead of returning error value in the case \
    * it is not equal to 0, a given expression is ran. you can use this macro  \
