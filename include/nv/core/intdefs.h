@@ -26,6 +26,7 @@ using u64 = uint64_t;
 using f32 = float;
 using f64 = double;
 using usize = size_t;
+using isize = ssize_t;
 
 using error = i64;
 
