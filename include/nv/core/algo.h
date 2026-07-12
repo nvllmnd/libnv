@@ -4,14 +4,12 @@
 
 #pragma once
 
+#ifndef __cplusplus
+
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
 #include "nv/core/log.h"
-
-#ifdef __cplusplus
-
-#else
 
 #include <stdarg.h>
 #include <stddef.h>
