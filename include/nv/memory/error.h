@@ -9,7 +9,7 @@
 
 BEGIN_C_DECLS
 
-typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could lead to segfaults!") NvError : uerror {
+typedef enum nv_nodiscard_msg("Ignoring functions returning NvError type could lead to segfaults!") NvError : u64 {
 
   /// Ok, No Error!
   Error__Ok = 0,
