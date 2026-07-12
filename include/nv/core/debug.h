@@ -7,15 +7,6 @@
 #include "nv/core/log.h"
 BEGIN_C_DECLS
 
-#ifndef LIBNV_DEBUG
-
-#ifdef NDEBUG
-#define LIBNV_DEBUG 0
-#else
-#define LIBNV_DEBUG 1
-#endif  //  NDEBUG
-#endif  // LIBNV_DEBUG
-
 #if LIBNV_DEBUG == 1
 
 #include <assert.h>

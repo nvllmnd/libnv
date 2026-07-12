@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "nv/core/algo.h"
+#include "nv/core/debug.h"
 #include "nv/core/stb_sprintf.h"
 
 FormatError format_with(char* dst, isize len, const char* fmt, ...) {

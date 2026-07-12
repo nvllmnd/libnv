@@ -13,7 +13,8 @@
 
 #include "nv/core/log.h"
 
-BEGIN_C_DECLS
+#ifdef __cplusplus
+#else
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
@@ -168,6 +169,7 @@ BEGIN_C_DECLS
 #ifndef offsetof
 #define offsetof(T, _m) ((isize)(&((T*)0)->_m))
 #endif
+BEGIN_C_DECLS
 
 #define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
 
@@ -302,6 +304,44 @@ typedef SlimDST(byte) ByteDST;
 
 #define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
+#define Bytes(N)  \
+  struct {        \
+    byte data[N]; \
+  }
+
+#define BytesOf(T)                   \
+  union {                            \
+    __typeof(T) val;                 \
+    byte bytes[sizeof(__typeof(T))]; \
+  }
+
+#define bytesof_new(_val) ((BytesOf(__typeof((_val)))){.val = (_val)})
+#define bytes_of(_val)                                  \
+  ({                                                    \
+    static constexpr const auto _SIZE = sizeof((_val)); \
+    auto _v = (_val);                                   \
+    auto _bs = (BytesOf(__typeof(_v))){.val = _v};      \
+    Bytes(_SIZE) _res = {};                             \
+    memcpy(_res.data, _bs.bytes, _SIZE);                \
+    _res;                                               \
+  })
+
+typedef BytesOf(bool) BoolBytes;
+typedef BytesOf(i16) Int16Bytes;
+typedef BytesOf(u16) UInt16Bytes;
+typedef BytesOf(i32) Int32Bytes;
+typedef BytesOf(u32) UInt32Bytes;
+typedef BytesOf(i64) Int64Bytes;
+typedef BytesOf(u64) UInt64Bytes;
+typedef BytesOf(usize) UsizeBytes;
+typedef BytesOf(isize) IsizeBytes;
+typedef BytesOf(f32) FloatBytes;
+typedef BytesOf(f64) Float64Bytes;
+
+#endif
+
+BEGIN_C_DECLS
+
 PURE_FUNC
 PARAMS_NONNULL(1)
 u32 fnv_hash32(const char* string, isize len) WHERE(len > 0);
@@ -349,14 +389,6 @@ void* ptr_nonnull_(const void* ptr) WHERE(ptr_nonnull_(ptr) == ptr);
 // CLANG_NON_NULL_END
 
 #define ptr_nonnull(_ptr) cast(typeof_ptr(_ptr), ptr_nonnull_((const void*)(_ptr)))
-
-#if LIBNV_USE_SHORT_NAMES == 1
-
-#ifndef punwrap
-#define punwrap ptr_nonnull
-#endif
-
-#endif
 
 /// Same as [ptr_nonnull], but fails with a user provided, message.
 /// NOTE: Because this function is inteded to be used in hot paths, the user
@@ -412,29 +444,6 @@ static inline isize stringlen(const char* string) { return str_len(string, STRLE
 PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
-PARAMS_NONNULL(1)
-static inline void* move(void** from) {
-  void* tmp = *from;
-  *from = nullptr;
-  return tmp;
-}
-#define move(from) (move((void**)&from))
-
-PARAMS_NONNULL(1, 2)
-static inline void* move_into(void** from, void** to) {
-  *to = move(*from);
-  return *to;
-}
-#define move_into(from, to) (move_into((void**)&from, (void**)&to))
-
-PARAMS_NONNULL(1, 2)
-static inline void* move_exchange(void** obj, void** new_value) {
-  void* tmp = *obj;
-  *obj = *new_value;
-  return tmp;
-}
-#define move_exchange(from, to) (move_exchange((void**)&from, (void**)&to))
-
 /// @brief Determines printf-style format string resulting length, excluding null-terminator
 HEDLEY_PRINTF_FORMAT(1, 2)
 PURE_FUNC
@@ -464,39 +473,5 @@ bool is_little_endian(void);
 
 PURE_FUNC
 bool is_big_endian(void);
-
-#define Bytes(N)  \
-  struct {        \
-    byte data[N]; \
-  }
-
-#define BytesOf(T)                   \
-  union {                            \
-    __typeof(T) val;                 \
-    byte bytes[sizeof(__typeof(T))]; \
-  }
-
-#define bytesof_new(_val) ((BytesOf(__typeof((_val)))){.val = (_val)})
-#define bytes_of(_val)                                  \
-  ({                                                    \
-    static constexpr const auto _SIZE = sizeof((_val)); \
-    auto _v = (_val);                                   \
-    auto _bs = (BytesOf(__typeof(_v))){.val = _v};      \
-    Bytes(_SIZE) _res = {};                             \
-    memcpy(_res.data, _bs.bytes, _SIZE);                \
-    _res;                                               \
-  })
-
-typedef BytesOf(bool) BoolBytes;
-typedef BytesOf(i16) Int16Bytes;
-typedef BytesOf(u16) UInt16Bytes;
-typedef BytesOf(i32) Int32Bytes;
-typedef BytesOf(u32) UInt32Bytes;
-typedef BytesOf(i64) Int64Bytes;
-typedef BytesOf(u64) UInt64Bytes;
-typedef BytesOf(usize) UsizeBytes;
-typedef BytesOf(isize) IsizeBytes;
-typedef BytesOf(f32) FloatBytes;
-typedef BytesOf(f64) Float64Bytes;
 
 END_C_DECLS
