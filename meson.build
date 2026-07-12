@@ -52,9 +52,7 @@ dependencies = [
   hedley_dep,
 ]
 
-inc = include_directories(
-  'include',
-)
+inc = include_directories('include', 'include/nv/deps')
 
 core_lib = static_library(
   'nv_core',
