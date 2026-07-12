@@ -4,34 +4,26 @@
 
 #pragma once
 
-
-
 #include "nv/core/ext.h"
 
 #include "nv/core/algo.h"
 #include "nv/core/spad.h"
 
-
 #include "nv/core/constants.h"
+#ifndef __cplusplus
 #include "nv/core/sslice.h"
+#endif
 #include "nv/memory/error.h"
 #include "nv/core/debug.h"
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 
-
-
 #include "nv/memory/alloc.h"
 #include "nv/memory/static_alloc.h"
 #include "nv/memory/error.h"
 #include "nv/memory/vmem.h"
 
-
-
 #include "nv/iter/array.h"
 #include "nv/iter/iterators.h"
 #include "nv/iter/vec.h"
-
-
-

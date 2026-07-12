@@ -31,13 +31,6 @@ alias(StringPad);
 /// will be concatenated together with no delimiting charater, or any space in betweent them
 StringPad spad_new(char* begin, char* end);
 
-/// @brief duplicates currently built string using given allocator
-/// @param(Allocator alloc) - Used to duplicate Spad's inner string buffer
-/// @returns null-terminated string slice pointing to where the cloned string lives in given allocator. slice length
-/// does not include null terminating character
-METHOD
-sslice spad_clone_string(StringPad* self, Allocator alloc);
-
 METHOD
 PURE_FUNC
 static inline i64 spad_capacity(const StringPad* self) { return self->end - self->begin; }
@@ -45,10 +38,6 @@ static inline i64 spad_capacity(const StringPad* self) { return self->end - self
 METHOD
 /// @brief ensures inner memory is reset back to start
 void spad_build_start(StringPad* self);
-
-METHOD
-sslice spad_build_end(StringPad* self, Allocator alloc);
-
 /// @brief copies buff_len - 1 characters from SPad's inner string buffer into given memory buffer (buff_out)
 /// @param (char* buff_out) - writes `buff_len` - 1 characters into memory at this address. appends null-character to
 /// end of `buff_out`. Must not be null and at least `buff_len` bytes long.
@@ -60,6 +49,16 @@ i32 spad_clone_into(StringPad* self, char* buff_out, i32 buff_len);
 
 PARAMS_NONNULL(1, 2)
 i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len);
+
+/// @brief duplicates currently built string using given allocator
+/// @param(Allocator alloc) - Used to duplicate Spad's inner string buffer
+/// @returns null-terminated string slice pointing to where the cloned string lives in given allocator. slice length
+/// does not include null terminating character
+METHOD
+sslice spad_clone_string(StringPad* self, Allocator alloc);
+
+METHOD
+sslice spad_build_end(StringPad* self, Allocator alloc);
 
 METHOD
 /// @brief Writes n characters of given string to this the end of this StringPad

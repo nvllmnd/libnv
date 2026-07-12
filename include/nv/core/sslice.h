@@ -113,5 +113,17 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
   return sslice_eq(left, right);
 }
 
-END_C_DECLS
+#else
+
+// C++ Support...
+//
+
+struct sslice {
+  const char* begin;
+  i64 len;
+};
+
+#define sslice_new(...) (sslice(__VA_ARGS__))
+
 #endif
+END_C_DECLS

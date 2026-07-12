@@ -489,6 +489,7 @@ char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args
 
 char* arena_strndup(Arena* self, const char* str, isize len) PARAMS_NONNULL(1, 2);
 
+#ifdef __cplusplus
 sslice arena_strdup(Arena* self, sslice str) METHOD;
 
 /// @brief reads file at given path into this Arena as a readonly null-terminated string
@@ -500,6 +501,7 @@ static inline sslice arena_fread_slice(Arena* self, const char* path) {
   const char* str = arena_fread_string(self, path, &len);
   return sslice_new(.begin = str, .len = len);
 }
+#endif
 
 /// @brief performs a deep copy of all bytes in the iterator range of this Arena.
 /// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator

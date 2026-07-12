@@ -9,8 +9,39 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
-#include "nv/core/sslice.h"
+
 #include "nv/memory/error.h"
+
+#ifndef __cplusplus
+
+#include "nv/core/sslice.h"
+
+#define SLOG_DBG(slice) (sprintln((slice)))
+#define SELOG_DBG(slice) (seprintln((slice)))
+
+PARAMS_NONNULL(1)
+void sfprint(FILE* fd, sslice str);
+
+/// Same as [sfprint], but appends a newline character to the end of
+/// give string [sslice]
+///
+/// Prints a given string [sslice] to
+/// a file. This is a verstion of [print_fd] that does not require
+/// null-terminated strings. However this function does not
+/// do any formatting. If you need to print a formatted string. see [print_fd] and others
+///
+PARAMS_NONNULL(1)
+void sfprintln(FILE* fd, sslice str);
+
+void sprint(sslice str);
+
+void sprintln(sslice str);
+
+void seprint(sslice str);
+
+void seprintln(sslice str);
+
+#endif
 
 BEGIN_C_DECLS
 
@@ -69,28 +100,6 @@ NvError print_stack_trace(i32 depth);
 /// null-terminated strings. However this function does not
 /// do any formatting. If you need to print a formatted string. see [print_fd] and others
 ///
-PARAMS_NONNULL(1)
-void sfprint(FILE* fd, sslice str);
-
-/// Same as [sfprint], but appends a newline character to the end of
-/// give string [sslice]
-///
-/// Prints a given string [sslice] to
-/// a file. This is a verstion of [print_fd] that does not require
-/// null-terminated strings. However this function does not
-/// do any formatting. If you need to print a formatted string. see [print_fd] and others
-///
-PARAMS_NONNULL(1)
-void sfprintln(FILE* fd, sslice str);
-
-void sprint(sslice str);
-
-void sprintln(sslice str);
-
-void seprint(sslice str);
-
-void seprintln(sslice str);
-
 /// @brief similar to libnv's other logging macros, but includes [strerror] output
 /// You can think of this function as a [perror] that formats a string message
 void print_error(const char* fmt, ...);
@@ -164,9 +173,6 @@ void vprint_error(const char* fmt, va_list args);
 
 #define DWARN LOG_WARN
 #define DERR DERROR
-
-#define SLOG_DBG(slice) (sprintln((slice)))
-#define SELOG_DBG(slice) (seprintln((slice)))
 
 #define LOG_FATAL(fmt, ...) (log_fatal(fmt __VA_OPT__(, ) __VA_ARGS__))
 

@@ -72,9 +72,11 @@ NvError fmap_load_all_init_(FileMap* self, const char* files[], i32 file_count);
 #define fmap_load_all_init(_fm, ...) \
   (fmap_load_all_init_((_fm), (const char*[]){__VA_ARGS__}, VA_ARGS_LEN(__VA_ARGS__)))
 
+#ifndef __cplusplus
 sslice fmap_file_data(const FileMap* self, i64 fileid) METHOD PURE_FUNC;
 
 sslice fmap_as_string(const FileMap* self) METHOD PURE_FUNC;
+#endif
 
 void fmap_destroy(FileMap* self);
 

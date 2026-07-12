@@ -5,7 +5,11 @@
 #pragma once
 
 #include "nv/core/constants.h"
+
+#ifndef __cplusplus
 #include "nv/core/sslice.h"
+#endif
+
 #include "nv/memory/error.h"
 #include "nv/core/debug.h"
 #include "nv/core/attributes.h"

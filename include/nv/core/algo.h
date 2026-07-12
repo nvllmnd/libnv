@@ -9,8 +9,6 @@
 
 #include "nv/core/log.h"
 
-#ifndef __cplusplus
-
 #include <stdarg.h>
 #include <stddef.h>
 #include <math.h>
@@ -472,5 +470,3 @@ PURE_FUNC
 bool is_big_endian(void);
 
 END_C_DECLS
-
-#endif
