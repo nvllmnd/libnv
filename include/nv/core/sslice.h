@@ -4,6 +4,9 @@
 
 #pragma once
 
+
+BEGIN_C_DECLS
+
 #ifndef __cplusplus
 
 /// A String slice, consisting of a pointer to the beginning of
@@ -60,7 +63,6 @@ typedef struct StaticString StaticString;
 #define empty_string() static_string("")
 #define sstring_new static_string
 
-BEGIN_C_DECLS
 
 PURE_FUNC
 static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
@@ -113,10 +115,11 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
   return sslice_eq(left, right);
 }
 
-#else
 
-// C++ Support...
+// C++ Support.
 //
+
+#else
 
 struct sslice {
   const char* begin;
@@ -126,4 +129,5 @@ struct sslice {
 #define sslice_new(...) (sslice(__VA_ARGS__))
 
 #endif
+
 END_C_DECLS
