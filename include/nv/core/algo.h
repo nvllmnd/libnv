@@ -9,13 +9,7 @@
 
 #include "nv/core/log.h"
 
-#ifdef __cplusplus
-
-#include <cmath>
-#include <cstdarg>
-#include <cstddef>
-
-#else
+#ifndef __cplusplus
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -341,8 +335,6 @@ typedef BytesOf(isize) IsizeBytes;
 typedef BytesOf(f32) FloatBytes;
 typedef BytesOf(f64) Float64Bytes;
 
-#endif
-
 BEGIN_C_DECLS
 
 PURE_FUNC
@@ -480,3 +472,5 @@ PURE_FUNC
 bool is_big_endian(void);
 
 END_C_DECLS
+
+#endif

@@ -4,6 +4,8 @@
 
 #pragma once
 
+#ifndef __cplusplus
+
 /// A String slice, consisting of a pointer to the beginning of
 /// the slice and a length
 ///
@@ -39,10 +41,6 @@ struct StaticString {
 };
 typedef struct StaticString StaticString;
 
-#ifdef __cplusplus
-
-#else
-
 #define sslice_new(...) ((sslice){__VA_ARGS__})
 
 #define sslice_static_new(static_str)                                      \
@@ -61,7 +59,6 @@ typedef struct StaticString StaticString;
 
 #define empty_string() static_string("")
 #define sstring_new static_string
-#endif
 
 BEGIN_C_DECLS
 
@@ -117,3 +114,4 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
 }
 
 END_C_DECLS
+#endif
