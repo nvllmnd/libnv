@@ -9,7 +9,6 @@
 #include "nv/core/attributes.h"
 #include "nv/core/algo.h"
 #include "nv/core/intdefs.h"
-#include "nv/memory/alloc.h"
 
 BEGIN_C_DECLS
 
@@ -50,6 +49,9 @@ i32 spad_clone_into(StringPad* self, char* buff_out, i32 buff_len);
 PARAMS_NONNULL(1, 2)
 i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len);
 
+#ifndef __cplusplus
+
+#include "nv/memory/alloc.h"
 /// @brief duplicates currently built string using given allocator
 /// @param(Allocator alloc) - Used to duplicate Spad's inner string buffer
 /// @returns null-terminated string slice pointing to where the cloned string lives in given allocator. slice length
@@ -59,6 +61,8 @@ sslice spad_clone_string(StringPad* self, Allocator alloc);
 
 METHOD
 sslice spad_build_end(StringPad* self, Allocator alloc);
+
+#endif
 
 METHOD
 /// @brief Writes n characters of given string to this the end of this StringPad

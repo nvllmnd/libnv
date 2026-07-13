@@ -177,3 +177,13 @@ the loop index variable name. [vec_foreach] uses i' by default */               
 #define dvec_foreach_const(_self) vec_foreach_const((_self).data)
 
 END_C_DECLS
+
+#ifdef __cplusplus
+
+template<typename T, typename A>
+struct Vec {
+  Vec(T) inner;
+  A alloc;
+};
+
+#endif

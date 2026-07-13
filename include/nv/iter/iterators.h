@@ -15,7 +15,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
-BEGIN_C_DECLS
+#ifndef __cplusplus
 
 #define SpanData(T)   \
   __typeof(T)* begin; \
@@ -218,4 +218,4 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 
 #define iter_foreach_i(_iterator) iter_foreach(_iterator, i)
 
-END_C_DECLS
+#endif

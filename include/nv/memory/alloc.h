@@ -4,12 +4,22 @@
 
 #pragma once
 
+#ifdef __cplusplus
+
+#include <concepts>
+#include <type_traits>
+
+struct Layout {};
+
+namespace nv {}  // namespace nv
+
+#else
+
 #include <assert.h>
 #include <stdatomic.h>
 
 #include "nv/core/algo.h"
 #include "nv/common.h"
-
 #include "nv/core/attributes.h"
 #include "nv/iter/iterators.h"
 #include "nv/memory/alloc.h"
@@ -513,3 +523,5 @@ void arena_clone(const Arena* src, Arena dest) METHOD;
 #define arena_array_allocn(_self, T, _n) ((__typeof(T)*)arena_allocate((_self), mlayout_vec(T, (_n))))
 
 END_C_DECLS
+
+#endif
