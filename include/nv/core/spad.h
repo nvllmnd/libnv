@@ -14,7 +14,7 @@ BEGIN_C_DECLS
 
 /// @brief A StringPad used for building Strings dynamically
 /// Essentially a [Vallocator] that only operates on strings, and extended for cloning/copying
-struct StringPad {
+typedef struct StringPad {
   /// @brief set to true when spad_build_start is invoked and set to false when spad_build_end is invoked.
   /// If this value is true when spad_build_start is called, this implementation calls abort and halts execution
   bool inuse;
@@ -22,8 +22,7 @@ struct StringPad {
   char* begin;
   char* cursor;
   char* end;
-};
-alias(StringPad);
+} StringPad;
 
 /// @brief creates new StringPad with no delimiting character
 /// @details unless caller sets delim field to a new value other than '\0', strings
