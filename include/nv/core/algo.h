@@ -362,7 +362,7 @@ NvError try_stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src
 /// dest buffer, truncating it if it doesnt
 /// @returns  new character count of destination string, not including null terminal. You can use this value to
 /// pass to the next invokation of stringcat
-i64 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) PARAMS_NONNULL(1, 4);
+i32 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) PARAMS_NONNULL(1, 4);
 
 /// A safe version of the standard lib: [strlen], which technically may never
 /// return if the passed in string never contains a null character to signal

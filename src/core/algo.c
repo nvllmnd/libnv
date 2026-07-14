@@ -228,7 +228,7 @@ sslice sslice_from_range(const char* string, const isize from, const isize to) {
   return sslice_new(.begin = begin, .len = slice_len);
 }
 
-static inline i64 stringcat_impl(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
+static inline i32 stringcat_impl(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
 
   const i32 size = min(dest_count + srclen, dest_size);
 
@@ -294,7 +294,7 @@ NvError try_stringcat(char* dest, const i32 dest_count, const i32 dest_size, con
   return NVOK;
 }
 
-i64 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
+i32 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
   assert(dest);
   assert(src);
   
