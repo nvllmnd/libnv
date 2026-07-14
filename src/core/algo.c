@@ -319,6 +319,8 @@ sslice vfconcat(char* const dest, i64 dest_len, const i64 dest_cap, const char* 
   assert(dest_cap > 0);
   assert(fmt);
 
+  DERR("About to concat!");
+
   if (dest[dest_len] != 0) {
     const i64 i = find_term(dest);
 
