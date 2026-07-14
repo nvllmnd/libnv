@@ -4,6 +4,8 @@
 #include "nv/core/log.h"
 #include "opt.hpp"
 
+#ifdef __cplusplus
+
 namespace nv::result {
 /// @brief a discrimnated union over T, or a specified error value E
 /// @details T and E must satisfy std::is_standard_layout and std::is_trivial, as this type
@@ -160,3 +162,9 @@ constexpr Result<T, E> Err(E err) noexcept {
 }
 
 }  // namespace nv::result
+
+#endif
+
+#ifndef __cplusplus
+#error "libnv cxx module result.hpp can only be included/used from C++!";
+#endif

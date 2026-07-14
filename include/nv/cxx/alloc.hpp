@@ -5,6 +5,9 @@
 
 #include "nv/core/debug.h"
 #include "nv/core/intdefs.h"
+#include "opt.hpp"
+
+#ifdef __cplusplus
 
 namespace nv {
 
@@ -122,3 +125,11 @@ template <typename T>
 concept Allocator = Allocate<T> || Realloc<T> || Resize<T>;
 
 }  // namespace nv
+
+#endif
+
+#ifndef __cplusplus
+
+#error "libnv cxx module alloc.hpp can only be included/used by C++!";
+
+#endif  // #ifndef __cplusplus

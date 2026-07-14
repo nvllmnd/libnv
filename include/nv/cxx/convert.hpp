@@ -2,6 +2,9 @@
 
 #include "opt.hpp"
 #include "result.hpp"
+
+#ifdef __cplusplus
+
 namespace nv::conv {
 
 template <typename T, typename E>
@@ -22,3 +25,9 @@ constexpr result::Result<T, E> into(nv::opt::Opt<T> opt, E err) noexcept {
 }
 
 }  // namespace nv::conv
+
+#endif
+
+#ifndef __cplusplus
+#error "libnv cxx module result.hpp can only be included/used from C++!";
+#endif

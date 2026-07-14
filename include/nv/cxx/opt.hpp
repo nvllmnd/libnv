@@ -4,6 +4,8 @@
 
 #include "nv/core/log.h"
 
+#ifdef __cplusplus
+
 namespace nv::nv {
 /// @brief an Optional value over T, or None (Opt<T>::None)
 template <typename T>
@@ -137,4 +139,12 @@ constexpr Opt<T> None() noexcept {
   return Opt<T>::none();
 }
 
-}  // namespace nv::opt
+}  // namespace nv::nv
+
+#endif  // ifdef __cplusplus
+
+#ifndef __cplusplus
+
+#error "libnv cxx module opt.hpp can only be included/used from C++!";
+
+#endif

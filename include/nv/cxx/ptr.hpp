@@ -5,6 +5,8 @@
 #include "nv/core/log.h"
 #include "opt.hpp"
 
+#ifdef __cplusplus
+
 namespace nv {
 
 /// @brief a lightweight Slice of T
@@ -346,3 +348,9 @@ using CanyPtr = Ptr<const byte>;
 using CvoidPtr = Ptr<const void>;
 
 }  // namespace nv
+
+#endif
+
+#ifndef __cplusplus
+#error "libnv cxx module ptr.hpp can only be included/used from C++!";
+#endif

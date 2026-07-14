@@ -8,8 +8,10 @@
 #include "ptr.hpp"
 #include "convert.hpp"
 
+#endif
 
-#else
+#ifndef __cplusplus
+
 #error "libnv cxx module can only be included from C++!"
 
 #endif
