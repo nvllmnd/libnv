@@ -4,10 +4,13 @@
 
 #pragma once
 
-#ifndef __cplusplus
-
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
+#include "nv/core/sslice.h"
+
+#ifndef __cplusplus
+
+
 
 #include "nv/core/log.h"
 
