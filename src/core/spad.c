@@ -107,8 +107,8 @@ sslice spad_nappend(StringPad* self, const char* s, i32 len) {
 
   assert_inuse(self);
 
-  const i64 avail = spad_available(self);
-  const i64 size = min(len, avail);
+  const i32 avail = (i32)spad_available(self);
+  const i32 size = min(len, avail);
 
 
   char* begin = self->begin;
@@ -118,7 +118,7 @@ sslice spad_nappend(StringPad* self, const char* s, i32 len) {
 
   assert(self->cursor == &begin[slen] && "Sanity check!");
 
-  const i64 full_len = stringcat(begin, slen, cap, s, size);
+  const i32 full_len = stringcat(begin, slen, cap, s, size);
 
   if UNLIKELY (full_len < 0) {
     LOG_ERROR("Failed to concatenate string: %.*s of length: %d into end of StringPad! available: %li, ",
