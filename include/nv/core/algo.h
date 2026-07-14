@@ -310,7 +310,6 @@
 
 typedef SlimDST(byte) ByteDST;
 
-#define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
 #define Bytes(N)  \
   struct {        \
@@ -476,6 +475,8 @@ u32 fnv_hash32(const char* string, isize len) WHERE(len > 0);
 PURE_FUNC
 PARAMS_NONNULL(1)
 u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
+
+#define IS_POWER_OF_2(n) ((n & (n - 1)) == 0)
 
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
