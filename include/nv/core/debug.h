@@ -91,6 +91,23 @@
 #define TODO_FN(_ret, _fn_name, ...) \
   _ret _fn_name(__VA_ARGS__) { TODO(); }
 
+
+#ifdef __cplusplus
+
+#define EXPECTM(x, _msg, ...)                      \
+  do {                                             \
+    const bool _res = (x);                         \
+    if UNLIKELY (!_res) {                          \
+      LOG_FATAL(_msg, __VA_OPT__(, ) __VA_ARGS__); \
+    }                                              \
+  } while (0)
+
+#define EXPECT(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
+
+#endif // ifdef __cplusplus
+
+#ifndef __cplusplus
+
 #define expectm(x, _msg, ...)                      \
   do {                                             \
     const bool _res = (x);                         \
@@ -100,6 +117,8 @@
   } while (0)
 
 #define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
+
+#endif // ifndef __cplusplus
 
 
 
