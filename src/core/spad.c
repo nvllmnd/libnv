@@ -113,8 +113,8 @@ sslice spad_nappend(StringPad* self, const char* s, i32 len) {
   const i64 full_len = stringcat(begin, slen, cap, s, size);
 
   if UNLIKELY (full_len < 0) {
-    LOG_ERROR("Failed to concatenate string for StringPad! %.*s, len: %li with source string: %.*s (len: %li)",
-              (i32)slen, begin, slen, (i32)size, s, size);
+    LOG_ERROR("Failed to concatenate string for StringPad! of length: %d %.*s,  with source string: of length: %d %.*s (len: %li)",
+              slen, (i32)slen, begin,  len, len, s);
     return sslice_empty();
   }
 
