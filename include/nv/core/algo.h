@@ -466,7 +466,6 @@ i32 fstring_length(const char* fmt, ...);
 PURE_FUNC
 i32 vfstring_length(const char* fmt, va_list args);
 
-BEGIN_C_DECLS
 
 PURE_FUNC
 PARAMS_NONNULL(1)
