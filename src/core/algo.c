@@ -312,7 +312,6 @@ sslice vfconcat(char* const dest, i32 dest_len, const char* const fmt, va_list a
   assert(dest_len >= 0);
   assert(fmt);
 
-  LOG("Formatting no more than %d bytes into buffer with format string: %s", dest_len, fmt);
   const i32 n = stbsp_vsnprintf(dest, dest_len, fmt, args);
 
   if UNLIKELY (n <= 0) {
