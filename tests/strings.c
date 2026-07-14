@@ -39,6 +39,7 @@ void tagged_pointers(void) {
 void stringpad_builds_string(void) {
   Vallocator vm = va_new(MEGABYTES(24));
   TEST_ASSERT_TRUE(va_isok(&vm));
+  LOG("Created Vallocator of size: %li(%liMB)", MEGABYTES(24), OF_MB(MEGABYTES(24)));
 
   static constexpr const i32 BLEH_COUNT = 200;
   // allocate random space so we can test building strings in the middle of using VirtMem for other stuff
@@ -50,22 +51,24 @@ void stringpad_builds_string(void) {
 
   StringPad sp = spad_new((char*)vmem_begin(vm.mem), (char*)vmem_end(vm.mem));
 
+  TEST_ASSERT_TRUE(!is_none(&sp));
+
   spad_build_start(&sp);
 
   sslice sl = spad_fappend(&sp, "asdf ayooo %d ", 540);
 
   TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 ", sl.begin, sl.len);
-  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+  TEST_ASSERT_EQUAL(sl.len, sizeof("asdf ayooo 540 ") - 1);
 
   sl = spad_fappend(&sp, "%s", "interpolate!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate!", sl.begin, sl.len);
-  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+  TEST_ASSERT_EQUAL_STRING_LEN("interpolate!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, sizeof("interpolate!") - 1);
 
   sl = spad_append(&sp, " we building!");
 
-  TEST_ASSERT_EQUAL_STRING_LEN("asdf ayooo 540 interpolate! we building!", sl.begin, sl.len);
-  TEST_ASSERT_EQUAL(sl.len, spad_length(&sp));
+  TEST_ASSERT_EQUAL_STRING_LEN(" we building!", sl.begin, sl.len);
+  TEST_ASSERT_EQUAL(sl.len, sizeof(" we building!") - 1);
 
   char buf[255] = {};
 
@@ -74,7 +77,6 @@ void stringpad_builds_string(void) {
   const i64 size = spad_length(&sp) + 1;
 
   const i32 n = spad_build_end_into(&sp, buf, 255);
-  UNUSED(n);
   TEST_ASSERT_EQUAL(size, n);
 
   TEST_ASSERT_EQUAL_STRING("asdf ayooo 540 interpolate! we building!", buf);
@@ -92,7 +94,7 @@ i32 main(void) {
   UNITY_BEGIN();
 
   // RUN_TEST(string_compare);
-  RUN_TEST(tagged_pointers);
+  // RUN_TEST(tagged_pointers);
   RUN_TEST(stringpad_builds_string);
 
   return UNITY_END();

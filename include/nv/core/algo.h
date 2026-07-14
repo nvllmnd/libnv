@@ -352,7 +352,7 @@ typedef BytesOf(f64) Float64Bytes;
 /// @param (i64 dest_count) :: The current number of characters in dest string, not including null terminal (if any)
 /// @param (i64* out_new_count) new count of destination string, not including null character. You can use this value to
 /// pass to the next invokation of this function using same original destination string
-NvError try_stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen, i64* out_new_count)
+NvError try_stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen, i32* out_new_count)
     PARAMS_NONNULL(1, 4);
 
 /// @brief fastpath version of [try_stringcat]
@@ -362,7 +362,7 @@ NvError try_stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src
 /// dest buffer, truncating it if it doesnt
 /// @returns  new character count of destination string, not including null terminal. You can use this value to
 /// pass to the next invokation of stringcat
-i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) PARAMS_NONNULL(1, 4);
+i64 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) PARAMS_NONNULL(1, 4);
 
 /// A safe version of the standard lib: [strlen], which technically may never
 /// return if the passed in string never contains a null character to signal
@@ -436,10 +436,10 @@ void* ptr_expect_(const void* ptr, const char* msg);
 /// @brief Determines printf-style format string resulting length, excluding null-terminator
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
-sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va_list args) PARAMS_NONNULL(1, 4);
+sslice vfconcat(char* dest, i32 dest_len, const char* fmt, va_list args) PARAMS_NONNULL(1, 4);
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
-sslice fconcat(char* dest, i64 dest_len, i64 dest_capaccity, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(4, 5);
+sslice fconcat(char* dest, i32 dest_len, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(3, 4);
 
 
 #ifndef __cplusplus

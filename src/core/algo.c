@@ -228,17 +228,18 @@ sslice sslice_from_range(const char* string, const isize from, const isize to) {
   return sslice_new(.begin = begin, .len = slice_len);
 }
 
-static inline i64 stringcat_impl(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) {
-  const i64 size = dest_count + srclen;
+static inline i64 stringcat_impl(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
+
+  const i32 size = min(dest_count + srclen, dest_size);
+
   if (size >= dest_size) {
     LOG_ERROR("Size: %li overflows destination size: %li!", size, dest_size);
    return -1; 
   }
-  assert(size < dest_size);
 
   if (dest[dest_count] != 0) {
-    const i64 i = find_term(dest);
-    LOG_FATAL("Null term for string: %.*s is at index %li, not index: %li!", (i32)i, dest, i, dest_count);
+    const i32 i = find_term(dest);
+    LOG_FATAL("Null term for string: %.*s is at index %d, not index: %d!", (i32)i, dest, i, dest_count);
   }
 
   char* begin = &dest[dest_count];
@@ -249,8 +250,8 @@ static inline i64 stringcat_impl(char* dest, i64 dest_count, i64 dest_size, cons
   return size;
 }
 
-NvError try_stringcat(char* dest, const i64 dest_count, const i64 dest_size, const char* src, const i64 srclen,
-                      i64* out_new_count) {
+NvError try_stringcat(char* dest, const i32 dest_count, const i32 dest_size, const char* src, const i32 srclen,
+                      i32* out_new_count) {
   NvError err = NVOK;
 
   if UNLIKELY (is_null(dest)) {
@@ -298,59 +299,35 @@ NvError try_stringcat(char* dest, const i64 dest_count, const i64 dest_size, con
   return NVOK;
 }
 
-i64 stringcat(char* dest, i64 dest_count, i64 dest_size, const char* src, i64 srclen) {
+i64 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 srclen) {
   assert(dest);
   assert(src);
-  const i64 count = min(dest_count + srclen, dest_size);
-
-  if UNLIKELY (count > dest_size) {
-    LOG_ERROR(
-        "Cannot concat source string: %.*s of length: %li, into destination string: %.*s with capacity: %li bytes!",
-        (i32)dest_count, dest, dest_count, (i32)srclen, src, dest_size);
-    return -1;
-  }
+  
 
   return stringcat_impl(dest, dest_count, dest_size, src, srclen);
 }
 
-sslice vfconcat(char* const dest, i64 dest_len, const i64 dest_cap, const char* const fmt, va_list args) {
+sslice vfconcat(char* const dest, i32 dest_len, const char* const fmt, va_list args) {
   assert(dest);
   assert(dest_len >= 0);
-  assert(dest_cap > 0);
   assert(fmt);
 
-  DERR("About to concat!");
-
-  if (dest[dest_len] != 0) {
-    const i64 i = find_term(dest);
-
-    LOG_ERROR("vfconcat dest string: %.*s null character does not exist at index: %li, but at index: %li instead!",
-              (i32)i, dest, dest_len, i);
-
-    dest_len = i;
-  }
-
-  char* buf = &dest[dest_len];
-  assert(*buf == 0);
-
-  const i64 size = dest_cap - dest_len;
-  assert(size >= 0);
-
-  const i64 n = stbsp_vsnprintf(buf, size, fmt, args);
+  LOG("Formatting no more than %d bytes into buffer with format string: %s", dest_len, fmt);
+  const i32 n = stbsp_vsnprintf(dest, dest_len, fmt, args);
 
   if UNLIKELY (n <= 0) {
     LOG_FATAL("Error occurred while formatting string: %s before concatenating to destination string: %.*s", fmt,
               (i32)dest_len, dest);
   }
 
-  return sslice_new(.begin = dest, .len = dest_len + n);
+  return sslice_new(.begin = dest, .len = n);
 }
 
-sslice fconcat(char* dest, i64 dest_size, const i64 dest_cap, const char* fmt, ...) {
+sslice fconcat(char* dest, i32 dest_size, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
 
-  const sslice sl = vfconcat(dest, dest_size, dest_cap, fmt, args);
+  const sslice sl = vfconcat(dest, dest_size, fmt, args);
 
   va_end(args);
   return sl;

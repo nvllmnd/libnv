@@ -91,71 +91,50 @@ i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len) {
   self->inuse = false;
   return n;
 }
+
 sslice spad_nappend(StringPad* self, const char* s, i32 len) {
   assert(self);
   assert(s);
   assert(len > 0);
+
   assert_inuse(self);
 
   const i64 avail = spad_available(self);
-
   const i64 size = min(len, avail);
 
-  // strncat((char*)self->mem.cursor, s, size - 1);
 
   char* begin = self->begin;
   const i64 slen = spad_length(self);
   const i64 cap = spad_capacity(self);
 
 
-  // if (begin[slen] != 0) {
-  //   LOG_FATAL("Cannot append source string: %.*s into dest string: %.*s. end character at index: %d, but %c resides at that location instead!", len, s, (i32)slen, begin, );
-  // }
+  assert(self->cursor == &begin[slen] && "Sanity check!");
 
   const i64 full_len = stringcat(begin, slen, cap, s, size);
+
   if UNLIKELY (full_len < 0) {
     LOG_ERROR("Failed to concatenate string for StringPad! %.*s, len: %li with source string: %.*s (len: %li)",
               (i32)slen, begin, slen, (i32)size, s, size);
     return sslice_empty();
   }
 
-  // update VArena cursor for future used/cap/size calculations
-  self->cursor += size;
-  return sslice_new(.begin = begin, .len = full_len);
+  const sslice sl = sslice_new(.begin = self->cursor, .len = len);
 
-  // // NOTE: we want to allocate -1 full requested size,
-  // // so that when we write a null character to the end of this appended string,
-  // // that null character will get overwritten by the next append (if any).
-  // // the size is truncated to available size if this string is too long, minus 1 to account for
-  // // terminal null character,
-  // const i64 full_size = min(len + 1, avail - 1);
+  self->cursor += len;
 
-  // // dont tell allocator about the null character
-  // // NOTE: This is kind of hacky, but i lowkey like it lol, what wrong with a public struct eh?? =P
-  // char* str = va_allocate(&self->mem, mlayout_bytes(full_size - 1));
-  // if UNLIKELY (is_null(str)) {
-  //   LOG_ERROR("Failed to append string %.*s into StringPad with only %li bytes available", len, s,
-  //             va_available(&self->mem));
-  //   return sslice_empty();
-  // }
+  return sl;
 
-  // strncpy(str, s, full_size - 1);
-  // // ensure we always  have a null character at the end of this string-pads build string
-  // str[full_size] = 0;
-
-  // return sslice_new(.begin = str, .len = full_size - 1);
 }
 
 
 sslice spad_vfappend(StringPad* self, const char* fmt, va_list args) {
-  char* dst = self->begin;
-  i64 dlen = spad_length(self);
-  const i64 cap = spad_capacity(self);
+  const i64 cap_full = spad_capacity(self);
+  const i32 cap = cap_full >= INT32_MAX ? INT32_MAX - 1: cap_full;
 
+  const sslice sl = vfconcat(self->cursor, cap, fmt, args);
 
-  
-  const sslice sl = vfconcat(dst, dlen,  cap, fmt, args);
-  self->cursor = self->begin + sl.len;
+  self->cursor += sl.len;
+
   return sl;
 }
 
