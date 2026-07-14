@@ -445,6 +445,7 @@ static inline isize stringlen(const char* string) { return str_len(string, STRLE
 PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
+#endif // ifndef __cplusplus
 
 
 BEGIN_C_DECLS
@@ -458,6 +459,8 @@ sslice vfconcat(char* dest, i64 dest_len, i64 dest_capacity, const char* fmt, va
 sslice fconcat(char* dest, i64 dest_len, i64 dest_capaccity, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(4, 5);
 
 
+#ifndef __cplusplus
+
 static constexpr const i32 ONE = 1;
 #define IS_BIG_ENDIAN() ((*(char*)&ONE) == 0)
 
@@ -468,6 +471,7 @@ PURE_FUNC
 Endianness endianness(void);
 
 #endif // ifndef __cplusplus
+
 
 
 PURE_FUNC
