@@ -34,7 +34,7 @@
 
 #define assert_debug(_expr, _fmt, ...) do {\
   if (!(_expr)) {\
-    std::cerr << "In file: " << __FILE__ << " @func: " << __PRETTY_FUNCTION__ << " => "  << std::format(_fmt __VA_OPT__(,) __VA_ARGS__) << "\n"; \
+  fprintf(stderr, "[%s:%d]::%s => " _fmt, __FILE__, __LINE__, __PRETTY_FUNCTION__ __VA_OPT__(,) __VA_ARGS__); \
     std::terminate(); \
   }\
 } while(0)
