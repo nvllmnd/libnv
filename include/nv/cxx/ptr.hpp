@@ -7,7 +7,7 @@
 
 #ifdef __cplusplus
 
-namespace nv {
+namespace nv::ptr {
 
 /// @brief a lightweight Slice of T
 /// @details this type does not consider complex move semantics or RAII types and as such,

@@ -6,7 +6,7 @@
 
 #ifdef __cplusplus
 
-namespace nv::nv {
+namespace nv::opt {
 /// @brief an Optional value over T, or None (Opt<T>::None)
 template <typename T>
 struct Opt {
