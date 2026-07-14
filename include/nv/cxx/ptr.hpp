@@ -4,6 +4,7 @@
 
 #include "nv/core/log.h"
 #include "opt.hpp"
+#include "slice.hpp"
 
 #ifdef __cplusplus
 
@@ -188,14 +189,14 @@ struct Ptr {
   constexpr Ptr<byte> byte_cast() & noexcept { return this->cast<byte>(); }
   constexpr Ptr<const byte> cbyte_cast() const& noexcept { return this->cast<const byte>(); }
 
-  constexpr Slice<byte> as_bytes() & noexcept {
+  constexpr slice::Slice<byte> as_bytes() & noexcept {
     return {
         .data = std::bit_cast<byte*>(this->data),
         .count = sizeof(T),
     };
   }
 
-  constexpr Slice<const byte> as_cbytes() const& noexcept {
+  constexpr slice::Slice<const byte> as_cbytes() const& noexcept {
     return {
         .data = std::bit_cast<const byte*>(this->data),
         .count = sizeof(T),
