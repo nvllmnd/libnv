@@ -4,9 +4,6 @@
 
 #pragma once
 
-
-
-
 /// A String slice, consisting of a pointer to the beginning of
 /// the slice and a length
 ///
@@ -25,10 +22,8 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
-
 #define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
 #define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
-
 
 // C++ Support.
 //
@@ -39,14 +34,13 @@ struct sslice {
   i64 len;
 };
 
-#define sslice_new(...) ({\
-  const sslice _res {__VA_ARGS__};\
-  _res;\
-})
+#define sslice_new(...)             \
+  ({                                \
+    const sslice _res{__VA_ARGS__}; \
+    _res;                           \
+  })
 
 #endif
-
-
 
 #ifndef __cplusplus
 
@@ -59,11 +53,6 @@ struct sslice {
 };
 typedef struct sslice sslice;
 
-struct StaticString {
-  StringSliceData;
-};
-typedef struct StaticString StaticString;
-
 #define sslice_new(...) ((sslice){__VA_ARGS__})
 
 #define sslice_static_new(static_str)                                      \
@@ -74,22 +63,12 @@ typedef struct StaticString StaticString;
 
 #define sslice_empty() (sslice_new())
 
-#define static_string(_ss)                                                                                \
-  ({                                                                                                      \
-    static_assert(HEDLEY_IS_CONSTANT((_ss)), "Static Strings can only be created with string literals!"); \
-    (StaticString){.begin = (_ss), .len = (sizeof((_ss)) - 1)};                                           \
-  })
-
 #define empty_string() static_string("")
 #define sstring_new static_string
-
 
 #endif
 
 BEGIN_C_DECLS
-
-PURE_FUNC
-static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
 
 PURE_FUNC
 static inline bool sslice_is_empty(sslice self) { return self.begin == nullptr || self.len <= 0; }
@@ -125,6 +104,21 @@ i32 sslice_cmp(sslice left, sslice right);
 PURE_FUNC
 bool sslice_eq(sslice left, sslice right);
 
+#ifndef __cplusplus
+
+struct StaticString {
+  StringSliceData;
+};
+typedef struct StaticString StaticString;
+
+#define static_string(_ss)                                                                                \
+  ({                                                                                                      \
+    static_assert(HEDLEY_IS_CONSTANT((_ss)), "Static Strings can only be created with string literals!"); \
+    (StaticString){.begin = (_ss), .len = (sizeof((_ss)) - 1)};                                           \
+  })
+
+PURE_FUNC
+static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
 PURE_FUNC
 static inline bool sstring_cmp(StaticString lhs, StaticString rhs) {
   const auto left = sstring_slice(lhs);
@@ -139,6 +133,6 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
   return sslice_eq(left, right);
 }
 
-
+#endif  // #ifndef __cplusplus
 
 END_C_DECLS
