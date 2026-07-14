@@ -50,15 +50,9 @@ StringPad spad_new(char* begin, char* end) {
   assert(begin < end);
   const i64 size_bytes = end - begin;
 
-  assert(size_bytes > 0);
-  Vallocator mem = va_new(size_bytes);
-  if UNLIKELY (!va_isok(&mem)) {
-    LOG_ERROR("Filed to create VArena of size: %li bytes!", size_bytes);
-    return zeroed(StringPad); 
-  }
-
   return (StringPad){.inuse = false, .begin = begin, .cursor = begin, .end = begin + size_bytes};
 }
+
 void spad_build_start(StringPad* self) {
   assert(self);
   assert_not_inuse(self);
