@@ -94,8 +94,16 @@ i64 spad_build_end_into(StringPad* self, char* buff_out, i64 buff_len) {
 
 sslice spad_nappend(StringPad* self, const char* s, i32 len) {
   assert(self);
-  assert(s);
-  assert(len > 0);
+
+  if UNLIKELY (len < 0) {
+    LOG_ERROR("expected non-negative length but got: %d!", len);
+    return sslice_empty();
+  }
+
+  if UNLIKELY (is_null(s)) {
+    LOG_ERROR("Cannot append null string!");
+    return sslice_empty();
+  }
 
   assert_inuse(self);
 
