@@ -232,11 +232,6 @@ static inline i64 stringcat_impl(char* dest, i32 dest_count, i32 dest_size, cons
 
   const i32 size = min(dest_count + srclen, dest_size);
 
-  if (size >= dest_size) {
-    LOG_ERROR("Size: %li overflows destination size: %li!", size, dest_size);
-   return -1; 
-  }
-
   if (dest[dest_count] != 0) {
     const i32 i = find_term(dest);
     LOG_FATAL("Null term for string: %.*s is at index %d, not index: %d!", (i32)i, dest, i, dest_count);
