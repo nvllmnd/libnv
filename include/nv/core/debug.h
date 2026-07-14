@@ -5,31 +5,50 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
-BEGIN_C_DECLS
+
 
 #if LIBNV_DEBUG == 1
 
+
+#ifdef __cplusplus
+
+#include <exception>
+
+#include <iostream>
+#include <format>
+
+
+#if HEDLEY_HAS_BUILTIN(__builtin_trap)
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() __builtin_trap()
+#endif  // ifndef EXIT_FATAL
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() std::terminate()
+
+#endif  // ifndef EXIT_FATAL
+#endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
+
+
+
+
+
+#define assert_debug(_expr, _fmt, ...) do {\
+  if (!(_expr)) {\
+    std::cerr << std::format(_fmt __VA_OPT__(,) __VA_ARGS__) << "\n"; \
+    std::terminate(); \
+  }\
+} while(0)
+
+
+
+
+#endif // ifdef __cplusplus
+
+
+#ifndef __cplusplus
+
 #include <assert.h>
 
-#define IF_DEBUG(x) x
-#define IF_RELEASE(x)
-#define ASSERT_PTR(_p) assert((_p))
-
-#define assert_debug assert
-
-#else
-
-#include "nv/core/algo.h"
-
-#define IF_DEBUG(x)
-#define IF_RELEASE(x) x
-#define ASSERT_PTR(_p) punwrap(_p)
-
-#define assert_debug
-
-#endif  // if LIBNV_DEBUG == 1
-
-#include "hedley.h"
 
 #if HEDLEY_HAS_BUILTIN(__builtin_trap)
 #ifndef EXIT_FATAL
@@ -39,6 +58,31 @@ BEGIN_C_DECLS
 #define EXIT_FATAL() abort()
 #endif  // ifndef EXIT_FATAL
 #endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
+
+
+#define IF_DEBUG(x) x
+#define IF_RELEASE(x)
+#define ASSERT_PTR(_p) assert((_p))
+
+#define assert_debug(_expr, _fmt, ...) do {\
+  if (!(_expr)) {\
+    log_fatal(_fmt, __VA_OPT__(,) __VA_ARGS__);\
+    EXIT_FATAL(); \
+  }\
+} while(0)
+
+
+
+#endif // ifndef __cplusplus
+
+
+
+#endif // if LIBNV_DEBUG == 1
+
+
+
+
+
 
 #define TODO_MSG(_msg, ...) (log_fatal(_msg __VA_OPT__(, ) __VA_ARGS__))
 
@@ -57,4 +101,6 @@ BEGIN_C_DECLS
 
 #define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
 
-END_C_DECLS
+
+
+
