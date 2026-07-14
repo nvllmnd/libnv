@@ -168,7 +168,7 @@
 #ifndef offsetof
 #define offsetof(T, _m) ((isize)(&((T*)0)->_m))
 #endif
-BEGIN_C_DECLS
+
 
 #define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
 
@@ -445,6 +445,11 @@ static inline isize stringlen(const char* string) { return str_len(string, STRLE
 PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
+#endif // ifndef __cplusplus
+
+
+BEGIN_C_DECLS
+
 /// @brief Determines printf-style format string resulting length, excluding null-terminator
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
@@ -469,4 +474,3 @@ bool is_big_endian(void);
 
 END_C_DECLS
 
-#endif
