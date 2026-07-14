@@ -5,9 +5,7 @@
 #pragma once
 
 
-BEGIN_C_DECLS
 
-#ifndef __cplusplus
 
 /// A String slice, consisting of a pointer to the beginning of
 /// the slice and a length
@@ -26,6 +24,8 @@ BEGIN_C_DECLS
 ///
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
+
+BEGIN_C_DECLS
 
 #define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
 #define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
@@ -119,15 +119,19 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
 // C++ Support.
 //
 
-#else
+#ifdef __cplusplus
 
 struct sslice {
   const char* begin;
   i64 len;
 };
 
-#define sslice_new(...) (sslice(__VA_ARGS__))
+#define sslice_new(...) ({\
+  const sslice _res {__VA_ARGS__};\
+  _res;\
+})
 
 #endif
+
 
 END_C_DECLS

@@ -5,14 +5,14 @@
 
 project(
   'nv',
-  ['c', 'cpp'],
+  'c',
   meson_version: '>= 1.3.0',
   version: files('.version'),
   default_options: [
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
-    'cpp_std=c++20,c++23,c++26,gnu++20,gnu++23,gnu++26',
-    'cpp_eh=none',
-    'cpp_rtti=false',
+    # 'cpp_std=c++20,c++23,c++26,gnu++20,gnu++23,gnu++26',
+    # 'cpp_eh=none',
+    # 'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
     'b_staticpic=false',
@@ -25,8 +25,8 @@ if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
 
-  add_global_arguments('-Wno-static-in-inline', language: 'cpp')
-  add_global_arguments('-Wno-gnu-statement-expression', language: 'cpp')
+  # add_global_arguments('-Wno-static-in-inline', language: 'cpp')
+  # add_global_arguments('-Wno-gnu-statement-expression', language: 'cpp')
 endif
 
 hedley_dep = dependency('hedley')

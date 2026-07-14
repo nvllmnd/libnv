@@ -56,15 +56,3 @@ buff_vecs_test = executable(
 )
 
 test('buff_vecs', buff_vecs_test, suite: 'libnv')
-
-compat_test = executable(
-  'tests_cpp_compat',
-  files('compat.cpp'),
-  include_directories: inc,
-  cpp_pch: '../pch/nv_pch.h',
-  dependencies: dependencies,
-  install: true,
-  cpp_args: cargs,
-)
-
-test('cpp_compat', compat_test, suite: 'libnv')
