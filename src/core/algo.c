@@ -61,7 +61,7 @@ u64 fnv_hash64(const char* string, isize len) {
   return hash;
 }
 
-isize str_len(const char* string, isize max_len) {
+i32 str_len(const char* string, isize max_len) {
   if UNLIKELY (is_null(string)) {
     return 0;
   }

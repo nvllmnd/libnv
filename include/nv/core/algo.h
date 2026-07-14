@@ -385,13 +385,13 @@ i32 stringcat(char* dest, i32 dest_count, i32 dest_size, const char* src, i32 sr
 ///
 ///
 PURE_FUNC
-isize str_len(const char* string, isize max_len);
+i32 str_len(const char* string, isize max_len);
 
 /// Same as [stringlen], forwards @param (string) to [stringlen], passing
 /// [STRLEN_UPPER_BOUND]([INT32_MAX -1]) as the second parameter
 /// @details reutrns number of characters in string, not including null terminator
 PURE_FUNC
-static inline isize stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
+static inline i32 stringlen(const char* string) { return str_len(string, STRLEN_UPPER_BOUND); }
 
 PURE_FUNC
 bool stringeq(const char* left, const char* right);

@@ -107,7 +107,15 @@ sslice spad_nappend(StringPad* self, const char* s, i32 len) {
 
   assert_inuse(self);
 
-  const i32 avail = (i32)spad_available(self);
+  i64 avail = spad_available(self);
+
+  if (avail >= INT32_MAX) {
+    LOG_ERROR("INT OVERFLOW!!");
+    avail = INT32_MAX - 1;
+  } else if (avail < 0) {
+    LOG_ERROR("INT UNDERFLOW!");
+    avail = 0;
+  }
   const i32 size = min(len, avail);
 
 

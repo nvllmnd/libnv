@@ -22,8 +22,8 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
-#define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
-#define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
+#define SSPREAD(slice) ((slice).begin), ((slice).len)
+#define RSSPREAD(slice) ((slice).len), ((slice).begin)
 
 // C++ Support.
 //
@@ -31,7 +31,7 @@
 
 struct sslice {
   const char* begin;
-  i64 len;
+  i32 len;
 };
 
 #define sslice_new(...)             \
@@ -46,7 +46,7 @@ struct sslice {
 
 #define StringSliceData \
   const char* begin;    \
-  i64 len
+  i32 len
 
 struct sslice {
   StringSliceData;
