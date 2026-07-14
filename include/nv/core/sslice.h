@@ -25,10 +25,30 @@
 #include "nv/core/attributes.h"
 #include "nv/core/intdefs.h"
 
-BEGIN_C_DECLS
 
 #define SSPREAD(slice) ((slice).begin), ((i32)(slice).len)
 #define RSSPREAD(slice) ((i32)(slice).len), ((slice).begin)
+
+
+// C++ Support.
+//
+#ifdef __cplusplus
+
+struct sslice {
+  const char* begin;
+  i64 len;
+};
+
+#define sslice_new(...) ({\
+  const sslice _res {__VA_ARGS__};\
+  _res;\
+})
+
+#endif
+
+
+
+#ifndef __cplusplus
 
 #define StringSliceData \
   const char* begin;    \
@@ -63,6 +83,10 @@ typedef struct StaticString StaticString;
 #define empty_string() static_string("")
 #define sstring_new static_string
 
+
+#endif
+
+BEGIN_C_DECLS
 
 PURE_FUNC
 static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
@@ -115,23 +139,6 @@ static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
   return sslice_eq(left, right);
 }
 
-
-// C++ Support.
-//
-
-#ifdef __cplusplus
-
-struct sslice {
-  const char* begin;
-  i64 len;
-};
-
-#define sslice_new(...) ({\
-  const sslice _res {__VA_ARGS__};\
-  _res;\
-})
-
-#endif
 
 
 END_C_DECLS
