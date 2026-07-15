@@ -12,9 +12,10 @@
 
 #include "nv/memory/error.h"
 
+#include "nv/core/sslice.h"
+
 #ifndef __cplusplus
 
-#include "nv/core/sslice.h"
 
 #define SLOG_DBG(slice) (sprintln((slice)))
 #define SELOG_DBG(slice) (seprintln((slice)))
