@@ -68,7 +68,7 @@ extern FILE* NV_ERR_STREAM;
 #define eprintln(fmt, ...) (println_fd(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 
 
-#if defined(__cpp_lib_print) && __cpp_lib_print >= 202403L
+#if defined(__cpp_lib_print) && __cpp_lib_print >= 202207L
 
 #define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
@@ -88,7 +88,7 @@ extern FILE* NV_ERR_STREAM;
 #define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprintln(fmt, ...) (println_fd(stderr, fmt, __VA_ARGS__))
 
-#if defined(__cpp_lib_print) && __cpp_lib_print >= 202403L
+#if defined(__cpp_lib_print) && __cpp_lib_print >= 202207L
 
 
 #define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
