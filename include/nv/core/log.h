@@ -64,17 +64,44 @@ FormatError format_with(char* dst, isize dst_len, const char* fmt, ...);
 extern FILE* NV_LOG_STREAM;
 extern FILE* NV_ERR_STREAM;
 
-#define print(fmt, ...) (print_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprint(fmt, ...) (fprintf(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define println(fmt, ...) (println_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprintln(fmt, ...) (println_fd(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+
+
+#if defined(__cpp_lib_print) && __cpp_lib_print >= 202403L
+
+#define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
 
 #else
 
 #define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+
+#endif
+
+#define println(fmt, ...) (println_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define print(fmt, ...) (print_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+
+#else
+
+#define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprintln(fmt, ...) (println_fd(stderr, fmt, __VA_ARGS__))
+
+#if defined(__cpp_lib_print) && __cpp_lib_print >= 202403L
+
+
+#define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+
+#else
+
+#define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+
+#endif
+
+
 
 #endif
 
