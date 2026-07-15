@@ -6,17 +6,18 @@
 #include "nv/core/debug.h"
 #include "nv/core/intdefs.h"
 #include "opt.hpp"
+#include "slice.hpp"
 
 #ifdef __cplusplus
 
-namespace nv {
+namespace nv::alloc {
 
 /// @brief type alias for a contiguous block of T
 template <typename T>
-using Mem = Slice<T>;
+using Mem = nv::slice::Slice<T>;
 
 /// @brief type alias for a contiguous block of bytes
-using MemBytes = Slice<byte>;
+using MemBytes = nv::slice::Slice<byte>;
 
 struct Layout {
   u64 size;
