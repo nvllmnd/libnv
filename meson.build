@@ -1,18 +1,16 @@
 # SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
-# SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>--license=GPL-3.0-or-later
-#
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 project(
   'nv',
-  'c',
+  ['c', 'cpp'],
   meson_version: '>= 1.3.0',
   version: files('.version'),
   default_options: [
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
-    # 'cpp_std=c++20,c++23,c++26,gnu++20,gnu++23,gnu++26',
-    # 'cpp_eh=none',
-    # 'cpp_rtti=false',
+    'cpp_std=c++23,c++26,gnu++23,gnu++26',
+    'cpp_eh=none',
+    'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
     'b_staticpic=false',

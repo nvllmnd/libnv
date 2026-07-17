@@ -52,6 +52,34 @@ struct Result {
 
   constexpr bool operator!=(const Result<T, E>& other) const noexcept { return !(*this == other); }
 
+  constexpr T* operator->() & noexcept {
+    assert_debug(this->is_ok(),
+                 "dereferencing a Result that contains an error value is UB! This check is only done in debug builds "
+                 "BE CAREFUL and have fun! :D");
+    return &this->okv;
+  }
+
+  constexpr const T* operator->() const& noexcept {
+    assert_debug(this->is_ok(),
+                 "dereferencing a Result that contains an error value is UB! This check is only done in debug builds "
+                 "BE CAREFUL and have fun! :D");
+    return &this->okv;
+  }
+
+  constexpr T& operator*() & noexcept {
+    assert_debug(this->is_ok(),
+                 "dereferencing a Result that contains an error value is UB! This check is only done in debug builds "
+                 "BE CAREFUL and have fun! :D");
+    return this->okv;
+  }
+
+  constexpr const T& operator*() const& noexcept {
+    assert_debug(this->is_ok(),
+                 "dereferencing a Result that contains an error value is UB! This check is only done in debug builds "
+                 "BE CAREFUL and have fun! :D");
+    return this->okv;
+  }
+
   /// @brief creates Result<T> with given value
   /// @details Result is considered to not have an error, for a version that creates a Result<T, E> with an error value,
   /// @see [Result<T,E>::error]
