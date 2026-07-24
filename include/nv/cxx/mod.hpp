@@ -8,6 +8,14 @@
 #include "ptr.hpp"
 #include "convert.hpp"
 
+#include "slice.hpp"
+
+#include "string.hpp"
+
+#include "vmem.hpp"
+
+#include "defer.hpp"
+
 #endif
 
 #ifndef __cplusplus

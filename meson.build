@@ -109,6 +109,22 @@ memory_dep = declare_dependency(
 
 dependencies += memory_dep
 
+cxx_lib = static_library(
+  'nv_cxx',
+  files('src/cxx/vmem.cpp'),
+  include_directories: inc,
+  dependencies: dependencies,
+  install: true,
+  cpp_pch: 'pch/nv_pch.hpp',
+)
+
+cxx_dep = declare_dependency(
+  include_directories: inc,
+  link_with: cxx_lib,
+)
+
+dependencies += cxx_dep
+
 nv_lib = library(
   'nv',
   # 'src/main.c',

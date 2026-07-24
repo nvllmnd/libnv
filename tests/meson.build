@@ -56,3 +56,15 @@ buff_vecs_test = executable(
 )
 
 test('buff_vecs', buff_vecs_test, suite: 'libnv')
+
+templates_test = executable(
+  'templates_tests',
+  files('../tests/templates.cpp'),
+  include_directories: inc,
+  cpp_pch: '../pch/nv_pch.hpp',
+  dependencies: dependencies,
+  install: true,
+  c_args: cargs,
+)
+
+test('template_tests_cpp', templates_test, suite: 'libnv')

@@ -15,7 +15,6 @@
 #ifdef __cplusplus
 
 #define BEGIN_C_DECLS extern "C" {
-
 #define END_C_DECLS }
 
 #else
@@ -82,7 +81,6 @@
 #else
 #define nv_nodiscard_msg(_m)
 #define no_nodiscard
-#define constexpr
 #endif
 
 #ifndef LIBNV_USE_SHORT_ATTRIBUTE_NAMES

@@ -2,10 +2,7 @@
 
 #include "nv/core/intdefs.h"
 
-
 #include "nv/core/log.h"
-
-
 
 namespace nv::slice {
 
@@ -149,6 +146,10 @@ struct Slice {
 /// @brief a constant view into a slice characters
 using Str = Slice<const char>;
 
-  
-}
+template <typename T>
+Slice(T*, i32) -> Slice<T>;
 
+template <typename T>
+Slice(const T*, i32) -> Slice<const T>;
+
+}  // namespace nv::slice

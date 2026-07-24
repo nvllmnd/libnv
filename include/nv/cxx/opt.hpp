@@ -7,35 +7,47 @@
 #ifdef __cplusplus
 
 namespace nv::opt {
+
+struct NoneType {
+  enum struct Id { Token };
+
+  constexpr NoneType(Id) noexcept {}
+};
+
+inline constexpr NoneType None = NoneType{NoneType::Id::Token};
+
 /// @brief an Optional value over T, or None (Opt<T>::None)
 template <typename T>
 struct Opt {
-  static_assert(std::is_standard_layout_v<T> && std::is_trivial_v<T>,
-                "Type parameter for Opt must satisfy std::is_standard_layout && std::is_trivial!");
-
   using Some = T;
 
-  struct None {};
-  bool has_none : 1;
+  consteval Opt() noexcept : nonev(None), has_some(false) {}
+  constexpr Opt(NoneType) noexcept : nonev(None), has_some(false) {}
+  constexpr explicit Opt(const T& val) noexcept : somev(val), has_some(true) {}
 
-  union {
-    None nonev;
-    T somev;
-  };
+  // constexpr ~Opt() noexcept
+  //   requires(!std::is_trivially_destructible_v<T>)
+  // {}
 
-  static constexpr Opt<T> some(T val) noexcept { return Opt<T>{.has_none = false, .somev = val}; }
-  static constexpr Opt<T> none() noexcept { return Opt<T>{.has_none = true, .nonev = None{}}; }
+  constexpr Opt<T>& operator=(const T& val) noexcept {
+    if (this->is_some() && this->somev != val) {
+      this->somev = val;
+    }
+    return *this;
+  }
 
-  static consteval Opt<T> csome(T val) noexcept { return Opt<T>{.has_none = false, .somev = val}; }
-  static consteval Opt<T> cnone() noexcept { return Opt<T>{.has_none = true, .nonev = None{}}; }
+  constexpr Opt<T>& operator=(const NoneType& nv) noexcept
+    requires std::is_trivially_destructible_v<T>
+  {
+    this->nonev = nv;
+    return *this;
+  }
 
   constexpr operator bool() const noexcept { return this->is_some(); }
 
-  constexpr bool is_some() const noexcept { return !this->has_none; }
-  consteval bool cis_some() const noexcept { return !this->has_none; }
+  constexpr bool is_some() const noexcept { return this->has_some; }
 
-  constexpr bool is_none() const noexcept { return this->has_none; }
-  consteval bool cis_none() const noexcept { return !this->has_none; }
+  constexpr bool is_none() const noexcept { return !this->has_some; }
 
   /// @brief returns a copy of inner value, if any
   /// @details this method does no checking to ensure this Opt acutally contains a value,
@@ -63,26 +75,24 @@ struct Opt {
     LOG_FATAL("Cannot unwrap Opt containing None value!");
   }
 
-  /// @brief compile-time version of [Opt<T>::unwrap]
-  /// @details there is no compile-time version of [Opt<T>::expect],
-  /// as the check in this method is done at compile-time
-  consteval T cunwrap() const& noexcept {
-    if constexpr (this->cis_some()) [[likely]] {
-      return this->somev;
-    } else {
-      // NOTE: we just want to trigger compile error/failure, so this throw
-      // never actually happens or ever gets compiled into resulting binary
-      throw "cannot unwrap Opt with None value!";
-    }
-  }
-
   /// @brief returns pointer to inner some value, if any
   /// @detail if this is called when there is no value in this option, behavior is undefined
-  constexpr T* operator->() noexcept { return &this->somev; }
+  constexpr const T* operator->() const& noexcept { return &this->somev; }
 
   /// @brief returns reference to inner some value, if any
   /// @detail if this is called when there is no value in this option, behavior is undefined
-  constexpr T& operator*() noexcept { return &this->somev; }
+  constexpr const T& operator*() const& noexcept { return &this->somev; }
+
+  /// @brief returns pointer to inner some value, if any
+  /// @detail if this is called when there is no value in this option, behavior is undefined
+  constexpr T* operator->() & noexcept { return &this->somev; }
+
+  /// @brief returns reference to inner some value, if any
+  /// @detail if this is called when there is no value in this option, behavior is undefined
+  constexpr T& operator*() & noexcept { return &this->somev; }
+
+  constexpr bool operator==(const NoneType&) const noexcept { return this->is_none(); }
+  constexpr bool operator!=(const NoneType&) const noexcept { return !this->is_none(); }
 
   /// @brief equality comparison between 2 Opt<T>.
   /// @details for equality, both must be is_none() or is_some(), if both are is_some(),
@@ -106,13 +116,26 @@ struct Opt {
   /// @brief uses given function callback to map value of T to value of U, if any
   /// @details if inner value is None, then a new Opt<U>::none is returned
   template <typename U, typename F>
-  constexpr Opt<U> map(F func) const noexcept {
+  constexpr Opt<U> map(F func) const noexcept
+    requires(std::is_invocable_v<F, const U&>)
+  {
     if (this->is_some()) [[likely]] {
       U val = func(this->ref_unchecked());
       return Opt<U>::some(val);
     }
-    return Opt<U>::none();
+    return opt::None;
   }
+
+  template <typename U>
+  friend struct Opt;
+
+ private:
+  union {
+    NoneType nonev;
+    T somev;
+  };
+
+  bool has_some : 1;
 };
 
 /// @brief alias for an optional pointer.
@@ -128,18 +151,17 @@ using OptRef = Opt<const T&>;
 /// @brief constructor(factory) function for Opt<T> with T val
 /// @details for a version that creates an Opt<T>::none, @see [None]
 template <typename T>
-constexpr Opt<T> Some(T val) noexcept {
-  return Opt<T>::some(val);
+constexpr Opt<T> Some(const T& val) noexcept {
+  return Opt<T>{val};
 }
 
 /// @brief constructor(factory) function for Opt<T> with no value
 /// @details for a version that creates an Opt<T>::none, @see [None]
-template <typename T>
-constexpr Opt<T> None() noexcept {
-  return Opt<T>::none();
-}
 
-}  // namespace nv::nv
+// template <typename T>
+// constexpr Opt<T> None;
+
+}  // namespace nv::opt
 
 #endif  // ifdef __cplusplus
 

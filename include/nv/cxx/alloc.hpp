@@ -71,10 +71,10 @@ struct Layout {
     const u64 new_size = (static_cast<u64>(count) * sizeof(T)) + self.size;
     const u64 align = std::max(alignof(T), self.align);
     if (new_size >= INT64_MAX) {
-      return Opt<Layout>::none();
+      return None;
     }
 
-    return Opt<Layout>::some({.size = new_size, .align = align});
+    return Some(Layout{.size = new_size, .align = align});
   }
 
   template <typename T>
@@ -84,27 +84,6 @@ struct Layout {
 
   Layout extend_bytes(isize size) const noexcept { return Layout::extend<byte>(*this, size); }
 };
-
-template <typename T>
-concept AllocateRaw = requires(T alloc, isize size, void* ptr) {
-  { alloc.allocate_raw(size) } -> std::same_as<void*>;
-  alloc.free_raw(ptr, size);
-};
-
-static_assert(std::is_standard_layout_v<Layout> && std::is_trivial_v<Layout>, "HUH");
-
-template <typename T>
-concept ReallocRaw = (requires(T alloc, isize old_size, isize new_size, void* ptr) {
-                       { alloc.reallocate_raw(ptr, old_size, new_size) } -> std::same_as<void*>;
-                     }) && AllocateRaw<T>;
-
-template <typename T>
-concept ResizeRaw = (requires(T alloc, isize old_size, isize new_size, void* ptr) {
-                      { alloc.resize_raw(ptr, old_size, new_size) } -> std::same_as<bool>;
-                    }) && AllocateRaw<T>;
-
-template <typename T>
-concept AllocatorRaw = AllocateRaw<T> || ReallocRaw<T> || ResizeRaw<T>;
 
 template <typename T>
 concept Allocate = requires(T alloc, Layout layout, MemBytes mem) {
@@ -125,7 +104,7 @@ concept Resize = requires(T alloc, Layout old_layout, Layout new_layout, MemByte
 template <typename T>
 concept Allocator = Allocate<T> || Realloc<T> || Resize<T>;
 
-}  // namespace nv
+}  // namespace nv::alloc
 
 #endif
 
