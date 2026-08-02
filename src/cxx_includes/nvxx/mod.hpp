@@ -2,17 +2,11 @@
 
 #ifdef __cplusplus
 
-#include "opt.hpp"
+namespace nv {}
+
 #include "alloc.hpp"
-#include "result.hpp"
 #include "ptr.hpp"
 #include "convert.hpp"
-
-#include "slice.hpp"
-
-#include "string.hpp"
-
-#include "vmem.hpp"
 
 #include "defer.hpp"
 

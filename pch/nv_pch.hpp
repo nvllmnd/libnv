@@ -30,11 +30,11 @@
 #include <bit>
 #include <concepts>
 
-#include "nv/cxx/alloc.hpp"
-#include "nv/cxx/opt.hpp"
+#include "nvxx/alloc.hpp"
+#include "nvxx/core/opt.hpp"
 
-#include "nv/cxx/result.hpp"
-#include "nv/cxx/defer.hpp"
-#include "nv/cxx/ptr.hpp"
+#include "nvxx/core/result.hpp"
+#include "nvxx/defer.hpp"
+#include "nvxx/ptr.hpp"
 
-#include "nv/cxx/alloc.hpp"
+#include "nvxx/alloc.hpp"

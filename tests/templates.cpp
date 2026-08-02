@@ -3,12 +3,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nv/core/intdefs.h"
-#include "nv/cxx/mod.hpp"
+#include "nvxx/mod.hpp"
 #include "unity.h"
 
 using namespace nv;
-using namespace nv::opt;
-using namespace nv::result;
 using namespace nv::ptr;
 
 void setUp(void) {}
@@ -17,14 +15,14 @@ void tearDown(void) {}
 
 void opt_works_with_nonnull() {
   i32 x = 50;
-  const auto nn = make_nonnull(&x).unwrap();
+  const auto nn = nonnull(&x).value();
   TEST_ASSERT_TRUE(nn.is_not_null());
   *nn = 100;
 
   TEST_ASSERT_EQUAL(100, *nn);
 
   const i32* p = &x;
-  const NonNull<const i32> np = make_nonnull(*p);
+  const NonNull<const i32> np = nonnull(*p);
   TEST_ASSERT_TRUE(np.is_not_null());
 }
 

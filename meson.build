@@ -8,8 +8,9 @@ project(
   version: files('.version'),
   default_options: [
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
-    'cpp_std=c++23,c++26,gnu++23,gnu++26',
+    'cpp_std=gnu++26,gnu++23,gnu++2a,gnu++20',
     'cpp_eh=none',
+    'cpp_debugstl=true',
     'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
@@ -55,9 +56,7 @@ dependencies = [
   hedley_dep,
 ]
 
-inc = include_directories(
-  'include',
-)
+inc = include_directories('include', 'src/cxx_includes')
 
 core_lib = static_library(
   'nv_core',
@@ -75,6 +74,7 @@ core_lib = static_library(
   install: true,
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
+  cpp_args: cargs,
 )
 
 core_dep = declare_dependency(
@@ -100,6 +100,7 @@ memory_lib = static_library(
 
   c_pch: 'pch/nv_pch.h',
   c_args: cargs,
+  cpp_args: cargs,
 )
 
 memory_dep = declare_dependency(
@@ -109,22 +110,21 @@ memory_dep = declare_dependency(
 
 dependencies += memory_dep
 
-cxx_lib = static_library(
-  'nv_cxx',
-  files('src/cxx/vmem.cpp'),
-  include_directories: inc,
-  dependencies: dependencies,
-  install: true,
-  cpp_pch: 'pch/nv_pch.hpp',
-)
-
-cxx_dep = declare_dependency(
-  include_directories: inc,
-  link_with: cxx_lib,
-)
-
-dependencies += cxx_dep
-
+# cxx_lib = static_library(
+#   'nv_cxx',
+#   include_directories: inc,
+#   dependencies: dependencies,
+#   install: true,
+#   cpp_pch: 'pch/nv_pch.hpp',
+# )
+#
+# cxx_dep = declare_dependency(
+#   include_directories: inc,
+#   link_with: cxx_lib,
+# )
+#
+# dependencies += cxx_dep
+#
 nv_lib = library(
   'nv',
   # 'src/main.c',
@@ -133,6 +133,7 @@ nv_lib = library(
   dependencies: dependencies,
   install: true,
   c_args: cargs,
+  cpp_args: cargs,
 )
 
 nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
@@ -140,5 +141,15 @@ nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
 meson.override_dependency('libnv', nv_dep)
 
 dependencies += nv_dep
+
+cxx_exe = executable(
+  'nvxx',
+  files('src/cxx/main.cpp'),
+  include_directories: inc,
+  cpp_pch: 'pch/nv_pch.hpp',
+  dependencies: dependencies,
+  install: true,
+  cpp_args: cargs,
+)
 
 subdir('tests')

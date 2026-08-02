@@ -1,18 +1,15 @@
 #pragma once
 
-#include <bit>
-#include <cstddef>
-#include <memory>
-#include <optional>
+#include <functional>
 #include <type_traits>
 #include <concepts>
 
 #include "nv/core/attributes.h"
 #include "nv/core/debug.h"
 #include "nv/core/log.h"
-#include "nv/cxx/alloc.hpp"
-#include "opt.hpp"
-#include "slice.hpp"
+#include "nvxx/alloc.hpp"
+#include "core/opt.hpp"
+#include "core/slice.hpp"
 
 #ifdef __cplusplus
 
@@ -35,12 +32,6 @@ using lvalue = T&;
 
 template <typename T>
 using rvalue = T&&;
-
-/// @brief alias for a const reference to T
-/// @details there is no alias for non-const references, as they should be used sparingly for implemeting operator
-/// overloads and other such impls
-template <class T>
-using Ref = const T&;
 
 // template <class T>
 // concept Pointer = requires(T p) {
@@ -76,16 +67,16 @@ struct NonNull {
   /// std::ptr::NonNull::<T>::dangling()
   static constexpr NonNull dangling() noexcept { return NonNull{reinterpret_cast<T*>(alignof(T))}; }
 
-  constexpr explicit NonNull(T& val) noexcept : ptr(&val) {}
+  constexpr explicit NonNull(T& val) noexcept : data(&val) {}
 
   template <typename U>
   constexpr explicit NonNull(const NonNull<U>& other) noexcept
     requires(std::is_convertible_v<U*, T*> || std::is_pointer_interconvertible_base_of_v<U*, T*>)
-      : ptr(reinterpret_cast<T*>(other.as_raw())) {}
+      : data(reinterpret_cast<T*>(other.ptr())) {}
 
   /// @brief aborts execution if given nullptr
   constexpr explicit NonNull(T* val) noexcept
-      : ptr(is_not_null(val) ? val : LOG_FATAL("Cannot create a NonNull<T> from a null pointer!")) {}
+      : data(is_not_null(val) ? val : LOG_FATAL("Cannot create a NonNull<T> from a null pointer!")) {}
 
   /// @brief Creates a NonNull pointer to T without checking if it is not null first
   /// @details instance is created by dereferecing the pointer to trigger private constructor
@@ -100,12 +91,12 @@ struct NonNull {
   constexpr T* operator->() const noexcept
     requires(!std::is_void_v<T>)
   {
-    return this->ptr;
+    return this->data;
   }
 
   template <typename U>
   constexpr explicit operator NonNull<U>() const noexcept
-    requires(std::is_convertible_v<T*, U*> || std::is_pointer_interconvertible_base_of_v<T*, U*>)
+    requires(std::is_layout_compatible_v<T, U>)
   {
     return {this->reinterp<U>()};
   }
@@ -113,12 +104,12 @@ struct NonNull {
   constexpr explicit operator T&() const noexcept
     requires(!std::is_void_v<T>)
   {
-    return *this->as_raw();
+    return *this->ptr();
   }
 
   template <typename U>
   constexpr explicit operator U&() const noexcept
-    requires(!std::is_void_v<T>)
+    requires(!std::is_void_v<T> && std::is_layout_compatible_v<T, U>)
   {
     return *this->cast<U>();
   }
@@ -128,74 +119,75 @@ struct NonNull {
   constexpr T& operator*() const noexcept
     requires(!std::is_void_v<T>)
   {
-    return *this->ptr;
+    return *this->data;
   }
   /// @brief same as raw pointer indexing
   constexpr T& operator[](std::ptrdiff_t index) const noexcept
     requires(!std::is_void_v<T>)
   {
-    return *((this->ptr) + index);
+    return *((this->data) + index);
   }
 
   /// @brief same as raw poitner addition
   constexpr NonNull operator+(std::ptrdiff_t index) const noexcept
     requires(!std::is_void_v<T>)
   {
-    return NonNull{*((this->ptr) + index)};
+    return NonNull{*((this->data) + index)};
   }
   /// @brief same as raw pointer subtraction
   constexpr std::ptrdiff_t operator-(const NonNull<T>& other) const noexcept
     requires(!std::is_void_v<T>)
   {
-    return (this->ptr) - (&other.ptr);
+    return (this->data) - (&other.data);
   }
 
   /// @brief returns constant reference to inner pointer
   constexpr const T& as_ref() const noexcept
     requires(!std::is_void_v<T>)
   {
-    return *this->ptr;
+    return *this->data;
   }
 
-  constexpr bool operator==(const NonNull& other) const noexcept { return this->ptr == other.ptr; }
+  constexpr bool operator==(const NonNull& other) const noexcept { return this->data == other.data; }
 
-  constexpr bool operator>(const NonNull& rhs) const noexcept { return this->ptr > rhs.ptr; }
-  constexpr bool operator>=(const NonNull& rhs) const noexcept { return this->ptr >= rhs.ptr; }
+  constexpr bool operator>(const NonNull& rhs) const noexcept { return this->data > rhs.data; }
+  constexpr bool operator>=(const NonNull& rhs) const noexcept { return this->data >= rhs.data; }
 
-  constexpr bool operator<(const NonNull& rhs) const noexcept { return this->ptr < rhs.ptr; }
-  constexpr bool operator<=(const NonNull& rhs) const noexcept { return this->ptr <= rhs.ptr; }
+  constexpr bool operator<(const NonNull& rhs) const noexcept { return this->data < rhs.data; }
+  constexpr bool operator<=(const NonNull& rhs) const noexcept { return this->data <= rhs.data; }
 
   constexpr bool operator!=(const NonNull& rhs) const noexcept { return !(*this == rhs); }
 
   /// @brief returns inner raw pointer
   [[gnu::returns_nonnull]]
-  constexpr T* as_raw() const noexcept {
-    return this->ptr;
+  constexpr T* ptr() const noexcept {
+    return this->data;
   }
 
   template <typename U>
-    requires(std::is_convertible_v<T*, U*> || std::is_pointer_interconvertible_base_of_v<T*, U*>)
+    requires(std::is_layout_compatible_v<T, U>)
   constexpr NonNull<U> cast() const noexcept {
-    auto* p = std::bit_cast<U*>(this->ptr);
+    auto* p = std::bit_cast<U*>(this->data);
     return NonNull<U>{*p};
   }
 
   template <typename U>
-    requires(std::is_convertible_v<T*, U*> || std::is_pointer_interconvertible_base_of_v<T*, U*>)
-  constexpr NonNull<U> reinterp() const noexcept {
-    return NonNull<U>{*reinterpret_cast<U*>(this->ptr)};
+  constexpr NonNull<U> reinterp() const noexcept
+    requires(std::is_layout_compatible_v<T, U>)
+  {
+    return NonNull<U>{*reinterpret_cast<U*>(this->data)};
   }
 
   static consteval bool is_null() noexcept { return false; }
   static consteval bool is_not_null() noexcept { return true; }
 
  private:
-  T* ptr;
+  T* data;
 };
 
 template <typename T>
 constexpr bool operator==(const T* lhs, const NonNull<T>& rhs) noexcept {
-  return lhs == rhs.as_raw();
+  return lhs == rhs.ptr();
 }
 
 template <typename T>
@@ -204,15 +196,15 @@ constexpr bool operator!=(const T* lhs, const NonNull<T>& rhs) noexcept {
 }
 
 template <typename T>
-constexpr nv::opt::Opt<NonNull<T>> make_nonnull(T* ptr) noexcept {
+constexpr nv::opt::Opt<NonNull<T>> nonnull(T* ptr) noexcept {
   if (ptr) {
-    return nv::opt::Some(NonNull<T>{*ptr});
+    return nv::ptr::NonNull<T>{*ptr};
   }
-  return nv::opt::None;
+  return opt::None;
 }
 
 template <typename T>
-constexpr NonNull<T> make_nonnull(T& val) noexcept {
+constexpr NonNull<T> nonnull(T& val) noexcept {
   return NonNull<T>{val};
 }
 
@@ -234,11 +226,12 @@ NonNull(T&) -> NonNull<T>;
 template <class T>
 NonNull(const T&) -> NonNull<const T>;
 
-template <typename T, alloc::Allocator A>
-struct Box {
-  NonNull<T> ptr;
-  A alloc;
-};
+template <class T>
+  requires(!std::is_reference_v<T>)
+using Ref = std::reference_wrapper<T>;
+
+using std::cref;
+using std::ref;
 
 }  // namespace nv::ptr
 
