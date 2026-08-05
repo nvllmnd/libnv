@@ -8,9 +8,8 @@ project(
   version: files('.version'),
   default_options: [
     'c_std=c23,c2y,c2x,gnu2x,gnu23,gnu2y',
-    'cpp_std=gnu++26,gnu++23,gnu++2a,gnu++20',
+    'cpp_std=gnu++26,gnu++23,gnu++20,gnu++2c,gnu++2b,gnu++2a',
     'cpp_eh=none',
-    'cpp_debugstl=true',
     'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
@@ -23,9 +22,8 @@ project(
 if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
+  add_global_arguments('-Wno-c++20-designator', language: 'cpp')
 
-  # add_global_arguments('-Wno-static-in-inline', language: 'cpp')
-  # add_global_arguments('-Wno-gnu-statement-expression', language: 'cpp')
 endif
 
 hedley_dep = dependency('hedley')

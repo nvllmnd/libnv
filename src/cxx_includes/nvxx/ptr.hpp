@@ -11,6 +11,10 @@
 namespace nv::ptr {
 
 template <class T>
+  requires(!std::is_null_pointer_v<T>)
+using ptr = std::add_pointer_t<T>;
+
+template <class T>
 [[gnu::pure]]
 static constexpr bool is_null(const T* ptr) noexcept {
   return nullptr == ptr;
