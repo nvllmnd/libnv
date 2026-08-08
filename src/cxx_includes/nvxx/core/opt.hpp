@@ -22,19 +22,24 @@ struct Opt {
   static_assert(!std::is_reference_v<T>, "Opt cannot contain reference types. use std::reference_wrapper instead!");
   static_assert(std::is_trivially_destructible_v<T>, "Opt for T must be trivially destructible!");
 
+  using Type = T;
+  using ValueType = std::decay_t<T>;
+  using Ref = std::add_lvalue_reference_t<ValueType>;
+  using ConstRef = const ValueType&;
+
   constexpr explicit Opt() noexcept : none(None), has_some(false) {}
 
-  constexpr Opt(std::remove_reference_t<T> val) noexcept : some(val), has_some(true) {}
+  constexpr Opt(T val) noexcept : some(val), has_some(true) {}
   constexpr Opt(NoneType) noexcept : none(None), has_some(false) {}
 
-  friend constexpr Opt Some(std::remove_reference_t<T> val) noexcept { return {val}; }
+  friend constexpr Opt<T> Some<>(T val) noexcept;
 
   constexpr operator bool() const noexcept { return this->has_some; }
 
   constexpr bool is_some() const noexcept { return this->has_some; }
   constexpr bool is_none() const noexcept { return !this->has_some; }
 
-  constexpr const std::decay<T>& ref() const noexcept {
+  constexpr const T& ref() const noexcept {
     if (this->is_some()) [[likely]] {
       return this->some;
     }
@@ -51,13 +56,18 @@ struct Opt {
     return &this->some;
   }
 
-  constexpr std::decay<T>& operator*() noexcept {
+  constexpr T& operator*() noexcept {
     assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
     return this->some;
   }
 
-  constexpr const std::decay<T>& operator*() const noexcept {
+  constexpr const T& operator*() const noexcept {
     assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
+    return this->some;
+  }
+
+  constexpr T unwrap() const noexcept {
+    assert_debug(this->is_some(), "Cannot unwrap Opt containing None!");
     return this->some;
   }
 
@@ -69,11 +79,14 @@ struct Opt {
   bool has_some : 1;
 };
 
-static_assert(std::is_standard_layout_v<Opt<int>> && std::is_trivially_destructible_v<Opt<int>>);
+template <class T>
+Opt(T) -> Opt<T>;
 
 template <class T>
-constexpr Opt<T> make_opt(T val) noexcept {
-  return std::make_optional<T>(val);
+constexpr Opt<T> Some(T val) noexcept {
+  return Opt{val};
 }
+
+static_assert(std::is_standard_layout_v<Opt<int>> && std::is_trivially_destructible_v<Opt<int>>);
 
 }  // namespace nv::opt

@@ -1,7 +1,7 @@
 #pragma once
 
 #ifdef __cplusplus
-#define ASSERT()                                                                                                   \
+#define ASSERT(_expr, _fmt, ...)                                                                                   \
   do {                                                                                                             \
     if (!(_expr)) {                                                                                                \
       fprintf(stderr, "[%s:%d]::%s => " _fmt, __FILE__, __LINE__, __PRETTY_FUNCTION__ __VA_OPT__(, ) __VA_ARGS__); \

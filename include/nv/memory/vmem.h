@@ -4,6 +4,8 @@
 
 #pragma once
 
+#ifndef __cplusplus
+
 #include <assert.h>
 #include <string.h>
 
@@ -269,3 +271,15 @@ void va_destroy(Vallocator* self);
   })
 
 END_C_DECLS
+
+#endif
+
+#ifdef __cplusplus
+
+#include "nv/core/intdefs.h"
+
+struct Vmem;
+
+Vmem* vmem_new(isize size_bytes) noexcept;
+
+#endif

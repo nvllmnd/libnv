@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <memory>
 #include <type_traits>
 
 #include "nv/core/debug.h"
@@ -15,198 +17,96 @@ template <class T>
 using ptr = std::add_pointer_t<T>;
 
 template <class T>
+  requires(!std::is_null_pointer_v<T>)
+using const_ptr = ptr<const T>;
+
+using void_ptr = ptr<void>;
+
+template <class T>
 [[gnu::pure]]
-static constexpr bool is_null(const T* ptr) noexcept {
+constexpr bool is_null(const T* ptr) noexcept {
   return nullptr == ptr;
 }
 
 template <class T>
 [[gnu::pure]]
-static constexpr bool is_not_null(const T* ptr) noexcept {
+constexpr bool is_not_null(const T* ptr) noexcept {
   return nullptr != ptr;
 }
 
 template <typename T>
-using lvalue = T&;
+using lvalue = std::add_lvalue_reference_t<T>;
+
+template <class T>
+using const_lvalue = std::add_lvalue_reference_t<std::add_const_t<T>>;
 
 template <typename T>
-using rvalue = T&&;
+using rvalue = std::add_rvalue_reference_t<T>;
 
-/// @brief lite wrapper around T&
-/// @details instance of this type must always contain a non-null pointer (stored as T&),
-/// and as such its public constructor will abort execution if passed a nullptr
-///
-/// Dereferencing this type through operator* (or operator->) is (mostly) always safe, unless
-/// reference becomes dangling somehow, as this abstracts non-null pointers, which does not (and cannot) ensure
-/// refernces are not dangling without another layer of indirection
-template <typename T>
-  requires(!std::is_null_pointer_v<T>)
+template <class T>
 struct NonNull {
-  using PointerType = T;
+  static_assert(!std::is_null_pointer_v<T>, "NonNull<nullptr_t> is not valid!");
+  static_assert(!std::is_void_v<T>,
+                "NonNull<void> is invalid use nv::byte/std::byte for a NonNull pointer to raw memory!");
 
-  /// @brief returns a suitably aligned, non-null pointer to T.
-  /// @details poitner returned must not be used an way that would normally cause UB for a dangling pointer,
-  /// only use returned pointer for lazy initialziation for otherwise non-null pointers, or check rustdocs for Rust's
-  /// std::ptr::NonNull::<T>::dangling()
-  static constexpr NonNull dangling() noexcept { return NonNull{reinterpret_cast<T*>(alignof(T))}; }
-
-  constexpr explicit NonNull(T& val) noexcept : data(&val) {}
-
-  // template <typename U>
-  // constexpr explicit NonNull(const NonNull<U>& other) noexcept
-  //   requires(std::is_convertible_v<U*, T*> || std::is_pointer_interconvertible_base_of_v<U*, T*>)
-  //     : data(reinterpret_cast<T*>(other.ptr())) {}
-
-  /// @brief aborts execution if given nullptr
-  constexpr explicit NonNull(T* val) noexcept
-      : data(is_not_null(val) ? val : LOG_FATAL("Cannot create a NonNull<T> from a null pointer!")) {}
-
-  /// @brief Creates a NonNull pointer to T without checking if it is not null first
-  /// @details instance is created by dereferecing the pointer to trigger private constructor
-  static constexpr NonNull make_unsafe(T* p) noexcept {
-    assert_debug(p, "Attempted to create NonNull with nullpointer!");
-    return NonNull(*p);
+  [[gnu::nonnull]]
+  static constexpr NonNull make_unsafe(T* ptr) noexcept {
+    return NonNull{ptr};
   }
 
-  /// @brief same as derefing raw pointer with -> operator
-  /// @details gauranteed to not be null, but pointer can still be dangling
+  [[gnu::pure]]
+  static constexpr nv::opt::Opt<NonNull> make(T* ptr) noexcept {
+    if (nv::ptr::is_null(ptr)) [[unlikely]] {
+      return nv::opt::None;
+    }
+    return nv::opt::Some(NonNull<T>::make_unsafe(ptr));
+  }
+
+  constexpr lvalue<T> operator*() const noexcept { return *this->data; }
   [[gnu::returns_nonnull]]
-  constexpr T* operator->() const noexcept
-    requires(!std::is_void_v<T>)
-  {
+  constexpr nv::ptr::ptr<T> operator->() const noexcept {
     return this->data;
   }
 
-  constexpr explicit operator T&() const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return *this->ptr();
-  }
-
-  /// @brief same as derefing raw poitners
-  /// @details gauranteed to not be null, but pointer can still be dangling
-  constexpr T& operator*() const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return *this->data;
-  }
-  /// @brief same as raw pointer indexing
-  constexpr T& operator[](std::ptrdiff_t index) const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return *((this->data) + index);
-  }
-
-  /// @brief same as raw poitner addition
-  constexpr NonNull operator+(std::ptrdiff_t index) const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return NonNull{*((this->data) + index)};
-  }
-  /// @brief same as raw pointer subtraction
-  constexpr std::ptrdiff_t operator-(const NonNull<T>& other) const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return (this->data) - (&other.data);
-  }
-
-  /// @brief returns constant reference to inner pointer
-  constexpr const T& as_ref() const noexcept
-    requires(!std::is_void_v<T>)
-  {
-    return *this->data;
-  }
-
-  /// @brief returns inner raw pointer
-  [[gnu::returns_nonnull]]
-  constexpr T* ptr() const noexcept {
+  [[gnu::pure]]
+  constexpr nv::ptr::ptr<T> ptr() const noexcept {
     return this->data;
   }
-  static constexpr bool is_null() noexcept { return false; }
-  static constexpr bool is_not_null() noexcept { return true; }
+
+  [[gnu::const]]
+  static constexpr bool is_null() noexcept {
+    return false;
+  }
+  [[gnu::const]]
+  static constexpr bool is_not_null() noexcept {
+    return true;
+  }
 
  private:
-  T* data;
+  [[gnu::nonnull]]
+  constexpr NonNull(T* ptr) noexcept
+      : data(ptr) {}
+
+  nv::ptr::ptr<T> data;
 };
 
-template <typename T>
-constexpr bool operator==(const NonNull<T>& lhs, const NonNull<T>& rhs) noexcept {
-  return lhs.ptr() == rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator!=(const NonNull<T>& lhs, const NonNull<T>& rhs) noexcept {
-  return !(lhs == rhs);
-}
-
-template <typename T>
-constexpr bool operator>(const NonNull<T> lhs, const NonNull<T>& rhs) noexcept {
-  return lhs.ptr() > rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator>=(const NonNull<T>& lhs, const NonNull<T>& rhs) noexcept {
-  return lhs.ptr() >= rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator<(const NonNull<T>& lhs, const NonNull<T>& rhs) noexcept {
-  return lhs.ptr() < rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator<=(const NonNull<T>& lhs, const NonNull<T>& rhs) noexcept {
-  return lhs.ptr() <= rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator==(const T* lhs, const NonNull<T>& rhs) noexcept {
-  return lhs == rhs.ptr();
-}
-
-template <typename T>
-constexpr bool operator!=(const T* lhs, const NonNull<T>& rhs) noexcept {
-  return !(lhs == rhs);
-}
-
-template <typename T>
+template <class T>
+[[gnu::pure]]
 constexpr nv::opt::Opt<NonNull<T>> nonnull(T* ptr) noexcept {
-  if (ptr) {
-    return nv::ptr::NonNull<T>{*ptr};
-  }
-  return opt::None;
+  return NonNull<T>::make(ptr);
 }
 
-template <typename T>
-constexpr NonNull<T> nonnull(T& val) noexcept {
-  return NonNull<T>{val};
+template <class T>
+[[gnu::pure, gnu::nonnull]]
+constexpr NonNull<T> nonnull_unsafe(T* ptr) noexcept {
+  return NonNull<T>::make_unsafe(ptr);
 }
-
-using AnyNonNull = NonNull<byte>;
-using VoidNonNull = NonNull<void>;
-
-using CanyNonNull = NonNull<const byte>;
-using CvoidNonNull = NonNull<const void>;
 
 template <class T>
 NonNull(T*) -> NonNull<T>;
 
 template <class T>
 NonNull(const T*) -> NonNull<const T>;
-
-template <class T>
-NonNull(T&) -> NonNull<T>;
-
-template <class T>
-NonNull(const T&) -> NonNull<const T>;
-
-template <class T>
-  requires(!std::is_reference_v<T>)
-using Ref = std::reference_wrapper<T>;
-
-using std::cref;
-using std::ref;
-
 }  // namespace nv::ptr
 
 #endif

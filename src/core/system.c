@@ -13,7 +13,7 @@ NvError open_file(i32* out, i64* size, const char* path) {
   assert(path);
   assert(size);
 
-  i32 fd = open(path, O_RDONLY);
+  i32 fd = open(path, 0);
 
   if (fd == -1) {
     DERR("Failed to open file: %s", path);
