@@ -110,7 +110,6 @@ void* ptr_nonnull_(const void* ptr) {
   return ptr_expect_(ptr, " Expected given pointer to be non-null, but was nullptr! Aborting program!");
 }
 void* allocate_raw(IterByte* self, const Layout layout) {
-  assert(iter_is_ok(self));
   assert(self->cursor);
 
   byte* ptr = (byte*)ptr_alignup(self->cursor, layout.align);

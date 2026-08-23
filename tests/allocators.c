@@ -12,7 +12,6 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
-#include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
@@ -87,6 +86,10 @@ void heap_can_reallocate(void) {
 }
 
 void arena_static_mem_works(void) {
+  #ifdef __cplusplus
+  using namespace nv::algo;
+  #endif
+
   TEST_ASSERT_FALSE(is_none(&ARENA));
   Stuff* val = arena_alloc(&ARENA, mlayout_new(Stuff));
   TEST_ASSERT_NOT_NULL(val);

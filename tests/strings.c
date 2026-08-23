@@ -7,7 +7,6 @@
 
 #include "nv/core/algo.h"
 #include "nv/core/constants.h"
-#include "nv/core/intdefs.h"
 #include "nv/core/log.h"
 #include "nv/core/spad.h"
 #include "nv/memory/vmem.h"
@@ -50,6 +49,11 @@ void stringpad_builds_string(void) {
   }
 
   StringPad sp = spad_new((char*)vmem_begin(vm.mem), (char*)vmem_end(vm.mem));
+
+
+  #ifdef __cplusplus
+  using namespace nv::algo;
+  #endif
 
   TEST_ASSERT_TRUE(!is_none(&sp));
 

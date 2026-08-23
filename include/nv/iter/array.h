@@ -5,7 +5,6 @@
 #pragma once
 
 #include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
 
 BEGIN_C_DECLS
 

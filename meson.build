@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: GPL-3.0-or-laterK
 
 project(
   'nv',
@@ -7,22 +7,21 @@ project(
   meson_version: '>= 1.3.0',
   version: files('.version'),
   default_options: [
-    'c_std=gnu2y,gnu23,gnu2x',
-    'cpp_std=gnu++26,gnu++23,gnu++20,gnu++2c,gnu++2b,gnu++2a',
+    'c_std=gnu2y,c2y,gnu23,c23,gnu2x,c2x',
+    'cpp_std=gnu++26,gnu++2c,gnu++23,gnu++2b,gnu++20,gnu++2a,c++26,c++2c,c++23,c++2b,c++20,c++2a',
     'cpp_eh=none',
     'cpp_rtti=false',
     'werror=true',
     'b_ndebug=if-release',
     'b_staticpic=false',
     'default_library=static',
-    'warning_level=3',
+    'warning_level=2',
   ],
 )
 
 if not meson.is_subproject()
   add_global_arguments('-Wno-static-in-inline', language: 'c')
   add_global_arguments('-Wno-gnu-statement-expression', language: 'c')
-  add_global_arguments('-Wno-c++20-designator', language: 'cpp')
 
 endif
 
@@ -71,7 +70,7 @@ core_lib = static_library(
   dependencies: dependencies,
   install: true,
   c_pch: 'pch/nv_pch.h',
-  c_args: cargs,
+  # c_args: cargs,
   cpp_args: cargs,
 )
 
@@ -97,7 +96,7 @@ memory_lib = static_library(
   install: true,
 
   c_pch: 'pch/nv_pch.h',
-  c_args: cargs,
+  # c_args: cargs,
   cpp_args: cargs,
 )
 
@@ -108,23 +107,25 @@ memory_dep = declare_dependency(
 
 dependencies += memory_dep
 
-nvxx_lib = static_library(
-  'nvxx',
-  files('src/nvxx/vmem.cpp'),
-  include_directories: inc,
-  cpp_pch: 'pch/nv_pch.hpp',
-  dependencies: dependencies,
-  install: true,
-  c_args: cargs,
-  cpp_args: cargs,
-)
+# nvxx_lib = static_library(
+#   'nvxx',
+#   files(
+#     'src/nvxx/alloc.cpp',
+#   ),
+#   include_directories: inc,
+#   cpp_pch: 'pch/nv_pch.hpp',
+#   dependencies: dependencies,
+#   install: true,
+#   # c_args: cargs,
+#   cpp_args: cargs,
+# )
 
-nvxx_dep = declare_dependency(
-  include_directories: inc,
-  link_with: nvxx_lib,
-)
+# nvxx_dep = declare_dependency(
+#   include_directories: inc,
+#   link_with: nvxx_lib,
+# )
 
-dependencies += nvxx_dep
+# dependencies += nvxx_dep
 
 nv_lib = library(
   'nv',
@@ -133,7 +134,7 @@ nv_lib = library(
   c_pch: 'pch/nv_pch.h',
   dependencies: dependencies,
   install: true,
-  c_args: cargs,
+  # c_args: cargs,
   cpp_args: cargs,
 )
 

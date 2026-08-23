@@ -20,7 +20,7 @@
 /// mutate strings through a [sslice]. As such these are treated like views
 ///
 #include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
+#include "nv/core/ctypes.h"
 
 #define SSPREAD(slice) ((slice).begin), ((slice).len)
 #define RSSPREAD(slice) ((slice).len), ((slice).begin)
@@ -28,6 +28,7 @@
 // C++ Support.
 //
 #ifdef __cplusplus
+#include <cstddef>
 
 struct sslice {
   const char* begin;
@@ -121,15 +122,15 @@ PURE_FUNC
 static inline sslice sstring_slice(StaticString self) { return sslice_new(.begin = self.begin, .len = self.len); }
 PURE_FUNC
 static inline bool sstring_cmp(StaticString lhs, StaticString rhs) {
-  const auto left = sstring_slice(lhs);
-  const auto right = sstring_slice(rhs);
+  auto const left = sstring_slice(lhs);
+  auto const right = sstring_slice(rhs);
   return sslice_cmp(left, right);
 }
 
 PURE_FUNC
 static inline bool sstring_eq(StaticString lhs, StaticString rhs) {
-  const auto left = sstring_slice(lhs);
-  const auto right = sstring_slice(rhs);
+  auto const left = sstring_slice(lhs);
+  auto const right = sstring_slice(rhs);
   return sslice_eq(left, right);
 }
 

@@ -8,14 +8,14 @@
 #include <stdio.h>
 
 #include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
 
 #include "nv/memory/error.h"
 
 #include "nv/core/sslice.h"
 
-#ifndef __cplusplus
+BEGIN_C_DECLS
 
+#ifndef __cplusplus
 
 #define SLOG_DBG(slice) (sprintln((slice)))
 #define SELOG_DBG(slice) (seprintln((slice)))
@@ -44,8 +44,6 @@ void seprintln(sslice str);
 
 #endif
 
-BEGIN_C_DECLS
-
 typedef enum FormatError { Format__Error = -1, Format__Ok = 0 } FormatError;
 
 FORMAT_FUNC(3, 4)
@@ -66,7 +64,6 @@ extern FILE* NV_ERR_STREAM;
 
 #define eprint(fmt, ...) (fprintf(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define eprintln(fmt, ...) (println_fd(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
-
 
 #if defined(__cplusplus) && __cplusplus >= 202207L
 
@@ -90,7 +87,6 @@ extern FILE* NV_ERR_STREAM;
 
 #if defined(__cplusplus) && __cplusplus >= 202207L
 
-
 #define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
 #define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
 
@@ -100,8 +96,6 @@ extern FILE* NV_ERR_STREAM;
 #define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
 
 #endif
-
-
 
 #endif
 

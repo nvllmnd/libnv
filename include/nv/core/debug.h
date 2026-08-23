@@ -6,9 +6,7 @@
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
 
-
 #if LIBNV_DEBUG == 1
-
 
 #ifdef __cplusplus
 
@@ -16,7 +14,6 @@
 
 #include <iostream>
 #include <format>
-
 
 #if HEDLEY_HAS_BUILTIN(__builtin_trap)
 #ifndef EXIT_FATAL
@@ -26,29 +23,21 @@
 #define EXIT_FATAL() std::terminate()
 
 #endif  // ifndef EXIT_FATAL
-#endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
+#endif  // HEDL;lEY_HAS_BUILTIN(__builtin_trap)
 
+#define assert_debug(_expr, _fmt, ...)                                                                             \
+  {                                                                                                                \
+    if (!(_expr)) {                                                                                                \
+      fprintf(stderr, "[%s:%d]::%s => " _fmt, __FILE__, __LINE__, __PRETTY_FUNCTION__ __VA_OPT__(, ) __VA_ARGS__); \
+      EXIT_FATAL();                                                                                                \
+    }                                                                                                              \
+  }
 
-
-
-
-#define assert_debug(_expr, _fmt, ...) do {\
-  if (!(_expr)) {\
-  fprintf(stderr, "[%s:%d]::%s => " _fmt, __FILE__, __LINE__, __PRETTY_FUNCTION__ __VA_OPT__(,) __VA_ARGS__); \
-    std::terminate(); \
-  }\
-} while(0)
-
-
-
-
-#endif // ifdef __cplusplus
-
+#endif  // ifdef __cplusplus
 
 #ifndef __cplusplus
 
 #include <assert.h>
-
 
 #if HEDLEY_HAS_BUILTIN(__builtin_trap)
 #ifndef EXIT_FATAL
@@ -59,30 +48,21 @@
 #endif  // ifndef EXIT_FATAL
 #endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
 
-
 #define IF_DEBUG(x) x
 #define IF_RELEASE(x)
 #define ASSERT_PTR(_p) assert((_p))
 
-#define assert_debug(_expr, _fmt, ...) do {\
-  if (!(_expr)) {\
-    log_fatal(_fmt, __VA_OPT__(,) __VA_ARGS__);\
-    EXIT_FATAL(); \
-  }\
-} while(0)
+#define assert_debug(_expr, _fmt, ...)             \
+  do {                                             \
+    if (!(_expr)) {                                \
+      log_fatal(_fmt, __VA_OPT__(, ) __VA_ARGS__); \
+      EXIT_FATAL();                                \
+    }                                              \
+  } while (0)
 
+#endif  // ifndef __cplusplus
 
-
-#endif // ifndef __cplusplus
-
-
-
-#endif // if LIBNV_DEBUG == 1
-
-
-
-
-
+#endif  // if LIBNV_DEBUG == 1
 
 #define TODO_MSG(_msg, ...) (log_fatal(_msg __VA_OPT__(, ) __VA_ARGS__))
 
@@ -90,7 +70,6 @@
 
 #define TODO_FN(_ret, _fn_name, ...) \
   _ret _fn_name(__VA_ARGS__) { TODO(); }
-
 
 #ifdef __cplusplus
 
@@ -104,7 +83,7 @@
 
 #define EXPECT(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
 
-#endif // ifdef __cplusplus
+#endif  // ifdef __cplusplus
 
 #ifndef __cplusplus
 
@@ -118,8 +97,4 @@
 
 #define expect(x) expectm(x, "Expression: " #x " should evaluate to true!! Aborting!")
 
-#endif // ifndef __cplusplus
-
-
-
-
+#endif  // ifndef __cplusplus

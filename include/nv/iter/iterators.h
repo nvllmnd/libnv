@@ -10,12 +10,108 @@
 //! javascripts ... spread operator
 #pragma once
 
-#include <string.h>
+#include <stddef.h>
 
-#include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
+#ifdef __cplusplus
 
-#ifndef __cplusplus
+#include <cstddef>
+
+namespace nv {
+inline namespace iter {
+
+template <class T>
+concept SpanIterator = requires(T it) {
+  { it.begin } -> std::convertible_to<typename T::Pointer>;
+  { it.end } -> std::convertible_to<typename T::Pointer>;
+  { it.cursor } -> std::convertible_to<typename T::Pointer>;
+};
+
+template <class T>
+struct Iter {
+  using DifferenceType = std::ptrdiff_t;
+  using ElementType = T;
+  using ValueType = std::remove_cv_t<T>;
+  using SizeType = usize;
+  using Pointer = std::add_pointer_t<ValueType>;
+  using ConstPointer = std::add_pointer_t<const ValueType>;
+  using Reference = std::add_lvalue_reference_t<ValueType>;
+  using ConstReference = std::add_lvalue_reference_t<const ValueType>;
+
+  Pointer begin;
+  Pointer end;
+  Pointer cursor;
+
+  constexpr bool is_at_end() const noexcept { return this->cursor == this->end; }
+};
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer begin(const Iter<T>& self) noexcept {
+  return self.begin;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer end(const Iter<T>& self) noexcept {
+  return self.end;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<const T>::ConstPointer cbegin(const Iter<const T>& self) noexcept {
+  return self.begin;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<const T>::ConstPointer cend(const Iter<const T>& self) noexcept {
+  return self.end;
+}
+
+template <class T>
+[[gnu::nonnull, gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer advance(Iter<T>* self, std::ptrdiff_t n) noexcept {
+  assert_debug(n >= 0, "cannot advance iterator struct with negative number: %d", n);
+  T* const nextp = self->cursor += n;
+  if (self->cursor != self->end && nextp < self->end) {
+    self->cursor = nextp;
+  } else {
+    self->cursor = self->end;
+  }
+  return self->cursor;
+}
+
+template <class T>
+[[gnu::nonnull, gnu::returns_nonnull]]
+constexpr Iter<T>::Poitner advance(Iter<T>* self) noexcept {
+  return advance(self, 1);
+}
+
+template <class T>
+using ConstIter = Iter<const T>;
+
+template <class T>
+struct Span {
+  T* begin;
+  T* end;
+};
+
+using IterByte = Iter<byte>;
+using CIterByte = ConstIter<byte>;
+}  // namespace iter
+}  // namespace nv
+
+using nv::iter::CIterByte;
+using nv::iter::IterByte;
+
+#endif
+
+#define IterData(T) \
+  SpanData(T);      \
+  __typeof(T)* cursor
+#define CIterData(T) \
+  CSpanData(T);      \
+  const __typeof(T)* cursor
 
 #define SpanData(T)   \
   __typeof(T)* begin; \
@@ -24,6 +120,7 @@
 #define CSpanData(T)        \
   const __typeof(T)* begin; \
   const __typeof(T)* end
+#ifndef __cplusplus
 
 #define Span(T)  \
   struct {       \
@@ -33,14 +130,6 @@
   struct {        \
     CSpanData(T); \
   }
-
-#define IterData(T) \
-  SpanData(T);      \
-  __typeof(T)* cursor
-#define CIterData(T) \
-  CSpanData(T);      \
-  const __typeof(T)* cursor
-
 #define Iter(T)  \
   struct {       \
     IterData(T); \
@@ -95,12 +184,10 @@ typedef CIter(u64) CIterUInt64;
 typedef CIter(f32) CIterFloat32;
 
 typedef CIter(f64) CIterFloat64;
+#endif
 
 #define ITER_NONE(T) ((Iter(T)){})
 #define SPAN_NONE(T) ((Span(T)){})
-
-static constexpr const auto ITER_NONE_BYTE = ITER_NONE(byte);
-static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 
 #define SPANLIKE(_s) (_s).begin, (_s).end
 #define ITERLIKE(_i) (_i).begin, (_i).cursor, (_i).end
@@ -166,7 +253,6 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
 #define iter_range(_ptr, _from, _to) (iter_new(_ptr, (_to) - (_from)))
 #define citer_range(_ptr, _from, _to) (citer_new(_ptr, (_to) - (_from)))
 
-#define iter_is_empty(_it) (memcmp(&(_it), &ITER_NONE_BYTE, sizeof(__typeof(_it))) == 0)
 #define iter_is_ok(_it) (!iter_is_empty(_it))
 
 #define iter_tail(_iter) /* Element count between cursor and end */ \
@@ -217,5 +303,3 @@ static constexpr const auto SPAN_NONE_BYTE = SPAN_NONE(byte);
   for (auto _name = _iter.begin; _name < _iter.end; _name++)
 
 #define iter_foreach_i(_iterator) iter_foreach(_iterator, i)
-
-#endif

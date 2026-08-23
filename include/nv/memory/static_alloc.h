@@ -7,7 +7,6 @@
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/constants.h"
-#include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 
 BEGIN_C_DECLS

@@ -4,8 +4,13 @@
 
 #pragma once
 
+#include "nv/core/ctypes.h"
+
+#ifdef __cplusplus
+#include <type_traits>
+#endif
+
 #include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
 #include "nv/core/sslice.h"
 
 #ifndef STRLEN_UPPER_BOUND
@@ -18,12 +23,9 @@
 
 #endif  // STRLEN_UPPER_BOUND
 
-
-#ifndef __cplusplus
-
-
-
 #include "nv/core/log.h"
+
+#include <string.h>
 
 #include <stdarg.h>
 #include <stddef.h>
@@ -42,6 +44,10 @@
 #define VA_ARGS_LEN_(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, N, \
                      ...)                                                                                          \
   N
+
+#ifdef __cplusplus
+
+#else
 
 #define array(T, N)                                                    \
   /* conveinence for declaring static array of type (T) of size (N) */ \
@@ -178,11 +184,12 @@
                           fields to all be set to 0. */                        \
   (make(T))
 
+#endif
+
 /// Offsetof polyfill
 #ifndef offsetof
 #define offsetof(T, _m) ((isize)(&((T*)0)->_m))
 #endif
-
 
 #define typeof_field(T, _name) __typeof((__typeof(T)*){}->_name)
 
@@ -284,12 +291,28 @@
 #define bithasall(_set, _flags) (((_set) & (_flags)) == (_flags))
 #define bithasany(_set, _flags) ((_set) & (_flags))
 
+#ifndef __cplusplus
+
 #define is_empty(_v) /* generic over any type with a 'len' field */ ((_v).len == 0)
+#else
+
+namespace nv::algo {
+
+template <class T>
+constexpr bool is_empty(const T& sl) noexcept {
+  return sl.len == 0;
+}
+}  // namespace nv::algo
+
+#endif
+
 #define is_invalid(_v) /* generic over any type with a 'len' field */ ((_v).len <= 0)
 #define is_falsey(_v) /* does value coerce to false?  */ ((bool)(!(_v)))
 #define is_truthy(_v) /* does value coerce to true?  */ (!is_falsey((_v)))
 
 #define zeroed /* Easily get a zeroed struct of any type */ make_zeroed
+
+#ifndef __cplusplus
 
 #define is_none(_v)                                              \
   ({                                                             \
@@ -300,6 +323,22 @@
 
 #define is_zeroed is_none
 
+#else
+
+namespace nv::algo {
+
+template <class T>
+constexpr bool is_none(const T& v) noexcept
+  requires(std::is_default_constructible_v<T>)
+{
+  constexpr auto NONE = T{};
+  return memcmp(v, &NONE, sizeof(T)) == 0;
+}
+
+}  // namespace nv::algo
+
+#endif
+
 #define DynSizeType(T, ...) \
   struct {                  \
     __VA_ARGS__;            \
@@ -309,7 +348,6 @@
 #define SlimDST(T) DynSizeType(T, i64 size; i64 size2)
 
 typedef SlimDST(byte) ByteDST;
-
 
 #define Bytes(N)  \
   struct {        \
@@ -396,11 +434,7 @@ static inline i32 stringlen(const char* string) { return str_len(string, STRLEN_
 PURE_FUNC
 bool stringeq(const char* left, const char* right);
 
-#endif // ifndef __cplusplus
-
-
 BEGIN_C_DECLS
-
 
 // CLANG_NON_NULL_BEGIN
 
@@ -432,7 +466,6 @@ void* ptr_expect_(const void* ptr, const char* msg);
 #define pexpect(_p, _msg) cast(typeof_ptr(_p), ptr_expect_((const void*)(_p), (_msg)))
 #endif
 
-
 /// @brief Determines printf-style format string resulting length, excluding null-terminator
 
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
@@ -441,21 +474,8 @@ sslice vfconcat(char* dest, i32 dest_len, const char* fmt, va_list args) PARAMS_
 /// @brief concat no more than dest_len bytes of expanded printf-style string to dest
 sslice fconcat(char* dest, i32 dest_len, const char* fmt, ...) HEDLEY_PRINTF_FORMAT(3, 4);
 
-
-#ifndef __cplusplus
-
 static constexpr const i32 ONE = 1;
 #define IS_BIG_ENDIAN() ((*(char*)&ONE) == 0)
-
-
-typedef enum Endianness { LITTLE_ENDIAN, BIG_ENDIAN, NETWORK_BYTEORDER = BIG_ENDIAN } Endianness;
-
-PURE_FUNC
-Endianness endianness(void);
-
-#endif // ifndef __cplusplus
-
-
 
 HEDLEY_PRINTF_FORMAT(1, 2)
 PURE_FUNC
@@ -465,7 +485,6 @@ i32 fstring_length(const char* fmt, ...);
 /// @details does not modify va_list args
 PURE_FUNC
 i32 vfstring_length(const char* fmt, va_list args);
-
 
 PURE_FUNC
 PARAMS_NONNULL(1)
@@ -480,12 +499,51 @@ u64 fnv_hash64(const char* string, isize len) WHERE(len > 0);
 CONST_FUNC
 static inline bool is_power_of_2(isize n) { return IS_POWER_OF_2(n); }
 
-
-PURE_FUNC
-bool is_little_endian(void);
-
-PURE_FUNC
-bool is_big_endian(void);
-
 END_C_DECLS
 
+#ifdef __cplusplus
+
+namespace nv {
+
+template <class T>
+constexpr bool is_not_null(T* ptr) noexcept {
+  return nullptr != ptr;
+}
+
+template <class T>
+constexpr bool is_null(T* ptr) noexcept {
+  return nullptr == ptr;
+}
+
+}  // namespace nv
+
+#define BITSET(_set, _flag) ((_set) |= (_flag))
+
+#define BITCLEAR(_set, _flag) ((_set) &= ~(_flag))
+#define BITTOGGLE(_set, _flag) ((_set) ^= (_flag))
+#define BITHAS(_set, _flag) (static_cast<bool>((_set) & (_flag)))
+
+#define BITHASALL(_set, _flags) (((_set) & (_flags)) == (_flags))
+#define BITHASANY(_set, _flags) ((_set) & (_flags))
+
+#define MAKE(T, ...) (T{__VA_ARGS__})
+
+#define MAKE_ZEROED(T) (MAKE(T))
+
+#define MIN(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a < _b ? _a : _b;                \
+  })
+
+#define MAX(_a_, _b_)                 \
+  ({                                  \
+    const __typeof__(_a_) _a = (_a_); \
+    const __typeof__(_b_) _b = (_b_); \
+    _a > _b ? _a : _b;                \
+  })
+
+#endif
+
+#define CAST HEDLEY_STATIC_CAST

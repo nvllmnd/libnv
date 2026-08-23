@@ -2,31 +2,35 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "nv/core/intdefs.h"
-#include "nvxx/mod.hpp"
+#include "nv/core/ctypes.h"
+#include "nv/memory/alloc.h"
+#include "nvxx/alloc.hpp"
+#include "nvxx/vmem.hpp"
 #include "unity.h"
 
-using namespace nv;
-using namespace nv::ptr;
+#include <iostream>
 
 void setUp(void) {}
 
 void tearDown(void) {}
 
-void opt_works_with_nonnull() {
-  i32 x = 50;
-  const auto nn = nonnull(&x).unwrap();
-  TEST_ASSERT_TRUE(nn.is_not_null());
-  *nn = 100;
+constexpr void fun() {
+  int x;
+  defer {
+    x = 50;
+    std::cout << x << "\n";
+  };
 
-  TEST_ASSERT_EQUAL(100, *nn);
-
-  const i32* p = &x;
-  auto np = nonnull_unsafe(p);
-  TEST_ASSERT_TRUE(np.is_not_null());
+  auto t = nv::map_memory(50);
+  (void)t;
 }
 
-void take(const i32&) {}
+void chunk_arena_works() {
+  fun();
+  nv::Arena ca = {};
+  nv::Allocator all = ca.allocator();
+  (void)all;
+}
 
 // void ptr_and_result_types() {
 //   Ptr<const i32> arr{new i32[50]()};

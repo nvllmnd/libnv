@@ -7,7 +7,6 @@
 
 #include "nv/iter/vec.h"
 
-#include "nv/core/intdefs.h"
 #include "nv/memory/vmem.h"
 #include "unity.h"
 

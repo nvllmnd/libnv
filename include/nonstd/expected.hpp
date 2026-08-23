@@ -1332,12 +1332,12 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
   // keep make_unexpected() removed in p0323r2 for pre-C++17:
 
   template <typename E>
-  nsel_constexpr14 auto make_error(E&& value) -> unexpected_type<typename std::decay<E>::type> {
+  nsel_constexpr14 auto error_new(E&& value) -> unexpected_type<typename std::decay<E>::type> {
     return unexpected_type<typename std::decay<E>::type>(std::forward<E>(value));
   }
 
   template <typename E, typename... Args, typename = std::enable_if<std::is_constructible<E, Args...>::value> >
-  nsel_constexpr14 auto make_error(nonstd_lite_in_place_t(E), Args&&... args)
+  nsel_constexpr14 auto error_new(nonstd_lite_in_place_t(E), Args&&... args)
       -> unexpected_type<typename std::decay<E>::type> {
     return std::move(
         unexpected_type<typename std::decay<E>::type>(nonstd_lite_in_place(E), std::forward<Args>(args)...));
@@ -1848,7 +1848,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
 
 #endif
 
-    constexpr unexpected_type get_unexpected() const { return make_error(contained.error()); }
+    constexpr unexpected_type get_unexpected() const { return error_new(contained.error()); }
 
     template <typename Ex>
     bool has_exception() const {
@@ -1969,14 +1969,14 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr14 expected<detail::transform_invoke_result_t<F, value_type&>, error_type> transform(F&& f) & {
       return has_value() ? expected<detail::transform_invoke_result_t<F, value_type&>, error_type>(
                                detail::invoke(std::forward<F>(f), **this))
-                         : make_error(error());
+                         : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, error_type&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F, value_type&> >::value)>
     nsel_constexpr14 expected<void, error_type> transform(F&& f) & {
       return has_value() ? (detail::invoke(std::forward<F>(f), **this), expected<void, error_type>())
-                         : make_error(error());
+                         : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -1987,14 +1987,14 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         F&& f) const& {
       return has_value() ? expected<detail::transform_invoke_result_t<F, const value_type&>, error_type>(
                                detail::invoke(std::forward<F>(f), **this))
-                         : make_error(error());
+                         : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&>::value&& std::is_void<
                                          detail::transform_invoke_result_t<F, const value_type&> >::value)>
     nsel_constexpr expected<void, error_type> transform(F&& f) const& {
       return has_value() ? (detail::invoke(std::forward<F>(f), **this), expected<void, error_type>())
-                         : make_error(error());
+                         : error_new(error());
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2005,14 +2005,14 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr14 expected<detail::transform_invoke_result_t<F, value_type&&>, error_type> transform(F&& f) && {
       return has_value() ? expected<detail::transform_invoke_result_t<F, value_type&&>, error_type>(
                                detail::invoke(std::forward<F>(f), std::move(**this)))
-                         : make_error(std::move(error()));
+                         : error_new(std::move(error()));
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, error_type&&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F, value_type&&> >::value)>
     nsel_constexpr14 expected<void, error_type> transform(F&& f) && {
       return has_value() ? (detail::invoke(std::forward<F>(f), **this), expected<void, error_type>())
-                         : make_error(std::move(error()));
+                         : error_new(std::move(error()));
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -2023,14 +2023,14 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         F&& f) const&& {
       return has_value() ? expected<detail::transform_invoke_result_t<F, const value_type&&>, error_type>(
                                detail::invoke(std::forward<F>(f), std::move(**this)))
-                         : make_error(std::move(error()));
+                         : error_new(std::move(error()));
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&&>::value&& std::is_void<
                                          detail::transform_invoke_result_t<F, const value_type&&> >::value)>
     nsel_constexpr expected<void, error_type> transform(F&& f) const&& {
       return has_value() ? (detail::invoke(std::forward<F>(f), **this), expected<void, error_type>())
-                         : make_error(std::move(error()));
+                         : error_new(std::move(error()));
     }
 #endif
 
@@ -2039,7 +2039,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
             std::is_constructible<value_type, value_type&>::value)>
     nsel_constexpr14 expected<value_type, detail::transform_invoke_result_t<F, error_type&> > transform_error(F&& f) & {
       return has_value() ? expected<value_type, detail::transform_invoke_result_t<F, error_type&> >(in_place, **this)
-                         : make_error(detail::invoke(std::forward<F>(f), error()));
+                         : error_new(detail::invoke(std::forward<F>(f), error()));
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -2049,7 +2049,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         F&& f) const& {
       return has_value()
                  ? expected<value_type, detail::transform_invoke_result_t<F, const error_type&> >(in_place, **this)
-                 : make_error(detail::invoke(std::forward<F>(f), error()));
+                 : error_new(detail::invoke(std::forward<F>(f), error()));
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2060,7 +2060,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         F&& f) && {
       return has_value() ? expected<value_type, detail::transform_invoke_result_t<F, error_type&&> >(in_place,
                                                                                                      std::move(**this))
-                         : make_error(detail::invoke(std::forward<F>(f), std::move(error())));
+                         : error_new(detail::invoke(std::forward<F>(f), std::move(error())));
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -2070,7 +2070,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         F&& f) const&& {
       return has_value() ? expected<value_type, detail::transform_invoke_result_t<F, const error_type&&> >(
                                in_place, std::move(**this))
-                         : make_error(detail::invoke(std::forward<F>(f), std::move(error())));
+                         : error_new(detail::invoke(std::forward<F>(f), std::move(error())));
     }
 #endif
 #endif  // nsel_P2505R >= 3
@@ -2236,7 +2236,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
 
 #endif
 
-    constexpr unexpected_type get_unexpected() const { return make_error(contained.error()); }
+    constexpr unexpected_type get_unexpected() const { return error_new(contained.error()); }
 
     template <typename Ex>
     bool has_exception() const {
@@ -2334,13 +2334,13 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr14 expected<detail::transform_invoke_result_t<F>, error_type> transform(F&& f) & {
       return has_value()
                  ? expected<detail::transform_invoke_result_t<F>, error_type>(detail::invoke(std::forward<F>(f)))
-                 : make_error(error());
+                 : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, error_type&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F> >::value)>
     nsel_constexpr14 expected<void, error_type> transform(F&& f) & {
-      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : make_error(error());
+      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&>::value &&
@@ -2348,13 +2348,13 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr expected<detail::transform_invoke_result_t<F>, error_type> transform(F&& f) const& {
       return has_value()
                  ? expected<detail::transform_invoke_result_t<F>, error_type>(detail::invoke(std::forward<F>(f)))
-                 : make_error(error());
+                 : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F> >::value)>
     nsel_constexpr expected<void, error_type> transform(F&& f) const& {
-      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : make_error(error());
+      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : error_new(error());
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2363,13 +2363,13 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr14 expected<detail::transform_invoke_result_t<F>, error_type> transform(F&& f) && {
       return has_value()
                  ? expected<detail::transform_invoke_result_t<F>, error_type>(detail::invoke(std::forward<F>(f)))
-                 : make_error(error());
+                 : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, error_type&&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F> >::value)>
     nsel_constexpr14 expected<void, error_type> transform(F&& f) && {
-      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : make_error(error());
+      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&&>::value &&
@@ -2377,13 +2377,13 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr expected<detail::transform_invoke_result_t<F>, error_type> transform(F&& f) const&& {
       return has_value()
                  ? expected<detail::transform_invoke_result_t<F>, error_type>(detail::invoke(std::forward<F>(f)))
-                 : make_error(error());
+                 : error_new(error());
     }
 
     template <typename F nsel_REQUIRES_T(std::is_constructible<error_type, const error_type&&>::value&&
                                              std::is_void<detail::transform_invoke_result_t<F> >::value)>
     nsel_constexpr expected<void, error_type> transform(F&& f) const&& {
-      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : make_error(error());
+      return has_value() ? (detail::invoke(std::forward<F>(f)), expected<void, error_type>()) : error_new(error());
     }
 #endif
 
@@ -2391,7 +2391,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         detail::valid_unexpected_type<detail::transform_invoke_result_t<F, error_type&> >::value)>
     nsel_constexpr14 expected<void, detail::transform_invoke_result_t<F, error_type&> > transform_error(F&& f) & {
       return has_value() ? expected<void, detail::transform_invoke_result_t<F, error_type&> >()
-                         : make_error(detail::invoke(std::forward<F>(f), error()));
+                         : error_new(detail::invoke(std::forward<F>(f), error()));
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -2399,7 +2399,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr expected<void, detail::transform_invoke_result_t<F, const error_type&> > transform_error(
         F&& f) const& {
       return has_value() ? expected<void, detail::transform_invoke_result_t<F, const error_type&> >()
-                         : make_error(detail::invoke(std::forward<F>(f), error()));
+                         : error_new(detail::invoke(std::forward<F>(f), error()));
     }
 
 #if !nsel_COMPILER_GNUC_VERSION || nsel_COMPILER_GNUC_VERSION >= 490
@@ -2407,7 +2407,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
         detail::valid_unexpected_type<detail::transform_invoke_result_t<F, error_type&&> >::value)>
     nsel_constexpr14 expected<void, detail::transform_invoke_result_t<F, error_type&&> > transform_error(F&& f) && {
       return has_value() ? expected<void, detail::transform_invoke_result_t<F, error_type&&> >()
-                         : make_error(detail::invoke(std::forward<F>(f), std::move(error())));
+                         : error_new(detail::invoke(std::forward<F>(f), std::move(error())));
     }
 
     template <typename F nsel_REQUIRES_T(
@@ -2415,7 +2415,7 @@ nsel_DISABLE_MSVC_WARNINGS(26409)
     nsel_constexpr expected<void, detail::transform_invoke_result_t<F, const error_type&&> > transform_error(
         F&& f) const&& {
       return has_value() ? expected<void, detail::transform_invoke_result_t<F, const error_type&&> >()
-                         : make_error(detail::invoke(std::forward<F>(f), std::move(error())));
+                         : error_new(detail::invoke(std::forward<F>(f), std::move(error())));
     }
 #endif
 #endif  // nsel_P2505R >= 3

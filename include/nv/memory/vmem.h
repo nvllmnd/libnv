@@ -4,14 +4,11 @@
 
 #pragma once
 
-#ifndef __cplusplus
-
 #include <assert.h>
 #include <string.h>
 
 #include "nv/core/attributes.h"
 #include "nv/core/algo.h"
-#include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
@@ -39,6 +36,15 @@ static constexpr const i64 VMEM_PREFIX_SIZE = sizeof(VMem);
 
 i64 os_page_size(void);
 
+/// @brief mmap wrapper
+void* vmemory_map(isize size_bytes, bool noreserve) MALLOC_FUNC HEDLEY_NO_THROW;
+
+/// @brief mremap wrapper
+void* vmemory_remap(void* ptr, isize old_size, isize new_size_bytes, bool relocate) HEDLEY_NO_THROW;
+
+/// @brief munmap wrapper
+void vmemory_unmap(void* ptr, isize size_bytes) HEDLEY_NO_THROW;
+
 PURE_FUNC
 METHOD
 static inline i64 vmem_size(const VMem* self) {
@@ -54,7 +60,7 @@ static inline i64 vmem_size_full(const VMem* self) { return vmem_size(self) + VM
 #define LIBNV_VMEM_NORESERVE_DEFAULT 0
 #endif
 
-static constexpr const bool VMEM_NORESERVE_DEFAULT = cast(bool, LIBNV_VMEM_NORESERVE_DEFAULT);
+static constexpr const bool VMEM_NORESERVE_DEFAULT = HEDLEY_STATIC_CAST(bool, LIBNV_VMEM_NORESERVE_DEFAULT);
 
 /// @brief create new VMem with options
 /// @details has noreserve flag instead of options tentatively
@@ -206,13 +212,13 @@ METHOD
 static inline void* va_zallocate(Vallocator* self, Layout layout) { return arena_zalloc(&self->ar, layout); }
 
 PARAMS_NONNULL(1, 2)
-static inline bool va_resize(Vallocator* self, void* ptr, Layout old, Layout new) {
-  return arena_resize(&self->ar, ptr, old, new);
+static inline bool va_resize(Vallocator* self, void* ptr, Layout old, Layout newl) {
+  return arena_resize(&self->ar, ptr, old, newl);
 }
 
 PARAMS_NONNULL(1, 2)
-static inline void* va_reallocate(Vallocator* self, void* ptr, Layout old, Layout new) {
-  return arena_realloc(&self->ar, ptr, old, new);
+static inline void* va_reallocate(Vallocator* self, void* ptr, Layout old, Layout newl) {
+  return arena_realloc(&self->ar, ptr, old, newl);
 }
 
 PARAMS_NONNULL(1, 2)
@@ -228,14 +234,14 @@ static inline char* va_strndup(Vallocator* self, const char* str, i32 len) {
 PARAMS_NONNULL(1, 2)
 static inline sslice va_sslice_dup(Vallocator* self, const char* str, i32 len) {
   const char* ptr = arena_strndup(&self->ar, str, len);
-  return sslice_new(.begin = ptr, .len = len);
+  return sslice_new(.begin = ptr, .len = HEDLEY_STATIC_CAST(i32, len));
 }
 
 PARAMS_NONNULL(1, 2)
 static inline sslice va_vfslice(Vallocator* self, const char* fmt, va_list args) {
   isize len = 0;
   const char* ptr = arena_vfstring(&self->ar, &len, fmt, args);
-  return sslice_new(.begin = ptr, .len = len);
+  return sslice_new(.begin = ptr, .len = HEDLEY_STATIC_CAST(i32, len));
 }
 
 PARAMS_NONNULL(1, 3)
@@ -271,15 +277,3 @@ void va_destroy(Vallocator* self);
   })
 
 END_C_DECLS
-
-#endif
-
-#ifdef __cplusplus
-
-#include "nv/core/intdefs.h"
-
-struct Vmem;
-
-Vmem* vmem_new(isize size_bytes) noexcept;
-
-#endif

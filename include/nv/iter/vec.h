@@ -5,7 +5,6 @@
 #pragma once
 
 #include "nv/core/attributes.h"
-#include "nv/core/intdefs.h"
 #include "nv/memory/alloc.h"
 
 BEGIN_C_DECLS
@@ -180,7 +179,7 @@ END_C_DECLS
 
 #ifdef __cplusplus
 
-template<typename T, typename A>
+template <typename T, typename A>
 struct Vec {
   Vec(T) inner;
   A alloc;

@@ -20,6 +20,67 @@
 #include "nv/memory/alloc.h"
 #include "nv/memory/error.h"
 
+/// @brief mmap wrapper
+void* vmemory_map(isize size_bytes, bool noreserve) {
+  const i32 flags = noreserve ? (MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE) : (MAP_PRIVATE | MAP_ANONYMOUS);
+
+  const i64 size = max(size_bytes, os_page_size());
+
+  void* ptr = mmap(0, size, PROT_READ | PROT_WRITE, flags, -1, 0);
+  if UNLIKELY (ptr == MAP_FAILED) {
+    LOG_ERROR("Failed to map virtual memory of size: %li from requested size: %li ERRNO(%d) :: %s", size, size_bytes,
+              errno, strerror(errno));
+
+    return nullptr;
+  }
+  return ptr;
+}
+
+/// @brief mremap wrapper
+void* vmemory_remap(void* ptr, const isize old_size, const isize new_size_bytes, const bool relocate) {
+  assert(ptr);
+
+  i32 flags = 0;
+  if (relocate) {
+    bitset(flags, MREMAP_MAYMOVE);
+  }
+
+  const i64 size = new_size_bytes;
+
+  void* new = mremap(ptr, old_size, size, flags);
+
+  if (new == MAP_FAILED) {
+    if (relocate) {
+      LOG_ERROR(
+          "Failed to remap virtual memory from size %li bytes to size %li bytes, even though MREMAP_MAYMOVE flag was "
+          "enabled! "
+          "ERRNO => %s",
+          old_size - VMEM_PREFIX_SIZE, new_size_bytes, strerror(errno));
+    }
+
+    return nullptr;
+  }
+  return new;
+}
+
+/// @brief munmap wrapper
+void vmemory_unmap(void* ptr, isize size_bytes) {
+  if (ptr && size_bytes >= os_page_size()) {
+    const i64 size = size_bytes;
+    const error err = munmap(ptr, size);
+    if UNLIKELY (err == -1) {
+      // if we failed to unmap, then there is something wrong with our data or logic, or memory got corrupted, or some
+      // other catastrophic error condition
+      LOG_FATAL(
+          "Unable to unmap VMem of size: %li at address: %p. ERRNO => %s. This is a bug, please report to "
+          "nvllmnd@pm.me",
+          size, ptr, strerror(errno));
+    }
+  } else {
+    LOG_ERROR("Cannot unmap nullptr or invalid virtual memory size: %li", size_bytes);
+  }
+}
+
 #define vmem_lock_prefault_check(_self, _from, _size)                                \
   {                                                                                  \
     NvError err = NVOK;                                                              \
@@ -47,6 +108,11 @@ Vallocator va_new_ex(i64 vmem_size, bool noreserve) {
   }
 
   Arena ar = arena_vmem_new(mem);
+
+#ifdef __cplusplus
+  using namespace nv::algo;
+#endif
+
   assert(!is_none(&ar));
   return (Vallocator){.mem = mem, .ar = ar};
 }

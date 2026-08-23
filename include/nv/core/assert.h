@@ -1,6 +1,10 @@
 #pragma once
 
 #ifdef __cplusplus
+
+#include <exception>
+
+#ifndef ASSERT
 #define ASSERT(_expr, _fmt, ...)                                                                                   \
   do {                                                                                                             \
     if (!(_expr)) {                                                                                                \
@@ -8,6 +12,7 @@
       std::terminate();                                                                                            \
     }                                                                                                              \
   } while (0)
+#endif
 
 #endif
 

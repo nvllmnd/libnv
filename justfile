@@ -14,13 +14,15 @@ release_dir := build_root + "/release"
 compiler := "clang"
 cpp_compiler := "clang++"
 
+linker := "mold"
+
 # Build type specific configurations
 debug_flags := "--buildtype=debug"
 
 release_flags := "--buildtype='release' -Db_lto=true -Db_lto_threads=4 -Db_ndebug=true"
 
 version_major := "2"
-version_minor := "2"
+version_minor := "10"
 version_patch := `echo "$(git rev-list --count HEAD)"`
 version_full := version_major + "." + version_minor + "." + version_patch
 
@@ -72,7 +74,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
     if [ ! -d {{ debug_dir }} ]; then \
     	echo "Setting up DEBUG build..."; \
     	mkdir -p {{ debug_dir }}; \
-    	CC={{ compiler }} CXX={{ cpp_compiler }} meson setup {{ debug_dir }} {{ debug_flags }};  \
+    	CC={{ compiler }} CXX={{ cpp_compiler }} CXX_LD={{ linker }} CC_LD={{ linker }} meson setup {{ debug_dir }} {{ debug_flags }};  \
     else \
     	echo "Debug Build directory already exists!"; \
     	exit 0; \
@@ -80,12 +82,12 @@ version_full := version_major + "." + version_minor + "." + version_patch
 
 @setup-release: sync-version
     if [ ! -d {{ release_dir }} ]; then \
-    	echo "Setting up RELEASE build..."; \
-    	mkdir -p {{ release_dir }}; \
-    	CXX={{ compiler }} CC={{ cpp_compiler }} meson setup {{ release_dir }} {{ release_flags }};  \
+      echo "Setting up RELEASE build..."; \
+      mkdir -p {{ release_dir }}; \
+    	CXX={{ cpp_compiler }} CC={{ compiler }} CXX_LD={{ linker }} CC_LD={{ linker }} meson setup {{ release_dir }} {{ release_flags }};  \
     else \
-    	echo "Release Build directory already exists!"; \
-    	exit 0; \
+      echo "Release Build directory already exists!"; \
+      exit 0; \
     fi
 
 # #Create release build dir + configure"

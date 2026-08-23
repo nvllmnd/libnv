@@ -5,7 +5,7 @@
 #pragma once
 
 #include "attributes.h"
-#include "intdefs.h"
+#include "ctypes.h"
 
 BEGIN_C_DECLS
 

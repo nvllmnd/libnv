@@ -1,10 +1,14 @@
 #pragma once
 
-#include <concepts>
+#ifdef __cplusplus
+
+#endif
+
+#include <cstddef>
 #include <type_traits>
+#include <string_view>
 #include "nv/core/assert.h"
-#include "nvxx/ptr.hpp"
-#include "nv/core/intdefs.h"
+#include "nv/core/ctypes.h"
 
 namespace nv::slice {
 
@@ -12,7 +16,7 @@ template <class T>
 struct Slice {
   static_assert(!std::is_void_v<T>, "Cannot create Slice<void>! use Slice<byte> instead!");
 
-  nv::ptr::ptr<T> data;
+  nv::ptr<T> data;
   i32 count;
 
   [[gnu::pure]]
@@ -21,23 +25,24 @@ struct Slice {
   }
 
   constexpr decltype(auto) operator[](this auto& self, std::ptrdiff_t i) noexcept { return *(self.data + i); }
+
   [[gnu::pure]]
-  constexpr nv::ptr::ptr<T> begin() const noexcept {
+  constexpr nv::ptr<T> begin() const noexcept {
     return this->data;
   }
 
   [[gnu::pure]]
-  constexpr nv::ptr::ptr<const T> cbegin() const noexcept {
+  constexpr nv::ptr<const T> cbegin() const noexcept {
     return this->data;
   }
 
   [[gnu::pure]]
-  constexpr nv::ptr::ptr<T> end() const noexcept {
+  constexpr nv::ptr<T> end() const noexcept {
     return this->begin() + this->len();
   }
 
   [[gnu::pure]]
-  constexpr nv::ptr::ptr<const T> cend() const noexcept {
+  constexpr nv::ptr<const T> cend() const noexcept {
     return this->cbegin() + this->len();
   }
 
@@ -49,9 +54,9 @@ struct Slice {
   constexpr Slice<const T> as_const() const noexcept { return {.data = this->data, .count = this->count}; }
 
   [[gnu::pure]]
-  constexpr Slice subspan(i32 begin, i32 end) const noexcept {
+  constexpr Slice subslice(i32 begin, i32 end) const noexcept {
     const auto len = end - begin;
-    ASSERT(len >= 0, "End index must be >= begin index for subspan! got: begin: %d, end: %d, as delta: %d", begin, end,
+    ASSERT(len >= 0, "End index must be >= begin index for subslice! got: begin: %d, end: %d, as delta: %d", begin, end,
            len);
     return {
         .data = this->data + begin,
@@ -60,10 +65,10 @@ struct Slice {
   }
 
   [[gnu::pure]]
-  constexpr Slice subspan(i32 begin = 0) noexcept {
+  constexpr Slice subslice(i32 begin = 0) const noexcept {
     ASSERT(begin <= this->len(), "begin index must be <= slice length of: %d, got: %d", this->len(), begin);
     const auto delta = this->len() - begin;
-    return this->subspan(begin, delta);
+    return this->subslice(begin, delta);
   }
 };
 
@@ -89,24 +94,6 @@ constexpr bool operator!=(const Slice<T>& lhs, const Slice<T>& rhs) noexcept {
 }
 
 template <class T>
-Slice(T*, std::add_pointer_t<T>) -> Slice<T>;
-
-template <class T>
-Slice(const T*, std::add_pointer_t<const T>) -> Slice<const T>;
-
-template <class T>
-Slice(T*, i32) -> Slice<T>;
-
-template <class T>
-Slice(T*, isize) -> Slice<T>;
-
-template <class T>
-Slice(const T*, i32) -> Slice<const T>;
-
-template <class T>
-Slice(const T*, isize) -> Slice<const T>;
-
-template <class T>
 [[gnu::pure]]
 constexpr Slice<T> slice_new(T* begin, std::add_pointer_t<T> end) noexcept {
   const auto len = end - begin;
@@ -127,7 +114,5 @@ constexpr Slice<T> slice_new(T* start) noexcept {
   static_assert(N >= 0, "N must be >= 0!");
   return {.data = start, .count = N};
 }
-
-using Sview = std::string_view;
 
 }  // namespace nv::slice

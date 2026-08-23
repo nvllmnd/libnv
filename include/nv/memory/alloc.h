@@ -4,25 +4,33 @@
 
 #pragma once
 
-#ifdef __cplusplus
+// #ifdef __cplusplus
 
-#include <concepts>
-#include <type_traits>
+// #include <concepts>
+// #include <type_traits>
 
-struct Layout {};
+// struct Layout {};
 
-namespace nv {}  // namespace nv
+// namespace nv {}  // namespace nv
 
-#else
+// #else
 
 #include <assert.h>
-#include <stdatomic.h>
 
 #include "nv/core/algo.h"
 #include "nv/common.h"
 #include "nv/core/attributes.h"
 #include "nv/iter/iterators.h"
 #include "nv/memory/alloc.h"
+
+#ifndef __cplusplus
+#ifndef MAKE
+#define MAKE make
+#endif
+#ifndef MAKE_ZEROED
+#define MAKE_ZEROED make_zeroed
+#endif
+#endif
 
 BEGIN_C_DECLS
 // #include "nv/memory/vmem.h"
@@ -41,21 +49,21 @@ typedef struct Layout Layout;
     constexpr const __typeof(s) _s = (s);             \
     constexpr const __typeof(a) _a = (a);             \
     static_assert(IS_POWER_OF_2(_a) && _s % _a == 0); \
-    make(Layout, .size = _s, .align = _a);            \
+    (Layout){.size = _s, .align = _a};                \
   })
 
 #define mlayout_new(T) (mlayout_static(sizeof(T), alignof(T)))
 #define mlayout_array(T, N) (mlayout_static(sizeof(T) * N, alignof(T)))
-#define mlayout_vec(T, _n) (make(Layout, .size = sizeof(T) * (_n), .align = alignof(T)))
+#define mlayout_vec(T, _n) ((Layout){.size = sizeof(T) * (_n), .align = alignof(T)})
 #define mlayout_fma(THeader, flex_member_size) \
-  (make(Layout, .size = sizeof(THeader) + (flex_member_size), .align = alignof(THeader)))
+  ((Layout){.size = sizeof(THeader) + (flex_member_size), .align = alignof(THeader)})
 
 /// @brief Creates a new [Layout] appropriate for allocating a buffer of bytes of size `nbytes`
 /// @param(i32 nbytes) size in bytes of allocation request. Must be > 0
 CONST_FUNC
 static inline Layout mlayout_bytes(i32 nbytes) {
   assert(nbytes > 0);
-  return make(Layout, .size = nbytes, .align = 1);
+  return (Layout){.size = nbytes, .align = 1};
 }
 
 /// @brief exteneds Layout by count. (if MemLayout represents a single element of a typed array, then MemLayout * count
@@ -66,18 +74,22 @@ static inline Layout mlayout_extend(Layout self, i32 count) {
   return (Layout){.size = self.size * count, .align = self.align};
 }
 
+#ifndef __cplusplus
+#define MAX max
+#endif
+
 /// @brief Creates a new MemLayout calculated as such: multiplies self.size * count and adds the rhs.size to the result,
 /// takes max of self and rhs alignment
 CONST_FUNC
 static inline Layout mlayout_extend_with(Layout self, i32 count, Layout rhs) {
   assert(count > 0);
-  return (Layout){.size = (self.size * count) + rhs.size, .align = max(self.align, rhs.align)};
+  return (Layout){.size = (self.size * count) + rhs.size, .align = MAX(self.align, rhs.align)};
 }
 
 /// @brief lhs.size + rhs.size, align = max(lhs.align, rhs.align)
 CONST_FUNC
 static inline Layout mlayout_add(Layout lhs, Layout rhs) {
-  return (Layout){.size = lhs.size + rhs.size, .align = max(lhs.align, rhs.align)};
+  return (Layout){.size = lhs.size + rhs.size, .align = MAX(lhs.align, rhs.align)};
 }
 
 PARAMS_NONNULL(1)
@@ -157,24 +169,29 @@ typedef enum HEDLEY_FLAGS AllocVTableMask : u8 {
   VT__All = VT__Allocate | VT__Reallocate | VT__Zallocate | VT__Expand | VT__Free,
 } HEDLEY_FLAGS AllocVTableMask;
 
-CONST_FUNC
-static inline bool vtmask_has_alloc(AllocVTableMask mask) { return bithas(mask, VT__Allocate); }
+#ifndef __cplusplus
+#define BITHAS bithas
+#define BITHASALL bithasall
+#endif
 
 CONST_FUNC
-static inline bool vtmask_has_realloc(AllocVTableMask mask) { return bithas(mask, VT__Reallocate); }
+static inline bool vtmask_has_alloc(AllocVTableMask mask) { return BITHAS(mask, VT__Allocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_zalloc(AllocVTableMask mask) { return bithas(mask, VT__Zallocate); }
+static inline bool vtmask_has_realloc(AllocVTableMask mask) { return BITHAS(mask, VT__Reallocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_expand(AllocVTableMask mask) { return bithas(mask, VT__Expand); }
+static inline bool vtmask_has_zalloc(AllocVTableMask mask) { return BITHAS(mask, VT__Zallocate); }
 
 CONST_FUNC
-static inline bool vtmask_has_free(AllocVTableMask mask) { return bithas(mask, VT__Free); }
+static inline bool vtmask_has_expand(AllocVTableMask mask) { return BITHAS(mask, VT__Expand); }
+
+CONST_FUNC
+static inline bool vtmask_has_free(AllocVTableMask mask) { return BITHAS(mask, VT__Free); }
 
 /// Tests that a mask has the the needed allocation methods implemented (only allocate and free are mandatory)
 CONST_FUNC
-static inline bool vtmask_is_ok(AllocVTableMask mask) { return bithasall(mask, VT__Allocate | VT__Free); }
+static inline bool vtmask_is_ok(AllocVTableMask mask) { return BITHASALL(mask, VT__Allocate | VT__Free); }
 
 /// [Allocator] VTable struct that contains function pointers
 /// to Allocator implementations
@@ -261,7 +278,7 @@ struct Allocator {
 };
 typedef struct Allocator Allocator;
 
-static constexpr const Allocator ALLOCATOR_NONE = make_zeroed(Allocator);
+static constexpr const Allocator ALLOCATOR_NONE = MAKE_ZEROED(Allocator);
 // static constexpr const Allocator ALLOCATOR_NOOP = make(Allocator, .ctx = nullptr, .vtable = )
 
 // CONST_FUNC
@@ -273,19 +290,19 @@ static constexpr const Allocator ALLOCATOR_NONE = make_zeroed(Allocator);
 /// vtable. as such, if any particular Allocator Vtable call returns ((void*)-1)
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_allocate(Allocator self, Layout layout) {
-  assert(vtmask_has_alloc(self.vtable->mask && self.vtable->allocate));
+  assert(vtmask_has_alloc(self.vtable->mask) && self.vtable->allocate);
   return self.vtable->allocate(self.ctx, layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_reallocate(Allocator self, void* ptr, Layout old_layout, Layout new_layout) {
-  assert(vtmask_has_realloc(self.vtable->mask && self.vtable->reallocate));
+  assert(vtmask_has_realloc(self.vtable->mask) && self.vtable->reallocate);
   return self.vtable->reallocate(self.ctx, ptr, old_layout, new_layout);
 }
 
 [[nodiscard("Must not discard pointer returned from allocator! possible memory leak!")]]
 static inline void* allocator_zallocate(Allocator self, Layout layout) {
-  assert(vtmask_has_zalloc(self.vtable->mask && self.vtable->zallocate));
+  assert(vtmask_has_zalloc(self.vtable->mask) && self.vtable->zallocate);
   return self.vtable->zallocate(self.ctx, layout);
 }
 
@@ -295,7 +312,7 @@ static inline bool allocator_expand(Allocator self, void* ptr, Layout old_layout
 }
 
 static inline void allocator_free(Allocator self, void* ptr) {
-  assert(vtmask_has_free(self.vtable->mask && self.vtable->free));
+  assert(vtmask_has_free(self.vtable->mask) && self.vtable->free);
   self.vtable->free(self.ctx, ptr);
 }
 
@@ -342,8 +359,8 @@ void* zallocate_raw(IterByte* self, Layout layout) METHOD;
 // NOTE: These raw allocation functions assume the range pointed to by IterByte parameter is contiguous,
 // and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
 // Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
-// IterByte pointing to any memory you want to allocate into//
-bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
+// iterbyte pointing to any memory you want to allocate into//
+bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new_layout) PARAMS_NONNULL(1, 2);
 
 // @basic Fundamental memory move /
 // @details
@@ -352,7 +369,7 @@ bool resize_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNUL
 // and as such, has the behavior of a bump-style Arena Allocator. I figure the Arena is the most fundamental (simple)
 // Allocator, so it makes sense to use this allocation style for the most basic allocations You can create your own
 // IterByte pointing to any memory you want to allocate into//
-void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) PARAMS_NONNULL(1, 2);
+void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new_layout) PARAMS_NONNULL(1, 2);
 
 char* strdup_raw(IterByte* self, const char* str);
 
@@ -380,10 +397,9 @@ void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern);
 
 /// @brief a non-owning Arena-style allocator
 /// @details Callers are responsible for managing buffer used by this Arena
-struct Arena {
+typedef struct Arena {
   IterData(byte);
-};
-alias(Arena);
+} Arena;
 
 typedef Arena ScopedArena;
 
@@ -393,6 +409,9 @@ PARAMS_NONNULL(1)
 Arena arena_new(byte* begin, isize size);
 
 static inline void arena_init(Arena* self, byte* begin, isize size) {
+#ifdef __cplusplus
+  using namespace nv;
+#endif
   if LIKELY (is_not_null(self) && is_not_null(begin) && size > 0) {
     *self = arena_new(begin, size);
   }
@@ -402,7 +421,11 @@ PARAMS_NONNULL(1, 2)
 static inline Arena arena_range_new(byte* begin, byte* end) {
   assert(begin);
   assert(end);
-  return (Arena){.begin = begin, .cursor = begin, .end = end};
+  return (Arena){
+      .begin = begin,
+      .end = end,
+      .cursor = begin,
+  };
 }
 
 Allocator arena_allocator(Arena* self);
@@ -422,12 +445,20 @@ static inline isize arena_size(const Arena* self) { return self->end - self->beg
 METHOD
 PURE_FUNC
 static inline CIterByte arena_citer(const Arena* self) {
-  return (CIterByte){.begin = self->begin, .cursor = self->cursor, .end = self->end};
+  return (CIterByte){
+      .begin = self->begin,
+      .end = self->end,
+      .cursor = self->cursor,
+  };
 }
 
 METHOD
 static inline IterByte arena_iter(Arena* self) {
-  return (IterByte){.begin = self->begin, .cursor = self->cursor, .end = self->end};
+  return (IterByte){
+      .begin = self->begin,
+      .end = self->end,
+      .cursor = self->cursor,
+  };
 }
 
 struct VMem;
@@ -459,7 +490,11 @@ void arena_clear_zeroed(Arena* self) METHOD;
 METHOD
 static inline ScopedArena arena_scoped(const Arena* self) {
   byte* const cursor = self->cursor;
-  return (ScopedArena){.begin = cursor, .cursor = cursor, .end = self->end};
+  return (ScopedArena){
+      .begin = cursor,
+      .end = self->end,
+      .cursor = cursor,
+  };
 }
 
 /// @brief resets this Arena back to state before most recetn allocation.
@@ -481,7 +516,7 @@ METHOD
 static inline bool arena_contains(const Arena* self, void* ptr) {
   assert(self);
 
-  byte* p = ptr;
+  byte* p = CAST(byte*, ptr);
   return p >= self->begin && p < self->end;
 }
 
@@ -489,9 +524,9 @@ void* arena_alloc(Arena* self, Layout layout) METHOD;
 
 void* arena_zalloc(Arena* self, Layout layout) METHOD;
 
-bool arena_resize(Arena* self, void* ptr, Layout old, Layout new) METHOD;
+bool arena_resize(Arena* self, void* ptr, Layout old, Layout new_layout) METHOD;
 
-void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new) METHOD;
+void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new_layout) METHOD;
 
 char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) METHOD HEDLEY_PRINTF_FORMAT(3, 4);
 
@@ -499,7 +534,6 @@ char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args
 
 char* arena_strndup(Arena* self, const char* str, isize len) PARAMS_NONNULL(1, 2);
 
-#ifdef __cplusplus
 sslice arena_strdup(Arena* self, sslice str) METHOD;
 
 /// @brief reads file at given path into this Arena as a readonly null-terminated string
@@ -509,9 +543,8 @@ PARAMS_NONNULL(1, 2)
 static inline sslice arena_fread_slice(Arena* self, const char* path) {
   isize len = 0;
   const char* str = arena_fread_string(self, path, &len);
-  return sslice_new(.begin = str, .len = len);
+  return sslice_new(.begin = str, .len = CAST(i32, len));
 }
-#endif
 
 /// @brief performs a deep copy of all bytes in the iterator range of this Arena.
 /// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator
@@ -524,4 +557,4 @@ void arena_clone(const Arena* src, Arena dest) METHOD;
 
 END_C_DECLS
 
-#endif
+// #endif

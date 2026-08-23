@@ -1,26 +1,18 @@
 #pragma once
 
-#include "core/opt.hpp"
-#include "core/result.hpp"
+#include "opt.hpp"
+#include "result.hpp"
 
 #ifdef __cplusplus
 
 namespace nv::conv {
 
-template <typename T, typename E>
+template <typename T, class E>
 constexpr nv::opt::Opt<T> into(nv::result::Result<T, E> res) noexcept {
   if (res.has_value()) {
     return res.value();
   }
   return nv::opt::None;
-}
-
-template <typename T, typename E>
-constexpr nv::result::Result<T, E> into(nv::opt::Opt<T> opt, E err) noexcept {
-  if (opt.has_value()) {
-    return opt.value();
-  }
-  return nv::result::make_error(err);
 }
 
 }  // namespace nv::conv

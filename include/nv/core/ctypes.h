@@ -1,66 +1,10 @@
-// SPDX-FileCopyrightText: 2026 Matthew McDade <nvllmnd@pm.me>
-//
-// SPDX-License-Identifier: GPL-3.0-or-later
-
 #pragma once
 
 #include "nv/core/attributes.h"
 
-BEGIN_C_DECLS
-
-#ifdef __cplusplus
-
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
-
-using u8 = uint8_t;
-using i8 = int8_t;
-using byte = std::byte;
-using u16 = uint16_t;
-using i16 = int16_t;
-using i32 = int32_t;
-using u32 = uint32_t;
-using i64 = int64_t;
-using u64 = uint64_t;
-using f32 = float;
-using f64 = double;
-using usize = size_t;
-using isize = ssize_t;
-
-using error = i64;
-
-static constexpr const i8 I8_MAX = INT8_MAX;
-static constexpr const i8 I8_MIN = INT8_MIN;
-static constexpr const u8 U8_MAX = UINT8_MAX;
-static constexpr const i16 I16_MAX = INT16_MAX;
-static constexpr const u16 U16_MAX = UINT16_MAX;
-
-static constexpr const i32 I32_MIN = INT32_MIN;
-static constexpr const i32 I32_MAX = INT32_MAX;
-static constexpr const u32 U32_MAX = UINT32_MAX;
-static constexpr const i64 I64_MIN = INT64_MIN;
-static constexpr const i64 I64_MAX = INT64_MAX;
-static constexpr const u64 U64_MAX = UINT64_MAX;
-
-static constexpr const isize ISIZE_MIN = PTRDIFF_MIN;
-static constexpr const isize ISIZE_MAX = PTRDIFF_MAX;
-
-static constexpr const usize USIZE_MAX = SIZE_MAX;
-
-#if defined(__has_include)
-#if __has_include(<unistd.h>)
-
-#include <unistd.h>
-using isize = ssize_t;
-#else
-using isize = ptrdiff_t;
-#endif
-#else
-using isize = ptrdiff_t;
-#endif
-
-#else
+#ifdef __cplusplus  // ifdef cpp0
+#include "nvxx/common.hpp"
+#else  // ifdef cpp0
 
 #include <stddef.h>
 #include <stdint.h>
@@ -74,9 +18,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef uint32_t u32;
 typedef int64_t i64;
-typedef uint64_t u64;
-
-// NOTE: Not using HAS_INCLUDE macro here so we dont have to #include <uinstd.h>,
+typedef uint64_t u64;  // NOTE: Not using HAS_INCLUDE macro here so we dont have to #include <uinstd.h>,
 //  just in case i decide i want to support Windoze one day =P
 #if defined(__has_include)
 #if __has_include(<unistd.h>)
@@ -165,6 +107,4 @@ static constexpr const isize ISIZE_MAX = PTRDIFF_MAX;
 
 static constexpr const usize USIZE_MAX = SIZE_MAX;
 
-#endif
-
-END_C_DECLS
+#endif  // ifdef cpp0

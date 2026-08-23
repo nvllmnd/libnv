@@ -359,16 +359,17 @@
 // ######### Custom Extensions to hedley.h ###########
 // ###################################################
 
+#ifdef __cplusplus
+#define ATTR_COUNTED_BY(x)
+#endif
+#ifndef __cplusplus
 #if HEDLEY_HAS_ATTRIBUTE(counted_by)
 #ifndef ATTR_COUNTED_BY
 #define ATTR_COUNTED_BY(_field) __attribute__((counted_by(_field)))
-#endif  // ifndef ATTR_COUNTED_BY
-#ifndef ATTR_COUNTED_BY
+#endif
+#endif
 
-#define ATTR_COUNTED_BY
-#endif  // ifndef ATTR_COUNTED_BY
-
-#endif  // HEDLEY_HAS_ATTRIBUTE(counted_by)
+#endif
 
 #if defined(__has_include)
 #define HAS_INCLUDE(...) __has_include(__VA_ARGS__)
