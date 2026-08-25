@@ -4,9 +4,6 @@
 #include "nvxx/common.hpp"
 #include "nv/core/log.h"
 
-#if __cplusplus
-#endif
-
 namespace nv::opt {
 
 struct NoneType {

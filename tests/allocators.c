@@ -86,9 +86,9 @@ void heap_can_reallocate(void) {
 }
 
 void arena_static_mem_works(void) {
-  #ifdef __cplusplus
+#ifdef __cplusplus
   using namespace nv::algo;
-  #endif
+#endif
 
   TEST_ASSERT_FALSE(is_none(&ARENA));
   Stuff* val = arena_alloc(&ARENA, mlayout_new(Stuff));

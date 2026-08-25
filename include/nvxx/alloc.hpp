@@ -4,14 +4,24 @@
 #include <concepts>
 #include <memory>
 #include <type_traits>
+#include "nvxx/common.hpp"
 #include "opt.hpp"
 #include "slice.hpp"
-#include "nv/memory/alloc.h"
 #include "result.hpp"
+#include "nvxx/vmem.hpp"
 
 #ifdef __cplusplus
 
 namespace nv {
+
+template <class T>
+concept MemoryResource = requires(T v, const void* ptr) {
+  { v.begin() } -> std::convertible_to<typename T::ResourceIter>;
+  { v.end() } -> std::convertible_to<typename T::ResourceIter>;
+  { v.size_bytes() } -> std::convertible_to<usize>;
+  { v.contains(ptr) } -> std::same_as<bool>;
+  { std::addressof(v[0]) } -> std::convertible_to<::nv::ptr<ValType<typename T::ResourceType>>>;
+} && Pod<ValType<typename T::ResourceType>>;
 
 // namespace nv namespace nv::inline alloc {
 /// @brief type alias for a (potentially owned) contiguous block of T
@@ -176,7 +186,7 @@ template <class T>
 concept AllocatorImpl = requires(T a) {
   { a.allocator() } noexcept -> std::convertible_to<Allocator>;
   { a.vtable() } noexcept -> std::convertible_to<const AllocVtable*>;
-  { static_cast<Allocator>(a) } -> std::convertible_to<Allocator>;
+  { static_cast<Allocator>(a) } -> std::same_as<Allocator>;
 } && AllocatorTraits<T>;
 
 /// @breif Allocator Vtable Adapter generator
@@ -314,6 +324,11 @@ template <usize N>
 constexpr Arena chunk_arena_new(std::array<byte, N>* mem) noexcept {
   return chunk_arena_new(mem->begin(), mem->end());
 }
+
+constexpr Arena check_arena_new(ptr<nv::Vmem> vmem) noexcept { return chunk_arena_new(vmem->begin(), vmem->end()); }
+
+template <class T>
+concept MemResourceAlloc = AllocatorTraits<T> && MemoryResource<typename T::Resource>;
 
 }  // namespace nv
 #endif

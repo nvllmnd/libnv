@@ -49,8 +49,12 @@ if not meson.is_subproject()
   cargs += '-D__STDC_WANT_LIB_EXT1__=1'
 endif
 
+cc = meson.get_compiler('cpp')
+math_dep = cc.find_library('m', required: false)
+
 dependencies = [
   hedley_dep,
+  math_dep,
 ]
 
 inc = include_directories('include', 'src/cxx_includes')

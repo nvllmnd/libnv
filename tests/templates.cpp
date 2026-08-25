@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "nv/core/ctypes.h"
-#include "nv/memory/alloc.h"
+#include "nvxx/common.hpp"
 #include "nvxx/alloc.hpp"
 #include "nvxx/vmem.hpp"
 #include "unity.h"

@@ -5,6 +5,7 @@
 #pragma once
 
 #include "nv/core/ctypes.h"
+#include <math.h>
 
 #ifdef __cplusplus
 #include <type_traits>
@@ -25,11 +26,8 @@
 
 #include "nv/core/log.h"
 
-#include <string.h>
-
 #include <stdarg.h>
 #include <stddef.h>
-#include <math.h>
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)

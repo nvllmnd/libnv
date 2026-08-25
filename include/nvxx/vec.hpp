@@ -19,18 +19,24 @@ struct VecMem {
 
   template <class A>
     requires(AllocatorTraits<A> && !IsAllocator<A>)
-  // static constexpr VecMem* allocate(isize capacity, A* alloc) noexcept {}
-  //
-  // static constexpr VecMem* allocate(isize capacity, Allocator alloc) noexcept {}
+  static constexpr VecMem* allocate(isize capacity, A* alloc) noexcept {}
 
-  constexpr usize len() const noexcept {
-    return this->count;
+  static constexpr VecMem* allocate(isize capacity, Allocator alloc) noexcept {
+    check_ensure(alloc.allocate(layout_of_flex_array<VecMem<T>>(capacity)));
   }
+
+  constexpr usize len() const noexcept { return this->count; }
   constexpr isize size_bytes_full() const noexcept { return this->size_bytes() + sizeof(VecMem<T>); }
   constexpr isize size_bytes() const noexcept { return this->count * sizeof(T); }
   constexpr isize size_capacity_full() const noexcept { return this->size_capacity() + sizeof(VecMem<T>); }
   constexpr isize size_capacity() const noexcept { return this->capacity * sizeof(T); }
 };
+
+template <class T>
+using VecMemFlexType = typename VecMem<T>::FlexMemberType;
+
+template <class T>
+using VecMemFlexValueType = typename VecMem<T>::FlexValueType;
 
 template <class T>
 concept VecAllocatorTraits = (std::is_void_v<T> || IsAllocator<T> || AllocatorTraits<T>);

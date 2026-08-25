@@ -6,9 +6,7 @@
 
 #include <cstddef>
 #include <type_traits>
-#include <string_view>
-#include "nv/core/assert.h"
-#include "nv/core/ctypes.h"
+#include "nvxx/common.hpp"
 
 namespace nv::slice {
 

@@ -1,10 +1,8 @@
 #pragma once
 
 #include <type_traits>
-#include <tuple>
-#include "nv/core/ctypes.h"
 #include "nv/core/log.h"
-#include "nvxx/opt.hpp"
+#include "nvxx/common.hpp"
 
 namespace nv::result {
 
@@ -38,9 +36,21 @@ constexpr Error& operator&=(Error& lhs, const Error& rhs) noexcept {
   lhs = (lhs & rhs);
   return lhs;
 }
+namespace priv {
 
 template <class E>
-  requires((std::is_standard_layout_v<E> && std::is_trivially_destructible_v<E>) || std::is_enum_v<std::decay_t<E>>)
+concept ResultErrTraits = !std::is_void_v<E> && (PodLike<E> || std::is_enum_v<E>);
+
+template <class T>
+concept ResultValTraits = std::is_void_v<T> || PodLike<T>;
+
+template <class T, class E>
+concept ResultTraits = ResultValTraits<T> && ResultErrTraits<E>;
+
+}  // namespace priv
+
+template <class E>
+  requires(priv::ResultErrTraits<E>)
 struct ErrorResult {
   static_assert(!std::is_reference_v<E>,
                 "E must not be reference! use std::reference_wrapper if you need a reference!");
@@ -50,9 +60,12 @@ struct ErrorResult {
   constexpr ErrorResult(E val) noexcept : err(val) {}
 };
 
+// namespace priv
+
 template <class T, class E>
-  requires(PodLike<T> && (PodLike<E> || std::is_enum_v<E>))
+  requires(priv::ResultTraits<T, E>)
 struct Result {
+  static_assert(!std::is_void_v<T> && !std::is_void_v<E>);
   static_assert(!std::is_reference_v<T>,
                 "T must not be reference! use std::reference_wrapper if you need a reference!");
 
@@ -87,7 +100,7 @@ struct Result {
     if (this->is_ok()) {
       LOG_FATAL("Cannot return error value for a Result that contains a T value!");
     }
-    return this->err;
+    return this->err.err;
   }
 
   constexpr ErrorReference error() noexcept
@@ -96,7 +109,7 @@ struct Result {
     if (this->is_ok()) {
       LOG_FATAL("Cannot return error value for a Result that contains a T value!");
     }
-    return this->err;
+    return this->err.err;
   }
 
   constexpr ConstReference value() const noexcept
@@ -126,9 +139,36 @@ struct Result {
 
   constexpr ErrorType unwrap_err() const noexcept {
     if (this->is_err()) {
-      return this->err;
+      return this->err.err;
     }
     LOG_FATAL("Cannot unwrap_err Result that contains Okay value!");
+  }
+
+  template <class Func>
+    requires(std::invocable<Func, ConstReference>)
+  constexpr Result<RemoveCvref<ReturnType<Func, ConstReference>>, ErrorValueType> and_then(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return Result{std::forward<Func>(fun)(this->data)};
+    }
+    return Result{};
+  }
+
+  template <class Func, class U = ValueType>
+    requires(std::invocable<Func, ValueType>)
+  constexpr Result<U, E> map(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return Result{std::forward<Func>(fun)(this->data)};
+    }
+    return Result{};
+  }
+
+  template <class Func>
+    requires(std::invocable<Func> && std::same_as<Result, RemoveCvref<ReturnType<Func>>>)
+  constexpr Result or_else(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return *this;
+    }
+    return std::forward<Func>(fun)();
   }
 
   constexpr bool is_err() const noexcept { return !this->is_okay; }
@@ -147,4 +187,96 @@ constexpr ErrorResult<E> error_new(E err) noexcept {
   return ErrorResult{err};
 }
 
+template <class E>
+  requires(priv::ResultErrTraits<E>)
+struct Result<void, E> {
+  static_assert(!IsRef<E>);
+
+  CONTAINER_TEMPLATE_TYPES(E);
+
+  constexpr explicit Result() noexcept = default;
+  constexpr Result(ErrorResult<E> error) noexcept : err(error), is_error(true) {}
+
+  constexpr operator bool() const noexcept { return this->is_ok(); }
+
+  constexpr Reference operator*() noexcept { return this->err.err; }
+  constexpr ConstReference operator*() const noexcept { return this->err.err; }
+
+  constexpr Pointer operator->() noexcept { return &this->err.err; }
+
+  constexpr ConstReference error() const noexcept {
+    if (this->is_ok()) {
+      LOG_FATAL("Cannot return error value for a const T&& argResult that contains a T value!");
+    }
+    return this->err.err;
+  }
+
+  constexpr Reference error() noexcept {
+    if (this->is_ok()) {
+      LOG_FATAL("Cannot return error value for a Result that contains a T value!");
+    }
+    return this->err.err;
+  }
+
+  constexpr void value() const noexcept {}
+  constexpr void unwrap() const noexcept {}
+
+  constexpr Type unwrap_err() const noexcept {
+    if (this->is_err()) {
+      return this->err.err;
+    }
+    LOG_FATAL("Cannot unwrap_err Result that contains Okay value!");
+  }
+  // TODO: Need to give these monadic operation methods some more TLC...
+  template <class Func>
+    requires(std::invocable<Func>)
+  constexpr Result<RemoveCvref<ReturnType<Func>>, ValueType> and_then(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return Result{std::forward<Func>(fun)()};
+    }
+    return Result{};
+  }
+
+  template <class Func, class U = void>
+    requires(std::invocable<Func>)
+  constexpr Result<U, E> map(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return Result{std::forward<Func>(fun)()};
+    }
+    return Result{};
+  }
+
+  template <class Func>
+    requires(std::invocable<Func> && std::same_as<Result, RemoveCvref<ReturnType<Func>>>)
+  constexpr Result or_else(Func&& fun) const noexcept {
+    if (this->is_ok()) {
+      return *this;
+    }
+    return std::forward<Func>(fun)();
+  }
+
+  constexpr bool is_err() const noexcept { return this->is_error; }
+  constexpr bool is_ok() const noexcept { return !this->is_error; }
+
+ private:
+  ErrorResult<E> err;
+  bool is_error : 1;
+};
+
+template <class T, class E>
+  requires priv::ResultTraits<T, E>
+constexpr T unwrap(const Result<T, E>& res) noexcept {
+  if (res.is_ok()) {
+    return *res;
+  }
+}
+
+// template <class T, class E, class U = T>
+//   requires priv::ResultTraits<T, E>
+// constexpr T unwrap_or_err(const Result<T, E>& res, const U& new_err) noexcept {}
+//
+// template <class T, class E, class Func, class U = T>
+//   requires(priv::ResultTraits<T, E> && std::invocable<Func> && std::same_as<std::invoke_result_t<Func>, U>)
+// constexpr T unwrap_or_else(const Result<T, E>& res, Func&& fun) noexcept {}
+//
 }  // namespace nv::result

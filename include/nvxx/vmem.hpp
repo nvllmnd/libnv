@@ -5,6 +5,7 @@
 
 #include "nv/core/algo.h"
 #include "nv/memory/vmem.h"
+#include "nvxx/alloc.hpp"
 #include "nvxx/common.hpp"
 
 namespace nv {
@@ -16,7 +17,7 @@ constexpr void* map_memory(isize size, bool noreserve = false) noexcept {
 }
 
 [[gnu::nonnull]]
-constexpr void* remap_memory(void* ptr, isize old_size, isize new_size, bool relocate = false) noexcept {
+constexpr void* remap_memory(void* ptr, isize old_size, isize new_size, bool relocate) noexcept {
   assert_debug(is_not_null(ptr), "cannot pass nullptr to remap_memory!");
   assert_debug(old_size >= 0 && new_size >= 0, "numeric paramter passed to remap_memory must be non-negative!");
   return vmemory_remap(ptr, old_size, new_size, relocate);
@@ -39,6 +40,9 @@ concept VirtMemData = Pod<T> && VirtMemHeader<H>;
 template <class T, class Header = SizeHeader>
   requires(VirtMemData<T, Header>)
 struct VirtMemory {
+  using ResourceType = ValType<T>;
+  using ResourceIter = ptr<ResourceType>;
+
   Header head;
   T start[];
 
@@ -90,6 +94,9 @@ struct VirtMemory {
 
 template <>
 struct VirtMemory<byte> {
+  using ResourceType = byte;
+  using ResourceIter = ptr<ResourceType>;
+
   SizeHeader head;
   byte start[];
 

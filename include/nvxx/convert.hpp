@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nvxx/common.hpp"
 #include "opt.hpp"
 #include "result.hpp"
 
@@ -8,7 +9,7 @@
 namespace nv::conv {
 
 template <typename T, class E>
-constexpr nv::opt::Opt<T> into(nv::result::Result<T, E> res) noexcept {
+constexpr T into(nv::result::Result<T, E> res) noexcept {
   if (res.has_value()) {
     return res.value();
   }
