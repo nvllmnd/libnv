@@ -14,6 +14,8 @@ template <class T>
 struct Slice {
   static_assert(!std::is_void_v<T>, "Cannot create Slice<void>! use Slice<byte> instead!");
 
+  CONTAINER_TEMPLATE_TYPES(T);
+
   nv::ptr<T> data;
   i32 count;
 

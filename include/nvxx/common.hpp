@@ -164,15 +164,28 @@ consteval Str static_string(StringLiteral<N> s) noexcept {
   return Str{s, N};
 }
 
+#ifdef __cpp_lib_print
+
+template <std::copyable>
+using x = void;
+
+using std::println;
+
+using std::print;
+
+#else
+
 template <class... Args>
-constexpr void println(Str fmt, Args&&... args) noexcept {
-  std::cout << std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...)) << "\n";
+constexpr void println(const std::format_string<Args...> fmt, Args&&... args) noexcept {
+  std::clog << std::vformat(fmt.get(), std::make_format_args(std::forward<Args>(args)...)) << "\n";
 }
 
 template <class... Args>
-constexpr void print(Str fmt, Args&&... args) noexcept {
-  std::cout << std::vformat(fmt, std::make_format_args(std::forward<Args>(args)...));
+constexpr void print(const std::format_string<Args...> fmt, Args&&... args) noexcept {
+  std::clog << std::vformat(fmt.get(), std::make_format_args(std::forward<Args>(args)...));
 }
+
+#endif
 
 inline namespace typeops {
 
@@ -181,6 +194,9 @@ using RemoveRef = std::remove_reference_t<T>;
 
 template <class T>
 using RemovePtr = std::remove_pointer_t<T>;
+
+template <class T>
+using RemovePref = RemovePtr<RemoveRef<T>>;
 
 /// @brief alias for [std::remove_cvref_t]
 template <class T>
@@ -194,6 +210,9 @@ using RemoveConst = std::remove_const_t<T>;
 
 template <class T>
 using RemoveCvptr = RemovePtr<RemoveCvref<T>>;
+
+template <class T>
+using RemoveVolRef = std::remove_volatile_t<RemovePtr<RemoveRef<T>>>;
 
 template <class T>
 using Decay = std::decay_t<T>;
@@ -249,67 +268,64 @@ struct RemoveCvrefRecImpl<const T&&> {
 };
 
 template <class T>
-struct UnwrapImpl {
-  using Type = RemoveCvptr<T>;
+struct ValTypeImpl {
+  using Type = T;
 };
 
 template <class T>
-struct UnwrapImpl<T*> {
-  using Type = typename UnwrapImpl<RemoveCvptr<T>>::Type;
+struct ValTypeImpl<T*> {
+  using Type = typename ValTypeImpl<T>::Type;
 };
 
 template <class T>
-struct UnwrapImpl<T&> {
-  using Type = typename UnwrapImpl<RemoveCvptr<T>>::Type;
+struct ValTypeImpl<T&> {
+  using Type = typename ValTypeImpl<T>::Type;
 };
 
 template <class T>
-struct UnwrapImpl<T&&> {
-  using Type = typename UnwrapImpl<RemoveCvptr<T>>::Type;
+struct ValTypeImpl<T&&> {
+  using Type = typename ValTypeImpl<T>::Type;
+};
+
+template <class T>
+struct ValTypeImpl<T[]> {
+  using Type = typename ValTypeImpl<std::remove_all_extents_t<T>>::Type;
 };
 
 template <class T, isize N>
-struct UnwrapImpl<T[N]> {
-  using Type = typename UnwrapImpl<std::remove_all_extents_t<T>>::Type;
+struct ValTypeImpl<T[N]> {
+  using Type = typename ValTypeImpl<std::remove_all_extents_t<T>>::Type;
 };
 
 }  // namespace priv
 
+/// @brief Removes all qualifiers from T, maintaining const/volatility
 template <class T>
-using Unwrap = typename priv::UnwrapImpl<T>::Type;
+using ValType = typename priv::ValTypeImpl<T>::Type;
+
+/// @brief gets T's bare scalar type with no cv or any qualifiers on it
+/// @details does not maintain constness or volatility. for a version of this that does, @see [ValType]
+template <class T>
+using Unwrap = std::remove_cv_t<ValType<T>>;
 
 template <class T>
-using ValType = Unwrap<T>;
-
-template <class T>
-using RemvoeCvrefRef = typename priv::RemoveCvrefRecImpl<T>::Type;
+using RemoveCvrefRec = typename priv::RemoveCvrefRecImpl<T>::Type;
 
 template <class T>
 using RemovePtrRec = typename priv::RemovePtrRecImpl<T>::Type;
 
-// template <class T>
-// using Trim = std::remove_all_extents<RemovePtr<RemoveCvref<T>>>;
-//
-// template <class T>
-// using ValType = Atomize<T>;
-//
-// template <class T>
-// using Melt = Decay<std::remove_all_extents_t<RemovePtr<RemoveCvref<T>>>>;
-//
-// template <class T>
-// using Nuke = Atomize<Melt<Decay<RemoveCvref<T>>>>;
-//
 }  // namespace typeops
 
-/// @brief alias for [RemoveCvref] ([std::remove_cvref_t])
-
+/// @brief adds pointer to T
+/// @details useful for writing templates, otherwise obfuscates pointer types in an unclear manner, so try to use
+/// sparingly
 template <class T>
 using ptr = std::add_pointer_t<T>;
 
 template <class T>
 using const_ptr = ptr<const T>;
 
-using void_ptr = ptr<void>;
+using void_ptr = void*;
 
 template <class T>
 [[gnu::pure]]
@@ -332,26 +348,14 @@ using const_lvalue = std::add_lvalue_reference_t<std::add_const_t<T>>;
 template <class T>
 using rvalue = std::add_rvalue_reference_t<T>;
 
-template <class T>
-constexpr auto IsRef = std::is_reference_v<T>;
-
-template <class T>
-constexpr auto IsLvref = std::is_lvalue_reference_v<T>;
-
-template <class T>
-constexpr auto IsRvref = std::is_rvalue_reference_v<T>;
-
-template <class T>
-constexpr auto IsPtr = std::is_pointer_v<T>;
-
 /// @details std::launders and reinterpret_casts byte pointer to a standard layout compatible type
 /// given pointer must not be null
 template <class T>
-  requires(std::is_standard_layout_v<T>)
+  requires(std::is_standard_layout_v<Unwrap<T>>)
 [[gnu::nonnull, gnu::returns_nonnull]]
-constexpr ptr<const T> byte_cast(ptr<const byte> p) noexcept {
+constexpr const ptr<Unwrap<T>> byte_cast(byte* p) noexcept {
   assert_debug(is_not_null(p), "Cannot byte_cast a nullptr!");
-  return std::launder(reinterpret_cast<nv::ptr<const T>>(p));
+  return std::launder(reinterpret_cast<ptr<Unwrap<T>>>(p));
 }
 
 }  // namespace nv
@@ -401,44 +405,38 @@ namespace nv {
 // static_assert(std::is_same_v<i32, ValType<const int*&>>);
 
 #if defined(__cpp_concepts)
-
-// template <class T, class D>
-// concept DisplayOut = requires(T a, D* out) {
-//   { a.display(out) } noexcept -> std::convertible_to<result::Result<void, typename T::DisplayErrorType>>;
-// };
-//
-// template <class T>
-// concept Display = DisplayOut<T, decltype(std::cout)>;
-//
-// template <class T>
-//   requires(Display<T>)
-// constexpr Str as_string(const T& v) noexcept {
-//   return v.display();
-// }
+template <class T>
+concept IsRef = std::is_reference_v<T>;
 
 template <class T>
-concept IsCvref = std::is_const_v<T> || std::is_volatile_v<T> || std::is_reference_v<T>;
+concept IsVolatile = std::is_volatile_v<T>;
 
-// template <class T>
-// concept Iterator = requires(T v) {
-//   v++;
-//   v--;
-//   { *v } -> std::convertible_to<ValType<typename T::ElemType>>;
-//   v == v;
-//   v != v;
-//   v < v;
-//   v <= v;
-//   v > v;
-//   v >= v;
-//   // { v.begin() } -> std::convertible_to<ptr<RemoveCvref<typename T::TargetType>>>;
-//   // { v.end() } -> std::convertible_to<ptr<RemoveCvref<typename T::TargetType>>>;
-// } || std::is_pointer_v<RemoveCvref<T>>;
-//
-// template <class T>
-// concept Iterable = requires(T v) {
-//
-// };
-//
+template <class T>
+concept IsLvref = std::is_lvalue_reference_v<T>;
+
+template <class T>
+concept IsRvref = std::is_rvalue_reference_v<T>;
+
+template <class T>
+concept IsPtr = std::is_pointer_v<T>;
+
+template <class T>
+concept IsConst = std::is_const_v<T>;
+
+template <class T>
+concept IsCvref = IsConst<T> || IsVolatile<T> || IsRef<T>;
+
+template <class T>
+concept Copy = std::assignable_from<lvalue<Unwrap<T>>, Unwrap<T>>;
+
+template <class T>
+concept Clone = requires(T a) {
+  { a.clone() } noexcept -> std::same_as<Unwrap<T>>;
+} && Copy<T>;
+
+template <class T>
+concept Default = std::default_initializable<T>;
+
 template <class Func, class... Args>
 concept Callable = std::is_invocable_r_v<ReturnType<Func, Args...>, Func, Args...>;
 

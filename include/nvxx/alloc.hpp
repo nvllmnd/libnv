@@ -16,11 +16,11 @@ namespace nv {
 
 template <class T>
 concept MemoryResource = requires(T v, const void* ptr) {
-  { v.begin() } -> std::convertible_to<typename T::ResourceIter>;
-  { v.end() } -> std::convertible_to<typename T::ResourceIter>;
-  { v.size_bytes() } -> std::convertible_to<usize>;
-  { v.contains(ptr) } -> std::same_as<bool>;
-  { std::addressof(v[0]) } -> std::convertible_to<::nv::ptr<ValType<typename T::ResourceType>>>;
+  { v.begin() } noexcept -> std::convertible_to<typename T::ResourceIter>;
+  { v.end() } noexcept -> std::convertible_to<typename T::ResourceIter>;
+  { v.size_bytes() } noexcept -> std::convertible_to<usize>;
+  { v.contains(ptr) } noexcept -> std::same_as<bool>;
+  { std::addressof(v[0]) } noexcept -> std::convertible_to<::nv::ptr<ValType<typename T::ResourceType>>>;
 } && Pod<ValType<typename T::ResourceType>>;
 
 // namespace nv namespace nv::inline alloc {
@@ -329,6 +329,22 @@ constexpr Arena check_arena_new(ptr<nv::Vmem> vmem) noexcept { return chunk_aren
 
 template <class T>
 concept MemResourceAlloc = AllocatorTraits<T> && MemoryResource<typename T::Resource>;
+
+template <class T>
+struct RelAddr {
+  using OffsetType = isize;
+  CONTAINER_TEMPLATE_TYPES(T);
+
+  OffsetType addr;
+};
+
+template <class T>
+struct Relptr {
+  using OffsetType = isize;
+  CONTAINER_TEMPLATE_TYPES(T);
+
+  OffsetType addr;
+};
 
 }  // namespace nv
 #endif

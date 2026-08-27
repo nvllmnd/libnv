@@ -5,7 +5,6 @@
 
 #include "nv/core/algo.h"
 #include "nv/memory/vmem.h"
-#include "nvxx/alloc.hpp"
 #include "nvxx/common.hpp"
 
 namespace nv {
@@ -160,6 +159,7 @@ constexpr VirtMemory<T, H>* vmemory_new(isize size, bool noreserve = false) noex
     return nullptr;
   }
 }
+
 template <class T = byte, class H = SizeHeader>
   requires(VirtMemData<T, H>)
 [[gnu::nonnull]]
