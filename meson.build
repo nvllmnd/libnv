@@ -57,7 +57,7 @@ dependencies = [
   math_dep,
 ]
 
-inc = include_directories('include', 'src/cxx_includes')
+inc = include_directories('include')
 
 core_lib = static_library(
   'nv_core',
