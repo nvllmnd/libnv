@@ -16,15 +16,15 @@ struct NoneType {
 inline constexpr NoneType None = NoneType{NoneType::Token::Id};
 
 template <class T>
-  requires(PodLike<T>)
+  requires(Pod<T>)
 struct Opt;
 
 template <class T>
-  requires(PodLike<T>)
+  requires(Pod<T>)
 constexpr Opt<T> Some(T val) noexcept;
 
 template <class T>
-  requires(PodLike<T>)
+  requires(Pod<T>)
 struct Opt {
   static_assert(!std::is_reference_v<T>, "Opt cannot contain reference types. use std::reference_wrapper instead!");
 

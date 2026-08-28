@@ -11,100 +11,7 @@
 #pragma once
 
 #include <stddef.h>
-
-#ifdef __cplusplus
-
-#include <cstddef>
-
-namespace nv {
-inline namespace iter {
-
-template <class T>
-concept SpanIterator = requires(T it) {
-  { it.begin } -> std::convertible_to<typename T::Pointer>;
-  { it.end } -> std::convertible_to<typename T::Pointer>;
-  { it.cursor } -> std::convertible_to<typename T::Pointer>;
-};
-
-template <class T>
-struct Iter {
-  using DifferenceType = std::ptrdiff_t;
-  using ElementType = T;
-  using ValueType = std::remove_cv_t<T>;
-  using SizeType = usize;
-  using Pointer = std::add_pointer_t<ValueType>;
-  using ConstPointer = std::add_pointer_t<const ValueType>;
-  using Reference = std::add_lvalue_reference_t<ValueType>;
-  using ConstReference = std::add_lvalue_reference_t<const ValueType>;
-
-  Pointer begin;
-  Pointer end;
-  Pointer cursor;
-
-  constexpr bool is_at_end() const noexcept { return this->cursor == this->end; }
-};
-
-template <class T>
-[[gnu::returns_nonnull]]
-constexpr Iter<T>::Pointer begin(const Iter<T>& self) noexcept {
-  return self.begin;
-}
-
-template <class T>
-[[gnu::returns_nonnull]]
-constexpr Iter<T>::Pointer end(const Iter<T>& self) noexcept {
-  return self.end;
-}
-
-template <class T>
-[[gnu::returns_nonnull]]
-constexpr Iter<const T>::ConstPointer cbegin(const Iter<const T>& self) noexcept {
-  return self.begin;
-}
-
-template <class T>
-[[gnu::returns_nonnull]]
-constexpr Iter<const T>::ConstPointer cend(const Iter<const T>& self) noexcept {
-  return self.end;
-}
-
-template <class T>
-[[gnu::nonnull, gnu::returns_nonnull]]
-constexpr Iter<T>::Pointer advance(Iter<T>* self, std::ptrdiff_t n) noexcept {
-  assert_debug(n >= 0, "cannot advance iterator struct with negative number: %d", n);
-  T* const nextp = self->cursor += n;
-  if (self->cursor != self->end && nextp < self->end) {
-    self->cursor = nextp;
-  } else {
-    self->cursor = self->end;
-  }
-  return self->cursor;
-}
-
-template <class T>
-[[gnu::nonnull, gnu::returns_nonnull]]
-constexpr Iter<T>::Poitner advance(Iter<T>* self) noexcept {
-  return advance(self, 1);
-}
-
-template <class T>
-using ConstIter = Iter<const T>;
-
-template <class T>
-struct Span {
-  T* begin;
-  T* end;
-};
-
-using IterByte = Iter<byte>;
-using CIterByte = ConstIter<byte>;
-}  // namespace iter
-}  // namespace nv
-
-using nv::iter::CIterByte;
-using nv::iter::IterByte;
-
-#endif
+#include "nv/core/ctypes.h"
 
 #define IterData(T) \
   SpanData(T);      \
@@ -120,7 +27,6 @@ using nv::iter::IterByte;
 #define CSpanData(T)        \
   const __typeof(T)* begin; \
   const __typeof(T)* end
-#ifndef __cplusplus
 
 #define Span(T)  \
   struct {       \
@@ -184,7 +90,6 @@ typedef CIter(u64) CIterUInt64;
 typedef CIter(f32) CIterFloat32;
 
 typedef CIter(f64) CIterFloat64;
-#endif
 
 #define ITER_NONE(T) ((Iter(T)){})
 #define SPAN_NONE(T) ((Span(T)){})
@@ -303,3 +208,92 @@ typedef CIter(f64) CIterFloat64;
   for (auto _name = _iter.begin; _name < _iter.end; _name++)
 
 #define iter_foreach_i(_iterator) iter_foreach(_iterator, i)
+
+#ifdef __cplusplus
+
+#include <cstddef>
+
+namespace nv {
+inline namespace iter {
+
+template <class T>
+concept Bufferlike = requires(T it) {
+  { it.begin } -> std::convertible_to<typename T::Pointer>;
+  { it.end } -> std::convertible_to<typename T::Pointer>;
+  { it.cursor } -> std::convertible_to<typename T::Pointer>;
+};
+
+template <class T>
+struct Iter {
+  using DifferenceType = std::ptrdiff_t;
+  using ElementType = T;
+  using ValueType = std::remove_cv_t<T>;
+  using SizeType = usize;
+  using Pointer = std::add_pointer_t<ValueType>;
+  using ConstPointer = std::add_pointer_t<const ValueType>;
+  using Reference = std::add_lvalue_reference_t<ValueType>;
+  using ConstReference = std::add_lvalue_reference_t<const ValueType>;
+
+  Pointer begin;
+  Pointer end;
+  Pointer cursor;
+
+  constexpr bool is_at_end() const noexcept { return this->cursor == this->end; }
+};
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer begin(const Iter<T>& self) noexcept {
+  return self.begin;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer end(const Iter<T>& self) noexcept {
+  return self.end;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<const T>::ConstPointer cbegin(const Iter<const T>& self) noexcept {
+  return self.begin;
+}
+
+template <class T>
+[[gnu::returns_nonnull]]
+constexpr Iter<const T>::ConstPointer cend(const Iter<const T>& self) noexcept {
+  return self.end;
+}
+
+template <class T>
+[[gnu::nonnull, gnu::returns_nonnull]]
+constexpr Iter<T>::Pointer advance(Iter<T>* self, std::ptrdiff_t n) noexcept {
+  assert_debug(n >= 0, "cannot advance iterator struct with negative number: %d", n);
+  T* const nextp = self->cursor += n;
+  if (self->cursor != self->end && nextp < self->end) {
+    self->cursor = nextp;
+  } else {
+    self->cursor = self->end;
+  }
+  return self->cursor;
+}
+
+template <class T>
+[[gnu::nonnull, gnu::returns_nonnull]]
+constexpr Iter<T>::Poitner advance(Iter<T>* self) noexcept {
+  return advance(self, 1);
+}
+
+template <class T>
+using ConstIter = Iter<const T>;
+
+template <class T>
+struct Span {
+  T* begin;
+  T* end;
+};
+
+}  // namespace iter
+}  // namespace nv
+
+#endif

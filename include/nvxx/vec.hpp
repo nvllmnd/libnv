@@ -10,7 +10,7 @@ namespace nv {
 template <class T>
   requires(Pod<T>)
 struct VecMem {
-  using FlexMemberType = std::remove_cvref_t<T>[];
+  using FlexMemberType = RemoveCvptr<T>[];
   using FlexValueType = std::remove_all_extents_t<FlexMemberType>;
 
   isize count;
@@ -18,7 +18,7 @@ struct VecMem {
   FlexMemberType start;
 
   template <class A>
-    requires(AllocatorTraits<A> && !IsAllocator<A>)
+    requires(AllocatorTraits<A> && !IsAllocatorStruct<A>)
   static constexpr VecMem* allocate(isize capacity, A* alloc) noexcept {}
 
   static constexpr VecMem* allocate(isize capacity, Allocator alloc) noexcept {
@@ -39,7 +39,7 @@ template <class T>
 using VecMemFlexValueType = typename VecMem<T>::FlexValueType;
 
 template <class T>
-concept VecAllocatorTraits = (std::is_void_v<T> || IsAllocator<T> || AllocatorTraits<T>);
+concept VecAllocatorTraits = (std::is_void_v<T> || IsAllocatorStruct<T> || AllocatorTraits<T>);
 
 template <class T, class A>
 concept VecTraits = VecAllocatorTraits<A> && Pod<T>;

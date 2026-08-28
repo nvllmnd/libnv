@@ -166,9 +166,6 @@ consteval Str static_string(StringLiteral<N> s) noexcept {
 
 #ifdef __cpp_lib_print
 
-template <std::copyable>
-using x = void;
-
 using std::println;
 
 using std::print;
@@ -188,6 +185,9 @@ constexpr void print(const std::format_string<Args...> fmt, Args&&... args) noex
 #endif
 
 inline namespace typeops {
+
+template <bool Condition, class Then, class Else>
+using Cond = std::conditional_t<Condition, Then, Else>;
 
 template <class T>
 using RemoveRef = std::remove_reference_t<T>;
@@ -216,6 +216,17 @@ using RemoveVolRef = std::remove_volatile_t<RemovePtr<RemoveRef<T>>>;
 
 template <class T>
 using Decay = std::decay_t<T>;
+
+template <class T>
+using TypeId = std::type_identity_t<T>;
+
+template <class T>
+using DecayRef = Cond<std::is_reference_v<T> || std::is_array_v<T>, Decay<T>, T>;
+
+// static_assert()
+
+template <class T>
+using Prune = RemovePtr<Decay<RemoveRef<T>>>;
 
 template <class Func, class... Args>
 using ReturnType = std::invoke_result_t<Func, Args...>;
@@ -427,6 +438,9 @@ template <class T>
 concept IsCvref = IsConst<T> || IsVolatile<T> || IsRef<T>;
 
 template <class T>
+concept IsVoid = std::is_void_v<T>;
+
+template <class T>
 concept Copy = std::assignable_from<lvalue<Unwrap<T>>, Unwrap<T>>;
 
 template <class T>
@@ -440,22 +454,13 @@ concept Default = std::default_initializable<T>;
 template <class Func, class... Args>
 concept Callable = std::is_invocable_r_v<ReturnType<Func, Args...>, Func, Args...>;
 
-/// @details Similar to [Pod], but only needs to satisfy [std::is_trivially_destructible_v] and
-/// [std::is_standard_layout_v], as opposed to
-// [Pod], which requires [std::is_trivial_v] as well as [std::standard_layout_v]
-template <class T>
-concept PodLike = std::is_standard_layout_v<T> && std::is_trivially_destructible_v<T>;
-
 /// @brief Standard Layout and Trivial Type
 template <class T>
-concept Pod = std::is_standard_layout_v<T> && std::is_trivial_v<T>;
+concept Pod = std::is_standard_layout_v<T> && std::is_trivially_destructible_v<T>;
 
 /// @brief concept for dynamically sized types for structs with a flexible array member
 template <class T>
-concept Dst = requires() {
-  std::is_unbounded_array_v<typename T::FlexMemberType>;
-  typename T::FlexValueType;
-};
+concept Dst = Pod<typename T::FlexValueType> && std::is_unbounded_array_v<typename T::FlexMemberType>;
 
 template <class T>
 concept StdLayout = std::is_standard_layout_v<T>;

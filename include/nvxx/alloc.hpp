@@ -2,6 +2,7 @@
 
 #include <array>
 #include <concepts>
+#include <iterator>
 #include <memory>
 #include <type_traits>
 #include "nvxx/common.hpp"
@@ -23,10 +24,59 @@ concept MemoryResource = requires(T v, const void* ptr) {
   { std::addressof(v[0]) } noexcept -> std::convertible_to<::nv::ptr<ValType<typename T::ResourceType>>>;
 } && Pod<ValType<typename T::ResourceType>>;
 
-// namespace nv namespace nv::inline alloc {
-/// @brief type alias for a (potentially owned) contiguous block of T
-template <typename T>
-using Mem = nv::slice::Slice<T>;
+// template <class T>
+// struct Pointer {
+//   ptr<T> data;
+
+//   static constexpr ptr<T> dangling() noexcept { return std::bit_cast<ptr<T>>(alignof(T)); }
+
+//   constexpr Pointer() noexcept = default;
+//   constexpr Pointer(ptr<T> p) noexcept : data(p) {}
+
+//   constexpr bool is_null() const noexcept { return is_null(this->data); }
+//   constexpr bool is_not_null() const noexcept { return is_not_null(this->data); }
+// };
+
+// template <class T>
+// struct Pointer<T[]> {
+//   ptr<T> data;
+//   isize count;
+
+//   constexpr ptr<T> begin() const noexcept { return this->data; }
+//   constexpr ptr<T> end() const noexcept { return this->begin() + this->len(); }
+//   constexpr isize len() const noexcept { return this->count; }
+// };
+
+// template <class T, usize N>
+// struct Pointer<T[N]> {
+//   ptr<T> data;
+
+//   constexpr ptr<T> begin() const noexcept { return this->data; }
+//   constexpr ptr<T> end() const noexcept { return this->begin() + this->len(); }
+//   constexpr isize len() const noexcept { return N; }
+// };
+
+// template <class T>
+// Pointer(T*, isize) -> Pointer<T[]>;
+
+// template <class T>
+// Pointer(T*, T*) -> Pointer<T[]>;
+
+// template <class T, usize N>
+// Pointer(ArrayLvref<T, N>) -> Pointer<T[N]>;
+
+// template <class T>
+// Pointer(T*) -> Pointer<T>;
+
+// using Mem = Pointer<byte[]>;
+
+// template <class T>
+// using Fat = Pointer<T[]>;
+
+// using Opaque = Pointer<void>;
+
+// template <class T, usize N>
+// using Array = Pointer<T[N]>;
 
 /// @brief type alias for a contiguous block of bytes
 using MemBytes = nv::slice::Slice<byte>;
@@ -180,7 +230,7 @@ struct Allocator {
 };
 
 template <class T>
-concept IsAllocator = std::same_as<T, Allocator>;
+concept IsAllocatorStruct = std::same_as<T, Allocator>;
 
 template <class T>
 concept AllocatorImpl = requires(T a) {
@@ -195,6 +245,10 @@ template <class T>
   requires(AllocatorTraits<T>)
 struct VtableAdapter {
  private:
+  // static constexpr AllocResult default_realloc_impl(void* ctx, void* ptr, Layout old, Layout new_layout) noexcept {
+  //   auto* self = static_cast<T*>(ctx);
+  // }
+
   static constexpr AllocResult alloc_impl(void* ctx, Layout layout) noexcept {
     auto* self = static_cast<T*>(ctx);
     return self->alloc(layout);
@@ -206,7 +260,6 @@ struct VtableAdapter {
       auto* self = static_cast<T*>(ctx);
       return self->realloc(ptr, old, new_layout);
     } else {
-      return AllocResult{nv::result::Error::AllocITraitImplError};
     }
   }
 
@@ -250,16 +303,20 @@ consteval const AllocVtable* vtable_adapter() noexcept
 }
 
 template <class T>
-constexpr Allocator as_allocator() noexcept
+[[gnu::nonnull]]
+constexpr Allocator as_allocator(const AllocVtable* vt = vtable_adapter<T>()) noexcept
   requires(AllocatorImpl<std::remove_cvref_t<T>>)
 {
+  assert_debug(is_not_null(vt), "Pointer for Allocator interface struct vtable must not be null!");
   return {.ctx = nullptr, .vtable = vtable_adapter<std::type_identity_t<T>>()};
 }
 
 template <class T>
+[[gnu::nonnull(2)]]
 constexpr Allocator as_allocator(T* ctx, const AllocVtable* vt = vtable_adapter<std::type_identity_t<T>>()) noexcept
   requires(AllocatorImpl<std::remove_cvref_t<T>>)
 {
+  assert_debug(is_not_null(vt), "Pointer for Allocator interface struct vtable must not be null!");
   return {.ctx = static_cast<void*>(ctx), .vtable = vt};
 }
 

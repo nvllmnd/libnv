@@ -39,10 +39,10 @@ constexpr Error& operator&=(Error& lhs, const Error& rhs) noexcept {
 namespace priv {
 
 template <class E>
-concept ResultErrTraits = !std::is_void_v<E> && (PodLike<E> || std::is_enum_v<E>);
+concept ResultErrTraits = !std::is_void_v<E> && (Pod<E> || std::is_enum_v<E>);
 
 template <class T>
-concept ResultValTraits = std::is_void_v<T> || PodLike<T>;
+concept ResultValTraits = std::is_void_v<T> || Pod<T>;
 
 template <class T, class E>
 concept ResultTraits = ResultValTraits<T> && ResultErrTraits<E>;
