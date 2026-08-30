@@ -23,13 +23,13 @@
 
 static constexpr const auto STORAGE_SIZE = 1 << 16;
 static byte STORAGE[STORAGE_SIZE] = {};
-static Arena ARENA = {};
+static NvArena ARENA = {};
 
 void setUp(void) { arena_init(&ARENA, STORAGE, STORAGE_SIZE); }
 
 void tearDown(void) {
   memset(STORAGE, 0, STORAGE_SIZE);
-  memset(&ARENA, 0, sizeof(Arena));
+  memset(&ARENA, 0, sizeof(NvArena));
 }
 
 struct Stuff {

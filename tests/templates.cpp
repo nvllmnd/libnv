@@ -4,7 +4,6 @@
 
 #include "nvxx/common.hpp"
 #include "nvxx/alloc.hpp"
-#include "nvxx/vmem.hpp"
 #include "unity.h"
 
 #include <iostream>
@@ -13,20 +12,8 @@ void setUp(void) {}
 
 void tearDown(void) {}
 
-constexpr void fun() {
-  int x;
-  defer {
-    x = 50;
-    std::cout << x << "\n";
-  };
-
-  auto t = nv::map_memory(50);
-  (void)t;
-}
-
 void chunk_arena_works() {
-  fun();
-  nv::Arena ca = {};
+  nv::ArenaBuff ca = {};
   nv::Allocator all = ca.allocator();
   (void)all;
 }

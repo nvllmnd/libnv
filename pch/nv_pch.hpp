@@ -38,5 +38,4 @@
 #include <array>
 #include <string_view>
 
-#include "nonstd/expected.hpp"
 #include "nv/core/stb_sprintf.h"

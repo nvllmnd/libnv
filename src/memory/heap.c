@@ -164,8 +164,8 @@ isize heap_avail_ptr_size(const Heap* self, const void* ptr) {
   return block_size - size - sizeof(Block);
 }
 
-usize heap_size_of(const Heap* self, const void* ptr) {
-  assert(self);
+// FIXME: This function does not actually use its self param, so we should remove it
+usize heap_size_of(const Heap*, const void* ptr) {
   assert(ptr);
 
   Block* b = asblock(ptr);

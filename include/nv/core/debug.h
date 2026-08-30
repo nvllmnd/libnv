@@ -5,6 +5,16 @@
 
 #include "nv/core/attributes.h"
 #include "nv/core/log.h"
+#include <assert.h>
+
+#if HEDLEY_HAS_BUILTIN(__builtin_trap)
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() __builtin_trap()
+#endif  // ifndef EXIT_FATAL
+#ifndef EXIT_FATAL
+#define EXIT_FATAL() abort()
+#endif  // ifndef EXIT_FATAL
+#endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
 
 #if LIBNV_DEBUG == 1
 
@@ -36,17 +46,6 @@
 #endif  // ifdef __cplusplus
 
 #ifndef __cplusplus
-
-#include <assert.h>
-
-#if HEDLEY_HAS_BUILTIN(__builtin_trap)
-#ifndef EXIT_FATAL
-#define EXIT_FATAL() __builtin_trap()
-#endif  // ifndef EXIT_FATAL
-#ifndef EXIT_FATAL
-#define EXIT_FATAL() abort()
-#endif  // ifndef EXIT_FATAL
-#endif  // HEDLEY_HAS_BUILTIN(__builtin_trap)
 
 #define IF_DEBUG(x) x
 #define IF_RELEASE(x)

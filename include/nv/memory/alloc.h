@@ -397,18 +397,18 @@ void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern);
 
 /// @brief a non-owning Arena-style allocator
 /// @details Callers are responsible for managing buffer used by this Arena
-typedef struct Arena {
+typedef struct NvArena {
   IterData(byte);
-} Arena;
+} NvArena;
 
-typedef Arena ScopedArena;
+typedef NvArena ScopedArena;
 
-static constexpr const Arena ARENA_NONE = {};
+static constexpr const NvArena ARENA_NONE = {};
 
 PARAMS_NONNULL(1)
-Arena arena_new(byte* begin, isize size);
+NvArena arena_new(byte* begin, isize size);
 
-static inline void arena_init(Arena* self, byte* begin, isize size) {
+static inline void arena_init(NvArena* self, byte* begin, isize size) {
 #ifdef __cplusplus
   using namespace nv;
 #endif
@@ -418,33 +418,33 @@ static inline void arena_init(Arena* self, byte* begin, isize size) {
 }
 
 PARAMS_NONNULL(1, 2)
-static inline Arena arena_range_new(byte* begin, byte* end) {
+static inline NvArena arena_range_new(byte* begin, byte* end) {
   assert(begin);
   assert(end);
-  return (Arena){
+  return (NvArena){
       .begin = begin,
       .end = end,
       .cursor = begin,
   };
 }
 
-Allocator arena_allocator(Arena* self);
+Allocator arena_allocator(NvArena* self);
 
 METHOD
 PURE_FUNC
-static inline isize arena_avail(const Arena* self) { return self->end - self->cursor; }
+static inline isize arena_avail(const NvArena* self) { return self->end - self->cursor; }
 
 METHOD
 PURE_FUNC
-static inline isize arena_used_bytes(const Arena* self) { return self->cursor - self->begin; }
+static inline isize arena_used_bytes(const NvArena* self) { return self->cursor - self->begin; }
 
 METHOD
 PURE_FUNC
-static inline isize arena_size(const Arena* self) { return self->end - self->begin; }
+static inline isize arena_size(const NvArena* self) { return self->end - self->begin; }
 
 METHOD
 PURE_FUNC
-static inline CIterByte arena_citer(const Arena* self) {
+static inline CIterByte arena_citer(const NvArena* self) {
   return (CIterByte){
       .begin = self->begin,
       .end = self->end,
@@ -453,7 +453,7 @@ static inline CIterByte arena_citer(const Arena* self) {
 }
 
 METHOD
-static inline IterByte arena_iter(Arena* self) {
+static inline IterByte arena_iter(NvArena* self) {
   return (IterByte){
       .begin = self->begin,
       .end = self->end,
@@ -465,20 +465,20 @@ struct VMem;
 struct Vallocator;
 
 /// @brief Creates an Arena that will allocate into given [VMem] at given byte offset of given size bytes
-Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) PARAMS_NONNULL(1);
+NvArena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) PARAMS_NONNULL(1);
 
 /// @brief same as [arena_vmem_at_new], but uses all memory in given VMem
-Arena arena_vmem_new(struct VMem* vm) PARAMS_NONNULL(1);
+NvArena arena_vmem_new(struct VMem* vm) PARAMS_NONNULL(1);
 
 /// @brief uses [Vallocator] to request a block of given size and creates new Arena to allocate into it
-Arena arena_va_new(struct Vallocator* va, isize size) PARAMS_NONNULL(1);
+NvArena arena_va_new(struct Vallocator* va, isize size) PARAMS_NONNULL(1);
 
 /// @brief Same as [arena_va_new], but polymorphic over [Allocator]
-Arena arena_new_in(Allocator alloc, isize size);
+NvArena arena_new_in(Allocator alloc, isize size);
 
-void arena_clear(Arena* self) METHOD;
+void arena_clear(NvArena* self) METHOD;
 
-void arena_clear_zeroed(Arena* self) METHOD;
+void arena_clear_zeroed(NvArena* self) METHOD;
 
 /// @brief creates a copy of this Arena, but with its begin pointer set to the current value of this Arena's cursor.
 /// @details You should not use the original Arena while this scoped arena is actively being used, doing so will cause
@@ -488,7 +488,7 @@ void arena_clear_zeroed(Arena* self) METHOD;
 /// @remarks this is a clean way of doing a watermark system, where offsets are saved. I like this way better tbh,
 /// little more room for error but its a lot cleaner, and child allocator cannot touch memory of its parent
 METHOD
-static inline ScopedArena arena_scoped(const Arena* self) {
+static inline ScopedArena arena_scoped(const NvArena* self) {
   byte* const cursor = self->cursor;
   return (ScopedArena){
       .begin = cursor,
@@ -506,41 +506,41 @@ static inline ScopedArena arena_scoped(const Arena* self) {
 /// after allocation, caller encounters some error and has to abort the allocation. Without this function such scenarios
 /// would cause uneccessary memory leaks. Leaks are not as detrimental to runtimes since we are using an Arena, but
 /// still it certainly does not help to avoid it if possible!
-bool arena_alloc_undo(Arena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
+bool arena_alloc_undo(NvArena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
 
 /// @brief same as @see [arena_alloc_undo] but zeroes the freed memory upon success
-bool arena_alloc_undo_zeroed(Arena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
+bool arena_alloc_undo_zeroed(NvArena* self, void* ptr, Layout layout) PARAMS_NONNULL(1, 2);
 
 PURE_FUNC
 METHOD
-static inline bool arena_contains(const Arena* self, void* ptr) {
+static inline bool arena_contains(const NvArena* self, void* ptr) {
   assert(self);
 
   byte* p = CAST(byte*, ptr);
   return p >= self->begin && p < self->end;
 }
 
-void* arena_alloc(Arena* self, Layout layout) METHOD;
+void* arena_alloc(NvArena* self, Layout layout) METHOD;
 
-void* arena_zalloc(Arena* self, Layout layout) METHOD;
+void* arena_zalloc(NvArena* self, Layout layout) METHOD;
 
-bool arena_resize(Arena* self, void* ptr, Layout old, Layout new_layout) METHOD;
+bool arena_resize(NvArena* self, void* ptr, Layout old, Layout new_layout) METHOD;
 
-void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new_layout) METHOD;
+void* arena_realloc(NvArena* self, void* ptr, Layout old, Layout new_layout) METHOD;
 
-char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) METHOD HEDLEY_PRINTF_FORMAT(3, 4);
+char* arena_fstring(NvArena* self, isize* slen_out, const char* fmt, ...) METHOD HEDLEY_PRINTF_FORMAT(3, 4);
 
-char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args) PARAMS_NONNULL(1, 3);
+char* arena_vfstring(NvArena* self, isize* slen_out, const char* fmt, va_list args) PARAMS_NONNULL(1, 3);
 
-char* arena_strndup(Arena* self, const char* str, isize len) PARAMS_NONNULL(1, 2);
+char* arena_strndup(NvArena* self, const char* str, isize len) PARAMS_NONNULL(1, 2);
 
-sslice arena_strdup(Arena* self, sslice str) METHOD;
+sslice arena_strdup(NvArena* self, sslice str) METHOD;
 
 /// @brief reads file at given path into this Arena as a readonly null-terminated string
-const char* arena_fread_string(Arena* self, const char* path, isize* file_size_out) PARAMS_NONNULL(1, 2);
+const char* arena_fread_string(NvArena* self, const char* path, isize* file_size_out) PARAMS_NONNULL(1, 2);
 
 PARAMS_NONNULL(1, 2)
-static inline sslice arena_fread_slice(Arena* self, const char* path) {
+static inline sslice arena_fread_slice(NvArena* self, const char* path) {
   isize len = 0;
   const char* str = arena_fread_string(self, path, &len);
   return sslice_new(.begin = str, .len = CAST(i32, len));
@@ -549,7 +549,7 @@ static inline sslice arena_fread_slice(Arena* self, const char* path) {
 /// @brief performs a deep copy of all bytes in the iterator range of this Arena.
 /// @details this operation is O(n), where n is the difference in bytes between this Arena's end and begin iterator
 /// pointers
-void arena_clone(const Arena* src, Arena dest) METHOD;
+void arena_clone(const NvArena* src, NvArena dest) METHOD;
 
 #define arena_make(_self, T) ((__typeof(T)*)arena_allocate((_self), mlayout_new(T)))
 #define arena_array_alloc(_self, T, N) ((__typeof(T)*)arena_allocate((_self), mlayout_array(T, N)))

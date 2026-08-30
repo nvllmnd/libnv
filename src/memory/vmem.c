@@ -65,7 +65,7 @@ void* vmemory_remap(void* ptr, const isize old_size, const isize new_size_bytes,
 
 /// @brief munmap wrapper
 void vmemory_unmap(void* ptr, isize size_bytes) {
-  if (ptr && size_bytes >= os_page_size()) {
+  if (is_not_null(ptr) && size_bytes >= os_page_size()) {
     const i64 size = size_bytes;
     const error err = munmap(ptr, size);
     if UNLIKELY (err == -1) {
@@ -107,7 +107,7 @@ Vallocator va_new_ex(i64 vmem_size, bool noreserve) {
     return VALLOC_NONE;
   }
 
-  Arena ar = arena_vmem_new(mem);
+  NvArena ar = arena_vmem_new(mem);
 
 #ifdef __cplusplus
   using namespace nv::algo;

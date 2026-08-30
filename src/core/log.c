@@ -12,11 +12,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "nv/core/system.h"
 #include "nv/core/algo.h"
 #include "nv/core/attributes.h"
 #include "nv/core/debug.h"
 #include "nv/core/stb_sprintf.h"
-
 
 FormatError format_with(char* dst, isize len, const char* fmt, ...) {
   va_list args = {};
@@ -135,4 +135,3 @@ void vprint_error(const char* fmt, va_list args) {
     vwarn(fmt, args);
   }
 }
-

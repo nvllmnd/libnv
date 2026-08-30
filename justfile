@@ -1,6 +1,6 @@
 
 project_name := "libnv"
-project_short_desc := "nvllmnd's plain C23 std lib"
+project_short_desc := "nvllmnd's C23/C++23 library"
 project_full_name := "{{project_name}} :: {{project_short_desc}}"
 build_root := "./bin"
 
@@ -70,7 +70,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
     fi
 
 # Create debug build dir + configure"
-@setup-debug: sync-version
+@setup: sync-version
     if [ ! -d {{ debug_dir }} ]; then \
     	echo "Setting up DEBUG build..."; \
     	mkdir -p {{ debug_dir }}; \
@@ -102,7 +102,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
 # 	fi
 
 # Reconfigure existing builds
-@reconfig-debug:
+@reconfig:
     test -d {{ debug_dir }} && meson configure {{ debug_dir }} {{ debug_flags }} || just setup-debug
 
 # Reconfigure existing builds
@@ -110,7 +110,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
     test -d {{ release_dir }} && meson configure {{ release_dir }} {{ release_flags }} || just setup-release
 
 # Compile debug build"
-@build-debug: setup-debug
+@build: setup
     meson compile -C {{ debug_dir }}; \
     just compile-commands-debug
 
@@ -120,7 +120,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
     just compile-commands-release
 
 # Run project (debug ) executable"
-@run-debug: build-debug
+@run: build
     "{{ debug_dir }}/{{ bin_executable_name }}"
 
 # Run optimized (build-release) project executable"
@@ -130,7 +130,7 @@ version_full := version_major + "." + version_minor + "." + version_patch
 # Run meson tests in debug mode
 # You can pass 'v', 'verbose' or 'interactive' as an argument to this rule for
 # meson to run tests with the '--interactive' flag
-@test-debug arg='none': build-debug
+@test arg='none': build
     if [ {{ arg }} = "verbose" ] || [ {{ arg }} = "v" ] || [ {{ arg }} = "interactive" ]; then \
     	meson test -C {{ debug_dir }} --interactive --print-errorlogs; \
     else \
@@ -150,32 +150,26 @@ version_full := version_major + "." + version_minor + "." + version_patch
     rm -rf {{ build_root }}
 
 # Re-build Project in debug. Runs clean then build
-@rebuild-debug: clean build-debug
+@rebuild: clean build
 
 # Re-build Project in release. Runs clean then build
-@rebuild: clean build-release
+@rebuild-release: clean build-release
 
 # Install release build to your systems standard directory
 @install: build-release
     meson install -C {{ release_dir }}
 
 # Shortcuts / Aliases
-alias br := build-release
-alias bd := build-debug
-alias sd := setup-debug
-alias sr := setup-release
-alias cfgd := reconfig-debug
-alias cfg := reconfig-release
-
-alias rd := rebuild-debug
+alias b := build
 alias r := rebuild
 
-alias build := build-debug
-alias run := run-debug
+alias br := build-release
+alias rr := rebuild-release
 
-alias test := test-debug
-alias td := test-debug
+alias t := test
 alias tr := test-release
+
+alias c := clean
 
 # Prints/Shows all current aliases defined for this justfile
 @alias:

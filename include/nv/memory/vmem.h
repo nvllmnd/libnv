@@ -40,10 +40,10 @@ i64 os_page_size(void);
 void* vmemory_map(isize size_bytes, bool noreserve) MALLOC_FUNC HEDLEY_NO_THROW;
 
 /// @brief mremap wrapper
-void* vmemory_remap(void* ptr, isize old_size, isize new_size_bytes, bool relocate) HEDLEY_NO_THROW;
+void* vmemory_remap(void* ptr, isize old_size, isize new_size_bytes, bool relocate) HEDLEY_NO_THROW PARAMS_NONNULL();
 
 /// @brief munmap wrapper
-void vmemory_unmap(void* ptr, isize size_bytes) HEDLEY_NO_THROW;
+void vmemory_unmap(void* ptr, isize size_bytes) PARAMS_NONNULL() HEDLEY_NO_THROW;
 
 PURE_FUNC
 METHOD
@@ -148,7 +148,7 @@ void vmem_destroy(VMem* self) METHOD;
 /// [Arena] in arena.h
 struct Vallocator {
   VMem* mem;
-  Arena ar;
+  NvArena ar;
   // IterByte iter;
 };
 alias(Vallocator);
@@ -272,8 +272,7 @@ void va_destroy(Vallocator* self);
 #define vmem_meta_new(_size, _meta)  \
   ({                                 \
     VMem* _self = vmem_new((_size)); \
-    if (is_not_null(_self)) {        \
-    }                                \
+    \ if (is_not_null(_self)) {}     \
   })
 
 END_C_DECLS

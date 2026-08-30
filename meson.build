@@ -144,7 +144,7 @@ nv_lib = library(
 
 nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
 
-meson.override_dependency('libnv', nv_dep)
+meson.override_dependency('nv', nv_dep)
 
 dependencies += nv_dep
 

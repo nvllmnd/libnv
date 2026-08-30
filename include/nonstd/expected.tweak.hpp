@@ -1,7 +1,0 @@
-#ifndef nsel_CONFIG_SELECT_EXPECTED
-#define nsel_CONFIG_SELECT_EXPECTED nsel_EXPECTED_NONSTD
-#endif
-
-#ifndef nsel_CONFIG_NO_EXCEPTIONS
-#define nsel_CONFIG_NO_EXCEPTIONS 1
-#endif

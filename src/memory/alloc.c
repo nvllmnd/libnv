@@ -172,7 +172,6 @@ void* reallocate_raw(IterByte* self, void* ptr, Layout old, Layout new) {
   return res;
 }
 
-
 void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
   assert(self);
 
@@ -180,8 +179,6 @@ void free_raw(IterByte* self, void* ptr, Layout layout, u64 pattern) {
     memset(ptr, pattern, layout.size);
   }
 }
-
-
 
 char* strdup_raw(IterByte* self, const char* str) {
   const i64 len = stringlen(str);
@@ -284,14 +281,13 @@ char* vfstring_raw(IterByte* self, i64* len_out, const char* fmt, va_list args) 
     DERROR("stbsp_vsnprintf returned -1!");
   }
 
-
   if (len_out) {
     *len_out = len - 1;  // dont include null terminal in length calc
   }
   return str;
 }
 
-Arena arena_new(byte* begin, isize size) {
+NvArena arena_new(byte* begin, isize size) {
   assert(begin);
   assert(size > 0);
 
@@ -299,15 +295,15 @@ Arena arena_new(byte* begin, isize size) {
   return arena_range_new(begin, end);
 }
 
-Arena arena_vmem_new(struct VMem* vm) {
+NvArena arena_vmem_new(struct VMem* vm) {
   assert(vm);
   LOG("Creating Arena with VMem of size: %li at offset 0!", vm->size);
-  Arena res = arena_vmem_at_new(vm, vm->size - 1, 0);
+  NvArena res = arena_vmem_at_new(vm, vm->size - 1, 0);
 
   return res;
 }
 
-Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) {
+NvArena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) {
   assert(vm);
   assert(size > 0);
   assert(offset >= 0);
@@ -328,7 +324,7 @@ Arena arena_vmem_at_new(struct VMem* vm, isize size, isize offset) {
   return arena_range_new(begin, end);
 }
 
-Arena arena_va_new(struct Vallocator* va, isize size) {
+NvArena arena_va_new(struct Vallocator* va, isize size) {
   const i64 avail = va_available(va);
   if UNLIKELY (size > avail) {
     return ARENA_NONE;
@@ -339,7 +335,7 @@ Arena arena_va_new(struct Vallocator* va, isize size) {
   return arena_range_new(begin, end);
 }
 
-Arena arena_new_in(Allocator alloc, isize size) {
+NvArena arena_new_in(Allocator alloc, isize size) {
   byte* begin = allocator_allocate(alloc, mlayout_bytes(size));
   if UNLIKELY (is_null(begin)) {
     return ARENA_NONE;
@@ -348,7 +344,7 @@ Arena arena_new_in(Allocator alloc, isize size) {
   return arena_range_new(begin, end);
 }
 
-void* arena_alloc(Arena* self, Layout layout) {
+void* arena_alloc(NvArena* self, Layout layout) {
   IterByte iter = arena_iter(self);
   void* ptr = allocate_raw(&iter, layout);
   if UNLIKELY (is_null(ptr)) {
@@ -361,7 +357,7 @@ void* arena_alloc(Arena* self, Layout layout) {
   return ptr;
 }
 
-void* arena_zalloc(Arena* self, Layout layout) {
+void* arena_zalloc(NvArena* self, Layout layout) {
   void* ptr = arena_alloc(self, layout);
   if UNLIKELY (is_null(ptr)) {
     return ptr;
@@ -370,21 +366,21 @@ void* arena_zalloc(Arena* self, Layout layout) {
   return ptr;
 }
 
-bool arena_resize(Arena* self, void* ptr, Layout old, Layout new) {
+bool arena_resize(NvArena* self, void* ptr, Layout old, Layout new) {
   IterByte iter = arena_iter(self);
   const bool res = resize_raw(&iter, ptr, old, new);
   self->cursor = iter.cursor;
   return res;
 }
 
-void* arena_realloc(Arena* self, void* ptr, Layout old, Layout new) {
+void* arena_realloc(NvArena* self, void* ptr, Layout old, Layout new) {
   IterByte iter = arena_iter(self);
   void* res = reallocate_raw(&iter, ptr, old, new);
   self->cursor = iter.cursor;
   return res;
 }
 
-char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) {
+char* arena_fstring(NvArena* self, isize* slen_out, const char* fmt, ...) {
   va_list args = {};
   va_start(args);
 
@@ -395,7 +391,7 @@ char* arena_fstring(Arena* self, isize* slen_out, const char* fmt, ...) {
 }
 
 PARAMS_NONNULL(1, 3)
-char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args) {
+char* arena_vfstring(NvArena* self, isize* slen_out, const char* fmt, va_list args) {
   IterByte iter = arena_iter(self);
   char* ptr = vfstring_raw(&iter, slen_out, fmt, args);
 
@@ -409,34 +405,34 @@ char* arena_vfstring(Arena* self, isize* slen_out, const char* fmt, va_list args
 }
 
 PARAMS_NONNULL(1, 2)
-char* arena_strndup(Arena* self, const char* str, isize len) {
+char* arena_strndup(NvArena* self, const char* str, isize len) {
   return arena_fstring(self, nullptr, "%.*s", (i32)len, str);
 }
 
 METHOD
-sslice arena_strdup(Arena* self, sslice str) {
+sslice arena_strdup(NvArena* self, sslice str) {
   const char* ptr = arena_strndup(self, str.begin, str.len);
 
   return sslice_new(.begin = ptr, .len = str.len);
 }
 
-void arena_clone(const Arena* src, Arena dest) {
+void arena_clone(const NvArena* src, NvArena dest) {
   assert(src);
   assert(!is_none(&dest));
   memcpy(dest.begin, src->begin, arena_size(&dest));
 }
 
-void arena_clear(Arena* self) { self->cursor = self->begin; }
+void arena_clear(NvArena* self) { self->cursor = self->begin; }
 
-void arena_clear_zeroed(Arena* self) {
+void arena_clear_zeroed(NvArena* self) {
   const isize used = arena_used_bytes(self);
   memset(self->begin, 0L, used);
   arena_clear(self);
 }
 
-void arena_free(Arena*, void*) {}
+void arena_free(NvArena*, void*) {}
 
-#define VT_DEFINE(_rest, _name) static VT_DEFINE_AS(Arena, _rest, _name)
+#define VT_DEFINE(_rest, _name) static VT_DEFINE_AS(NvArena, _rest, _name)
 
 VT_DEFINE(ALLOC, arena_alloc)
 VT_DEFINE(ZALLOC, arena_zalloc)
@@ -444,7 +440,7 @@ VT_DEFINE(REALLOC, arena_realloc)
 VT_DEFINE(RESIZE, arena_resize)
 VT_DEFINE(FREE, arena_free)
 
-#define VT_NAME(_ty) VT_NAMEOF(Arena, _ty)
+#define VT_NAME(_ty) VT_NAMEOF(NvArena, _ty)
 
 static constexpr const AllocVTable ARENA_VT = (AllocVTable){.allocate = VT_NAME(ALLOC),
                                                             .zallocate = VT_NAME(ZALLOC),
@@ -453,9 +449,9 @@ static constexpr const AllocVTable ARENA_VT = (AllocVTable){.allocate = VT_NAME(
                                                             .free = VT_NAME(FREE),
                                                             .mask = VT__All};
 
-Allocator arena_allocator(Arena* self) { return (Allocator){.ctx = self, .vtable = &ARENA_VT}; }
+Allocator arena_allocator(NvArena* self) { return (Allocator){.ctx = self, .vtable = &ARENA_VT}; }
 
-const char* arena_fread_string(Arena* self, const char* path, isize* file_size_out) {
+const char* arena_fread_string(NvArena* self, const char* path, isize* file_size_out) {
   FILE* file = fopen(path, "r");
   if (is_null(file)) {
     DERROR("Failed to open file at path: %li in readonly mode!");
@@ -496,7 +492,7 @@ const char* arena_fread_string(Arena* self, const char* path, isize* file_size_o
   return buf;
 }
 
-bool arena_alloc_undo(Arena* self, void* ptr, Layout layout) {
+bool arena_alloc_undo(NvArena* self, void* ptr, Layout layout) {
   assert(self);
   // requested pointer layout is larger than the number of bytes we currently have allocated, this forsure isnt our
   // pointer
@@ -514,7 +510,7 @@ bool arena_alloc_undo(Arena* self, void* ptr, Layout layout) {
   return false;
 }
 
-bool arena_alloc_undo_zeroed(Arena* self, void* ptr, Layout layout) {
+bool arena_alloc_undo_zeroed(NvArena* self, void* ptr, Layout layout) {
   if (arena_alloc_undo(self, ptr, layout)) {
     memset(self->cursor, 0L, layout.size);
     return true;

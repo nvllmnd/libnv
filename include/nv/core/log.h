@@ -17,9 +17,6 @@ BEGIN_C_DECLS
 
 #ifndef __cplusplus
 
-#define SLOG_DBG(slice) (sprintln((slice)))
-#define SELOG_DBG(slice) (seprintln((slice)))
-
 PARAMS_NONNULL(1)
 void sfprint(FILE* fd, sslice str);
 
@@ -183,6 +180,9 @@ void vprint_error(const char* fmt, va_list args);
 #define DERR(...)
 
 #else
+
+#define SLOG_DBG(slice) (sprintln((slice)))
+#define SELOG_DBG(slice) (seprintln((slice)))
 
 #define LOG_DBG(fmt, ...) (LOG_CTX([[DEBUG]], fmt __VA_OPT__(, ) __VA_ARGS__))
 #define ELOG_DBG(fmt, ...) (LOG_CTX([[DEBUG]], fmt __VA_OPT__(, ) __VA_ARGS__))
