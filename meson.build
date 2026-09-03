@@ -134,7 +134,7 @@ nv_lib = library(
   'nv',
   # 'src/main.c',
   include_directories: inc,
-  c_pch: 'pch/nv_pch.h',
+  c_pch: 'pch/nv_pch.hpp',
   dependencies: dependencies,
   install: true,
   cpp_args: cargs,
@@ -142,7 +142,7 @@ nv_lib = library(
 
 nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
 
-meson.override_dependency('nv', nv_dep)
+meson.override_dependency('libnv', nv_dep)
 
 dependencies += nv_dep
 
