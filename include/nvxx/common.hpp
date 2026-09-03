@@ -277,7 +277,7 @@ struct StaticString {
   }
 
   static consteval usize len() noexcept { return static_cast<usize>(N); }
-  static consteval usize ilen() noexcept { return N; }
+  static consteval isize ilen() noexcept { return N; }
 
   static consteval bool is_empty() noexcept { return len() == 0; }
   consteval operator Str() const noexcept { return this->str(); }
