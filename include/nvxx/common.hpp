@@ -277,6 +277,8 @@ struct StaticString {
   }
 
   static consteval usize len() noexcept { return static_cast<usize>(N); }
+  static consteval usize ilen() noexcept { return N; }
+
   static consteval bool is_empty() noexcept { return len() == 0; }
   consteval operator Str() const noexcept { return this->str(); }
 
@@ -293,11 +295,11 @@ struct StaticString {
     StaticString<N + O> res = {};
 
     i32 iter = 0;
-    for (i32 i = 0; i < lhs.len(); i++, iter++) {
+    for (i32 i = 0; i < lhs.ilen(); i++, iter++) {
       res.data[iter] = lhs.data[i];
     }
 
-    for (i32 i = 0; i < rhs.len(); i++, iter++) {
+    for (i32 i = 0; i < rhs.ilen(); i++, iter++) {
       res.data[iter] = rhs.data[i];
     }
     return res;
