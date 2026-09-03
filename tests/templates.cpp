@@ -11,7 +11,7 @@ void setUp(void) {}
 void tearDown(void) {}
 
 void chunk_arena_works() {
-  nv::ArenaBuff ca = {};
+  nv::BufferAlloc ca = {};
   nv::Allocator all = ca.allocator();
   (void)all;
 }

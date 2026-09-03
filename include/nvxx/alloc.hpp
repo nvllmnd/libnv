@@ -7,7 +7,6 @@
 #include <memory>
 #include <type_traits>
 
-#include "nv/core/log.h"
 #include "nv/memory/alloc.h"
 #include "nvxx/common.hpp"
 #include "opt.hpp"
@@ -93,8 +92,9 @@ inline BumpResult bump_alloc(byte* current_top, const byte* end, Layout layout) 
 
 [[gnu::pure]]
 inline BumpResult bump_alloc(slice::Slice<byte> mem_slice, Layout layout) noexcept {
-  if (mem_slice.is_empty()) [[unlikely]]
-    [[unlikely]] { return opt::error_new(opt::Error::InvalidEmptySlice); }
+  if (mem_slice.is_empty()) [[unlikely]] {
+    return opt::error_new(opt::Error::InvalidEmptySlice);
+  }
   return bump_alloc(mem_slice.begin(), mem_slice.cend(), layout);
 }
 
@@ -111,7 +111,7 @@ constexpr Layout layout_bytes(isize n) noexcept { return {.size = n, .align = 1}
 
 template <typename T>
 constexpr Layout layout_array_of(isize n) noexcept {
-  return {.size = n * sizeof(T), .align = alignof(T)};
+  return {.size = n * static_cast<isize>(sizeof(T)), .align = static_cast<isize>(alignof(T))};
 }
 
 template <typename T>
@@ -162,8 +162,18 @@ struct MemBlock {
   Pointer ptr;
   isize count;
 
+  constexpr operator Str() const noexcept
+    requires(std::same_as<Unwrap<T>, char> || std::same_as<ValType<T>, const char>)
+  {
+    return Str{this->begin(), this->len()};
+  }
+
   constexpr bool is_scalar() const noexcept { return this->count == 1; }
-  constexpr Pointer operator->() const noexcept { return this->ptr; }
+  constexpr Pointer operator->() const noexcept
+    requires(std::is_object_v<Unwrap<T>>)
+  {
+    return this->ptr;
+  }
   constexpr Reference operator*() const noexcept { return *this->ptr; }
   constexpr decltype(auto) operator[](this auto& self, std::ptrdiff_t index) noexcept { *(self.ptr + index); }
 
@@ -184,6 +194,12 @@ struct MemBlock {
 
   constexpr void destruct() const noexcept { std::destroy_at(this->ptr); }
 };
+
+#undef eprintln
+#undef eprint
+
+#undef println
+#undef print
 
 /// @brief A pointer into a block of memory returned by an implementation of [Allocator]/[AllocatorTraits]
 /// @details clients recieving this type from an allocation function are expected to pass this block back to its
@@ -207,7 +223,10 @@ struct MemBlock<void> {
 
   template <class T>
   constexpr nv::opt::Opt<MemBlock<T>> try_cast_block() const noexcept {
-    if (sizeof(T) != this->layout.size || alignof(T) != this->layout.align) {
+    if (sizeof(T) != this->layout.size || alignof(T) != this->layout.align) [[unlikely]] {
+      nv::eprintln("Memory block with: Layout(size: {}, align: {}) does not match sizeof(T): {} and alignof(T): {}",
+                   this->size_bytes(), this->align(), sizeof(T), alignof(T));
+
       return opt::None;
     }
 
@@ -223,6 +242,9 @@ struct MemBlock<void> {
 
   template <class T>
   constexpr MemBlock<RemoveRef<T>> cast_block() const noexcept {
+    assert_debug(sizeof(T) == this->size_bytes() && alignof(T) == this->align(),
+                 "Memory block with: Layout(size: {}, align: {}) does not match sizeof(T): {} and alignof(T): {}",
+                 this->size_bytes(), this->align(), sizeof(T), alignof(T));
     return {.ptr = static_cast<RemoveRef<T>*>(this->ptr), .layout = {.size = sizeof(T), .align = alignof(T)}};
   }
 
@@ -278,20 +300,24 @@ concept StatelessAlloc = std::is_empty_v<T> && (BasicAllocator<T> || Reallocate<
 template <class T>
 concept AllocatorTraits = BasicAllocator<T> || Reallocate<T> || Resize<T> || StatelessAlloc<T>;
 
-template <class T, class U>
-concept AllocateIn = requires(T a) {
-  { a.template alloc<U>() } -> std::convertible_to<U*>;
-} && (AllocatorTraits<T> || StatelessAlloc<T>);
-
+/// @brief Allocation callback/function pointer, used in [AllocVtable] (and thus [Allocator]). Required
 using AllocFunc = AllocResult (*const)(void* ctx, Layout layout) noexcept;
+/// @brief Resize callback/function pointer, used in [AllocVtable] (and thus [Allocator]). optional.
 using ResizeFunc = bool (*const)(void* ctx, void* ptr, Layout old, Layout newl) noexcept;
+/// @brief Allocation callback/function pointer, used in [AllocVtable] (and thus [Allocator]). optional
 using ReallocFunc = AllocResult (*const)(void* ctx, void* ptr, Layout old, Layout newl) noexcept;
+/// @brief Allocation callback/function pointer, used in [AllocVtable] (and thus [Allocator]). Required
 using FreeFunc = void (*const)(void* ctx, void* ptr, Layout layout) noexcept;
 
-struct AllocVtable {
+/// @brief comptime table of allocation function pointers used by [Allocator] (and its implementations)
+struct AllocVtable final {
+  /// @see [AllocFunc]
   const AllocFunc alloc;
+  /// @see [ReallocFunc]
   const ReallocFunc realloc;
+  /// @see [ResizeFunc]
   const ResizeFunc resize;
+  /// @see [FreeFunc]
   const FreeFunc free;
 };
 
@@ -302,9 +328,9 @@ struct AllocVtable {
 /// You can use [vtable_adapter] and/or [VtableAdapter] to create a compile time [AllocVtable] which will call T's
 /// alloc,realloc,resize,and free if they are implemented on that type as methods
 ///
-struct Allocator {
+struct Allocator final {
   template <class T>
-  using Result = opt::Result<RemoveRef<T>*, opt::Error>;
+  using Result = opt::Result<MemBlock<RemoveRef<T>>, opt::Error>;
 
   void* const ctx;
   const AllocVtable* const vtable;
@@ -320,16 +346,18 @@ struct Allocator {
 
   template <class T>
   constexpr Result<T> allocate() const noexcept
-    requires(std::is_standard_layout_v<T> && std::is_trivially_constructible_v<T>)
+    requires(Pod<T>)
   {
     return static_cast<T*>(this->allocate(layout_of<T>));
   }
 
   template <class T>
   constexpr Result<T> alloc_array(isize count) const noexcept
-    requires(std::is_standard_layout_v<T> && std::is_trivially_constructible_v<T>)
+    requires(Pod<T>)
   {
-    return static_cast<T*>(this->allocate(layout_of_array_of<T>(count)));
+    return this->allocate(layout_array_of<T>(count))
+        .expect("Allocation of size {} bytes failed!", sizeof(T) * count)
+        .template cast_block<T>();
   }
 
   template <class T, class... Args>
@@ -469,12 +497,35 @@ constexpr Allocator allocator(const AllocVtable* vt = vtable_adapter<T>()) noexc
   return nv::allocator<T>(nullptr, vt);
 }
 
+template <isize N>
+using StaticMemory = std::array<byte, N>;
+
 /// @brief a fixed sized, bump-style arena allocator
 /// @details This is a lite cpp wrapper around the [Arena] C impl
-struct ArenaBuff final {
+struct BufferAlloc final {
   using CArena = ::NvArena;
+  using Self = BufferAlloc;
 
   CArena inner;
+
+  /// @brief (cons)tructs a new instance of [BufferAlloc] on the stack
+  [[gnu::pure, gnu::nonnull]]
+  static constexpr BufferAlloc cons(byte* begin, byte* end) noexcept {
+    const isize len = end - begin;
+    return {.inner = arena_new(begin, len)};
+  }
+
+  /// @brief (cons)tructs a new instance of [BufferAlloc] on the stack
+  [[gnu::pure]]
+  static constexpr BufferAlloc cons(byte* begin, isize size_bytes) noexcept {
+    return {.inner = arena_new(begin, size_bytes)};
+  }
+
+  /// @brief (cons)tructs a new instance of [BufferAlloc] on the stack
+  template <usize N>
+  constexpr BufferAlloc cons(StaticMemory<N>* mem) noexcept {
+    return Self::cons(mem->begin(), mem->end());
+  }
 
   [[gnu::always_inline]]
   constexpr AllocResult alloc(Layout layout) noexcept {
@@ -504,7 +555,7 @@ struct ArenaBuff final {
   [[gnu::returns_nonnull]]
   static constexpr const AllocVtable* vtable() noexcept {
     // vtable_adapter<ChunkArena>();
-    return VtableAdapter<ArenaBuff>::vtable();
+    return VtableAdapter<BufferAlloc>::vtable();
   }
 
   constexpr Allocator allocator() noexcept { return Allocator{.ctx = static_cast<void*>(this), .vtable = vtable()}; }
@@ -512,24 +563,6 @@ struct ArenaBuff final {
   constexpr usize available() const noexcept { return arena_avail(&this->inner); }
   constexpr usize used_bytes() const noexcept { return arena_used_bytes(&this->inner); }
 };
-
-[[gnu::pure, gnu::nonnull]]
-constexpr ArenaBuff arena_buff_new(byte* begin, byte* end) noexcept {
-  const isize len = end - begin;
-  return {.inner = arena_new(begin, len)};
-}
-[[gnu::pure]]
-constexpr ArenaBuff arena_buff_new(byte* begin, isize size_bytes) noexcept {
-  return {.inner = arena_new(begin, size_bytes)};
-}
-
-template <isize N>
-using StaticMemory = std::array<byte, N>;
-
-template <usize N>
-constexpr ArenaBuff arena_buff_new(StaticMemory<N>* mem) noexcept {
-  return arena_buff_new(mem->begin(), mem->end());
-}
 
 template <class T>
 concept MemResourceAlloc = AllocatorTraits<T> && MemoryResource<typename T::Resource>;

@@ -16,6 +16,29 @@
 #include <type_traits>
 #include <utility>
 
+#ifdef println
+#undef println
+#endif
+
+#ifdef print
+#undef print
+#endif
+
+#ifdef eprintln
+#undef eprintln
+#endif
+
+#ifdef eprint
+#undef eprint
+#endif
+
+#ifdef print_fd
+#undef print_fd
+#endif
+#ifdef println_fd
+#undef println_fd
+#endif
+
 #if __has_builtin(__builtin_trap)
 #ifndef EXIT_FATAL
 #define EXIT_FATAL() __builtin_trap()
@@ -169,29 +192,6 @@ consteval Str static_str(StringLiteral<N> s) noexcept {
   static_assert(N >= 0, "template arguement N must be >= 0!");
   return Str{s, N};
 }
-
-#ifdef println
-#undef println
-#endif
-
-#ifdef print
-#undef print
-#endif
-
-#ifdef eprintln
-#undef eprintln
-#endif
-
-#ifdef eprint
-#undef eprint
-#endif
-
-#ifdef print_fd
-#undef print_fd
-#endif
-#ifdef println_fd
-#undef println_fd
-#endif
 
 #ifdef __cpp_lib_print
 
