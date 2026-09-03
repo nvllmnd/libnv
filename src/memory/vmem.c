@@ -21,7 +21,7 @@
 #include "nv/memory/error.h"
 
 /// @brief mmap wrapper
-void* vmemory_map(isize size_bytes, bool noreserve) {
+void* vmap_memory(isize size_bytes, bool noreserve) {
   const i32 flags = noreserve ? (MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE) : (MAP_PRIVATE | MAP_ANONYMOUS);
 
   const i64 size = max(size_bytes, os_page_size());
@@ -37,7 +37,7 @@ void* vmemory_map(isize size_bytes, bool noreserve) {
 }
 
 /// @brief mremap wrapper
-void* vmemory_remap(void* ptr, const isize old_size, const isize new_size_bytes, const bool relocate) {
+void* vremap_memory(void* ptr, const isize old_size, const isize new_size_bytes, const bool relocate) {
   assert(ptr);
 
   i32 flags = 0;
@@ -64,7 +64,7 @@ void* vmemory_remap(void* ptr, const isize old_size, const isize new_size_bytes,
 }
 
 /// @brief munmap wrapper
-void vmemory_unmap(void* ptr, isize size_bytes) {
+void vunmap_memory(void* ptr, isize size_bytes) {
   if (is_not_null(ptr) && size_bytes >= os_page_size()) {
     const i64 size = size_bytes;
     const error err = munmap(ptr, size);

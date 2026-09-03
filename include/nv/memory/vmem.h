@@ -37,13 +37,13 @@ static constexpr const i64 VMEM_PREFIX_SIZE = sizeof(VMem);
 i64 os_page_size(void);
 
 /// @brief mmap wrapper
-void* vmemory_map(isize size_bytes, bool noreserve) MALLOC_FUNC HEDLEY_NO_THROW;
+void* vmap_memory(isize size_bytes, bool noreserve) MALLOC_FUNC HEDLEY_NO_THROW;
 
 /// @brief mremap wrapper
-void* vmemory_remap(void* ptr, isize old_size, isize new_size_bytes, bool relocate) HEDLEY_NO_THROW PARAMS_NONNULL();
+void* vremap_memory(void* ptr, isize old_size, isize new_size_bytes, bool relocate) HEDLEY_NO_THROW PARAMS_NONNULL();
 
 /// @brief munmap wrapper
-void vmemory_unmap(void* ptr, isize size_bytes) PARAMS_NONNULL() HEDLEY_NO_THROW;
+void vunmap_memory(void* ptr, isize size_bytes) PARAMS_NONNULL() HEDLEY_NO_THROW;
 
 PURE_FUNC
 METHOD

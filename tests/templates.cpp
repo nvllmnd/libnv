@@ -6,8 +6,6 @@
 #include "nvxx/alloc.hpp"
 #include "unity.h"
 
-#include <iostream>
-
 void setUp(void) {}
 
 void tearDown(void) {}
@@ -18,18 +16,19 @@ void chunk_arena_works() {
   (void)all;
 }
 
-// void ptr_and_result_types() {
-//   Ptr<const i32> arr{new i32[50]()};
-//
-//   take(*arr);
-//
-//   delete[] arr.data;
-// }
-//
+void static_string_append() {
+  static constexpr nv::StaticString<4> x = "left";
+  static constexpr nv::StaticString<1> z = "|";
+  static constexpr nv::StaticString<5> y = "right";
+  static constexpr nv::StaticString<10> xzy = (x + z) + y;
+  static_assert(xzy == "left|right");
+
+  TEST_ASSERT_EQUAL_STRING_LEN("left|right", xzy.str().data(), xzy.str().length());
+}
+
 i32 main(void) {
   UNITY_BEGIN();
-
-  // RUN_TEST(opt_works_with_nonnull);
+  RUN_TEST(static_string_append);
   // RUN_TEST(ptr_and_result_types);
 
   return UNITY_END();

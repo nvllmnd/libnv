@@ -1,5 +1,7 @@
 #pragma once
 
+#include <format>
+#include <print>
 #include <type_traits>
 #include "nvxx/common.hpp"
 #include "nv/core/log.h"
@@ -27,13 +29,7 @@ template <class T>
   requires(Pod<T>)
 struct Opt {
   static_assert(!std::is_reference_v<T>, "Opt cannot contain reference types. use std::reference_wrapper instead!");
-
-  using Type = T;
-  using ValueType = RemoveCvref<T>;
-  using Ref = std::add_lvalue_reference_t<ValueType>;
-  using ConstRef = const ValueType&;
-  using Pointer = ValueType*;
-  using ConstPointer = const ValueType*;
+  CONTAINER_TEMPLATE_TYPES(T);
 
   constexpr explicit Opt() noexcept = default;
 
@@ -61,36 +57,53 @@ struct Opt {
     return val;
   }
 
-  constexpr ConstRef ref() const noexcept {
+  constexpr ConstReference ref() const noexcept {
     if (this->is_some()) [[likely]] {
       return this->some;
     }
-    LOG_FATAL("Cannot get constant reference to inner value of Opt that conatins no value!%s", "");
+    LOG_FATAL("Cannot get constant reference to inner value of Opt that conatins no value!");
   }
 
-  constexpr Pointer operator->() noexcept {
-    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
+  constexpr Pointer operator->() noexcept
+    requires(std::is_object_v<RemovePtr<Unref<T>>>)
+  {
+    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value!");
     return &this->some;
   }
 
-  constexpr ConstPointer operator->() const noexcept {
-    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
+  constexpr ConstPointer operator->() const noexcept
+    requires(std::is_object_v<RemovePtr<Unref<T>>>)
+  {
+    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value!");
     return &this->some;
   }
 
-  constexpr Ref operator*() noexcept {
-    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
+  constexpr Reference operator*() noexcept {
+    assert_debug(this->has_some, "Cannot call unary operator * on Opt with no value!");
     return this->some;
   }
 
-  constexpr ConstRef operator*() const noexcept {
-    assert_debug(this->has_some, "Cannot call operator -> on Opt with no value! %s", "");
+  constexpr ConstReference operator*() const noexcept {
+    assert_debug(this->is_some(), "Cannot call unary operator * on Opt with no value!");
     return this->some;
   }
 
-  constexpr ValueType unwrap() const noexcept {
-    assert_debug(this->is_some(), "Cannot unwrap Opt containing None!");
-    return this->some;
+  constexpr ValueType unwrap() const noexcept { return this->expect("Cannot unwrap Opt containing None!"); }
+
+  // constexpr ValueType expect(Str message) const noexcept {
+  //   if (this->is_some()) [[likely]] {
+  //     return this->some;
+  //   }
+  //   log_fatal("{}", message);
+  // }
+
+  // constexpr void println(const std::format_string<Args...> fmt, Args&&... args) noexcept {
+  template <class... Args>
+  constexpr ValueType expect(const std::format_string<Args...> fmt, Args&&... args) const noexcept {
+    if (this->is_some()) [[likely]] {
+      return this->some;
+    }
+    log_fatal(fmt, std::forward<Args>(args)...);
   }
 
  private:
@@ -137,6 +150,12 @@ enum class Error : u64 {
   /// An implementaiton of the 'interface trait' Allocator returned an error value
   AllocITraitImplError = 1 << 2,
   OutOfMemory = 1 << 3,
+  /// @breif A function that takes a begginng and an ending iterator recieved invalid inputs.
+  /// @details An end iterator was given that comes before the begin iterator, instead of being equal or coming after
+  /// begin iterator
+  InvalidEndIterComesBeforeBegin = 1 << 4,
+  /// A function recieved an empty slice when it expects a non-empty one
+  InvalidEmptySlice = 1 << 5,
 };
 
 constexpr Error operator|(const Error& lhs, const Error& rhs) noexcept {
@@ -259,6 +278,36 @@ struct Result {
       return this->data;
     }
     LOG_FATAL("Cannot unwrap Result that contains Error value!");
+  }
+
+  constexpr ValueType expect(Str message) const noexcept {
+    if (this->is_ok()) {
+      return this->data;
+    }
+    log_fatal("{}", message);
+  }
+
+  template <class... Args>
+  constexpr ValueType expect(const std::format_string<Args...> fmt, Args&&... args) const noexcept {
+    if (this->is_ok()) {
+      return this->data;
+    }
+    log_fatal(fmt, std::forward<Args>(args)...);
+  }
+
+  constexpr ValueType expect_err(Str message) const noexcept {
+    if (this->is_err()) {
+      return this->err;
+    }
+    log_fatal("{}", message);
+  }
+
+  template <class... Args>
+  constexpr ValueType expect_err(const std::format_string<Args...> fmt, Args&&... args) const noexcept {
+    if (this->is_err()) {
+      return this->err;
+    }
+    log_fatal(fmt, std::forward<Args>(args)...);
   }
 
   constexpr ErrorType unwrap_err() const noexcept {
@@ -394,5 +443,8 @@ constexpr T unwrap(const Result<T, E>& res) noexcept {
     return *res;
   }
 }
+
+template <class T>
+using NvResult = Result<T, Error>;
 
 }  // namespace nv::opt

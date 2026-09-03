@@ -111,25 +111,24 @@ memory_dep = declare_dependency(
 
 dependencies += memory_dep
 
-# nvxx_lib = static_library(
-#   'nvxx',
-#   files(
-#     'src/nvxx/alloc.cpp',
-#   ),
-#   include_directories: inc,
-#   cpp_pch: 'pch/nv_pch.hpp',
-#   dependencies: dependencies,
-#   install: true,
-#   # c_args: cargs,
-#   cpp_args: cargs,
-# )
+nvxx_lib = static_library(
+  'nvxx',
+  files(
+    'src/nvxx/vmem.cpp',
+  ),
+  include_directories: inc,
+  cpp_pch: 'pch/nv_pch.hpp',
+  dependencies: dependencies,
+  install: true,
+  cpp_args: cargs,
+)
 
-# nvxx_dep = declare_dependency(
-#   include_directories: inc,
-#   link_with: nvxx_lib,
-# )
+nvxx_dep = declare_dependency(
+  include_directories: inc,
+  link_with: nvxx_lib,
+)
 
-# dependencies += nvxx_dep
+dependencies += nvxx_dep
 
 nv_lib = library(
   'nv',
@@ -138,7 +137,6 @@ nv_lib = library(
   c_pch: 'pch/nv_pch.h',
   dependencies: dependencies,
   install: true,
-  # c_args: cargs,
   cpp_args: cargs,
 )
 
@@ -147,15 +145,5 @@ nv_dep = declare_dependency(include_directories: inc, link_with: nv_lib)
 meson.override_dependency('nv', nv_dep)
 
 dependencies += nv_dep
-
-# cxx_exe = executable(
-#   'nvxx',
-#   files('src/nvxx/main.cpp'),
-#   include_directories: inc,
-#   cpp_pch: 'pch/nv_pch.hpp',
-#   dependencies: dependencies,
-#   install: true,
-#   cpp_args: cargs,
-# )
 
 subdir('tests')
