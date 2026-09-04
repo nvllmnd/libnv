@@ -376,6 +376,22 @@ constexpr void log_fatal(const std::format_string<Args...> fmt = "Fatal Error!",
   std::terminate();
 }
 
+template <class T>
+constexpr void* voidify(T* ptr) noexcept {
+  return static_cast<void*>(ptr);
+}
+
+template <class T>
+constexpr std::remove_reference_t<T>* cast(void* ptr) noexcept {
+  return static_cast<std::remove_reference_t<T>*>(ptr);
+}
+
+template <class T>
+  requires(std::is_standard_layout_v<T>)
+constexpr std::remove_reference_t<T>* cast(byte* ptr) noexcept {
+  return static_cast<std::remove_reference_t<T>*>(ptr);
+}
+
 inline namespace typeops {
 
 template <bool Condition, class Then, class Else>
@@ -642,7 +658,8 @@ template <class T>
 concept IsVoid = std::is_void_v<T>;
 
 template <class T>
-concept Copy = std::assignable_from<lvalue<Unwrap<T>>, Unwrap<T>>;
+concept Copy = (std::assignable_from<lvalue<Unwrap<T>>, const Unwrap<T>&> ||
+                std::constructible_from<lvalue<Unwrap<T>>, const Unwrap<T>&>);
 
 template <class T>
 concept Clone = requires(T a) {
@@ -650,11 +667,31 @@ concept Clone = requires(T a) {
 } && Copy<T>;
 
 template <class T>
+concept IsObject = std::is_object_v<T>;
+
+template <class T>
+concept IsArray = std::is_array_v<T>;
+
+template <class T>
+concept IsUnbounded = std::is_unbounded_array_v<T>;
+
+template <class T>
+concept IsEnum = std::is_enum_v<T>;
+
+template <class T>
+concept IsStruct = std::is_class_v<T>;
+
+template <class T>
+concept IsUnion = std::is_union_v<T>;
+
+template <class T>
 concept Default = std::default_initializable<T>;
+
+template <class T>
+concept Eq = std::equality_comparable<T>;
 
 template <class Func, class... Args>
 concept Callable = std::is_invocable_r_v<ReturnType<Func, Args...>, Func, Args...>;
-
 /// @brief Standard Layout and Trivial Type
 template <class T>
 concept Pod = std::is_standard_layout_v<T> && std::is_trivially_destructible_v<T>;
@@ -672,6 +709,10 @@ template <class Func, class... Args>
 constexpr bool Callable = std::is_invocable_r_v<ReturnType<Func, Args...>, Func, Args...>;
 
 #endif
+
+template <class T>
+  requires(Default<Unwrap<T>> && Eq<Unwrap<T>>)
+constexpr bool is_empty(const Unref<T>& self) noexcept {}
 
 }  // namespace nv
 
