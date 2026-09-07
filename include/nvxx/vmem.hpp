@@ -7,14 +7,33 @@ namespace nv {
 struct PageAlloc {
   static AllocResult alloc(Layout layout) noexcept;
 
-  static Memory alloc_expect(Layout layout) noexcept { return PageAlloc::alloc(layout).unwrap(); }
+  static inline AllocResult alloc(isize size, isize align) noexcept {
+    return PageAlloc::alloc(Layout{.size = size, .align = align});
+  }
 
   [[gnu::nonnull]]
   static bool resize(void* ptr, Layout old_layout, Layout new_layout) noexcept;
+
+  [[gnu::nonnull]]
+  static inline bool resize(void* ptr, isize old_size, isize new_size) noexcept {
+    return PageAlloc::resize(ptr, Layout{old_size, 1}, Layout{new_size, 1});
+  }
+
   [[gnu::nonnull]]
   static AllocResult realloc(void* ptr, Layout old_layout, Layout new_layout) noexcept;
+
+  [[gnu::nonnull]]
+  static inline AllocResult realloc(void* ptr, isize old_size, isize new_size) noexcept {
+    return PageAlloc::realloc(ptr, Layout{old_size, 1}, Layout{new_size, 1});
+  }
+
   [[gnu::nonnull]]
   static void free(void* ptr, Layout layout) noexcept;
+
+  [[gnu::nonnull]]
+  static inline void free(void* ptr, isize size) noexcept {
+    return PageAlloc::free(ptr, Layout{size, 1});
+  }
 
   constexpr operator Allocator() const noexcept { return nv::allocator<PageAlloc>(); }
 

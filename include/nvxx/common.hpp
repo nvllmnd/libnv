@@ -16,6 +16,16 @@
 #include <type_traits>
 #include <utility>
 
+#define REQ_METHOD(T, x) /* conveinence macro for inline requires to test if T has a method*/ (requires(T a) { a.x(); })
+
+#define REQ_METHOD_RET(T, x, ret) /* same as [REQ_METHOD], but checks that method has a specified return type*/ \
+  (requires(T a) {                                                                                              \
+    { a.x(); } noexcept -> ret                                                                                  \
+  })
+
+#define REQ_TNAME(T, x) /*convience macro for inline requires to test if T has a  nested typename*/ \
+  requires { typename T::x; })
+
 #ifdef println
 #undef println
 #endif
@@ -240,134 +250,6 @@ constexpr void eprint(const std::format_string<Args...> fmt, Args&&... args) noe
 }
 
 #endif
-
-/// @brief a compile-time only, static string (literal)
-/// @details non-type template paramter N does not account for null terminal
-/// Supports concatenating and initializing from string literals, all at compile time!
-template <isize N>
-struct StaticString {
-  static_assert(N >= 0, "N must be >= 0!");
-
-  /// @brief +1 for null terminal!
-  char data[N + 1];
-
-  consteval StaticString() noexcept = default;
-
-  template <isize O = N>
-  consteval StaticString(StringLiteral<O> str) noexcept {
-    static_assert(O >= 0, "O must be >= 0!");
-    const isize len = std::min(N, O);
-
-    for (i32 i = 0; i < len; i++) {
-      this->data[i] = str[i];
-    }
-    this->data[len] = '\0';
-  }
-
-  template <isize O = N>
-  consteval StaticString(StringLiteralPtr<O> strp) noexcept {
-    static_assert(O >= 0, "O must be >= 0!");
-    const isize len = std::min(N, O);
-    auto str = *strp;
-
-    for (i32 i = 0; i < len; i++) {
-      this->data[i] = str[i];
-    }
-    this->data[len] = '\0';
-  }
-
-  static consteval usize len() noexcept { return static_cast<usize>(N); }
-  static consteval isize ilen() noexcept { return N; }
-
-  static consteval bool is_empty() noexcept { return len() == 0; }
-  consteval operator Str() const noexcept { return this->str(); }
-
-  consteval const char* begin() const noexcept { return &this->data[0]; }
-  consteval const char* end() const noexcept { return this->begin() + this->len(); }
-
-  consteval const char* ptr() const noexcept { return &this->data[0]; }
-
-  consteval Str str() const noexcept { return Str{this->ptr(), this->len()}; }
-
-  template <isize O = N>
-  consteval StaticString<N + O> concat(const StaticString<O>& rhs) const noexcept {
-    const auto& lhs = *this;
-    StaticString<N + O> res = {};
-
-    i32 iter = 0;
-    for (i32 i = 0; i < lhs.ilen(); i++, iter++) {
-      res.data[iter] = lhs.data[i];
-    }
-
-    for (i32 i = 0; i < rhs.ilen(); i++, iter++) {
-      res.data[iter] = rhs.data[i];
-    }
-    return res;
-  }
-
-  template <isize I>
-  consteval const char& index() const noexcept {
-    static_assert(I >= 0 && I < N, "Index out of range!");
-    return this->operator[](I);
-  }
-
-  consteval decltype(auto) operator[](this auto& self, std::ptrdiff_t index) noexcept { return self.data[index]; }
-};
-
-template <isize L, isize R>
-consteval StaticString<L + R> operator+(const StaticString<L>& lhs, const StaticString<R>& rhs) noexcept {
-  return lhs.concat(rhs);
-}
-
-template <isize L, isize R>
-consteval bool operator==(const StaticString<L>& lhs, const StaticString<R>& rhs) noexcept {
-  if (L != R) {
-    return false;
-  }
-  for (i32 i = 0; i < lhs.len(); i++) {
-    if (lhs[i] != rhs[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-template <isize L, isize R>
-consteval bool operator!=(const StaticString<L>& lhs, const StaticString<R>& rhs) noexcept {
-  return !(lhs == rhs);
-}
-
-template <isize N>
-consteval bool operator==(const StaticString<N>& self, const Str& rhs) noexcept {
-  if (N != rhs.length()) {
-    return false;
-  }
-  for (i32 i = 0; i < N; i++) {
-    if (self[i] != rhs[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-template <isize N>
-consteval bool operator!=(const StaticString<N>& self, const Str& rhs) noexcept {
-  return !(self == rhs);
-}
-
-template <isize N>
-StaticString(ArrayLvref<char, N>) -> StaticString<N - 1>;
-
-template <isize N>
-StaticString(ArrayLvref<const char, N>) -> StaticString<N - 1>;
-
-template <isize N>
-StaticString(std::array<const char, N>) -> StaticString<N - 1>;
-
-template <isize N>
-constexpr StaticString<N - 1> static_string(StringLiteral<N> lit) noexcept {
-  return StaticString<N - 1>{lit};
-}
 
 template <class... Args>
 [[noreturn]]
@@ -710,10 +592,33 @@ constexpr bool Callable = std::is_invocable_r_v<ReturnType<Func, Args...>, Func,
 
 #endif
 
+/// @brief invokes [is_empty] method on value of T, if it exists
+/// If T does not have an is_empty method, you can use [is_zeroed] instead
 template <class T>
-  requires(Default<Unwrap<T>> && Eq<Unwrap<T>>)
-constexpr bool is_empty(const Unref<T>& self) noexcept {}
+  requires requires(const T& a) {
+    { a.is_empty() } noexcept -> std::same_as<bool>;
+  }
+constexpr bool is_empty(const T& self) noexcept {
+  return self.is_empty();
+}
 
+/// @brief Equality compares given value with a zeroed (default) instance of T on the stack
+/// @details T must be default initializable and equality comparible with itself (const T&) in order to match this
+/// overload
+template <class T>
+  requires(Default<T> && Eq<T>)
+constexpr bool is_zeroed(const T& self) noexcept {
+  static constexpr const Unref<T>& EMPTY{};
+  return self == EMPTY;
+}
+
+/// @brief compar s given T value with a zeroed instance of T using [std::memcmp]
+template <class T>
+  requires(!Eq<T> && Default<T> && StdLayout<T>)
+constexpr bool is_zeroed(const T& self) noexcept {
+  static constexpr const Unref<T>& EMPTY{};
+  return std::memcmp(&self, &EMPTY, sizeof(Unref<T>)) == 0;
+}
 }  // namespace nv
 
 #define CONTAINER_TEMPLATE_TYPES_AS(Prefix, T)                              \

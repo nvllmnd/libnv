@@ -5,11 +5,13 @@
 
 namespace nv {
 
+// TODO: Add error logging to the error path of allocation interface impl functions (here and elsewhere!)
+
 AllocResult PageAlloc::alloc(Layout layout) noexcept {
   if (void* ptr = vmap_memory(layout.size, false)) [[likely]] {
-    return Memory{.ptr = ptr, .layout = layout};
+    return ptr;
   }
-  return opt::error_new(opt::Error::MmapFailed);
+  return nullptr;
 }
 
 bool PageAlloc::resize(void* ptr, Layout old_layout, Layout new_layout) noexcept {
@@ -23,9 +25,9 @@ bool PageAlloc::resize(void* ptr, Layout old_layout, Layout new_layout) noexcept
 AllocResult PageAlloc::realloc(void* ptr, Layout old_layout, Layout new_layout) noexcept {
   assert(ptr);
   if (void* res = vremap_memory(ptr, old_layout.size, new_layout.size, true)) [[likely]] {
-    return Memory{.ptr = res, .layout = new_layout};
+    return res;
   }
-  return opt::error_new(opt::Error::OutOfMemory);
+  return nullptr;
 }
 
 void PageAlloc::free(void* ptr, Layout layout) noexcept {

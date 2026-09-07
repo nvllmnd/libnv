@@ -3,15 +3,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "nvxx/common.hpp"
-#include "nvxx/alloc.hpp"
+// #include "nvxx/alloc.hpp"
+#include "nvxx/str.hpp"
 #include "unity.h"
 
 void setUp(void) {}
 
 void tearDown(void) {}
 
+constexpr void fun(nv::slice::Slice<byte> sl) { nv::is_zeroed(sl); }
+
 void chunk_arena_works() {
-  nv::BufferAlloc ca = {};
+  nv::BumpArena ca = {};
   nv::Allocator all = ca.allocator();
   (void)all;
 }
@@ -29,7 +32,7 @@ void static_string_append() {
 i32 main(void) {
   UNITY_BEGIN();
   RUN_TEST(static_string_append);
-  // RUN_TEST(ptr_and_result_types);
+  RUN_TEST(chunk_arena_works);
 
   return UNITY_END();
 }

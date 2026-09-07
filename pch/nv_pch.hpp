@@ -22,6 +22,10 @@
 #include <utility>
 #include <print>
 
+#include <string>
+#include <iterator>
+#include <limits>
+#include <source_location>
 #include <cassert>
 #include <cerrno>
 #include <cstdalign>
