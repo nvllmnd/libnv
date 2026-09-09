@@ -202,7 +202,7 @@
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
-    const error _err = (_expr);                                              \
+    const auto _err = (_expr);                                               \
     if (_err != 0) {                                                         \
       LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
       return (_retval);                                                      \
@@ -214,7 +214,7 @@
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
-    const error _err = (_expr);                                              \
+    const auto _err = (_expr);                                               \
     if (_err != 0) {                                                         \
       LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
       return;                                                                \
@@ -226,7 +226,7 @@
    * surrounding function with the error value if it is no equal to 0. This  \
    * macro can only be used inside functions that return [error](int) */     \
   do {                                                                       \
-    const error _err = (_expr);                                              \
+    const auto _err = (_expr);                                               \
     if (_err != 0) {                                                         \
       LOG_ERROR("<<Bail>> => %s", error_string(_err));                       \
       return _err;                                                           \
@@ -241,7 +241,7 @@
    * anywhere in the case you want to handle an error dynamicaly inside a     \
    * function that does not return [error](int)*/                             \
   do {                                                                        \
-    const error _err = (_expr);                                               \
+    const auto _err = (_expr);                                                \
     if (_err != 0) {                                                          \
       (_orelse);                                                              \
     }                                                                         \
@@ -256,7 +256,7 @@
    * version of this macro that returns from the surrounding function with the \
    * return value of given callback, see: [tryerr_or_ret]*/                    \
   do {                                                                         \
-    const error _err = (_expr);                                                \
+    const auto _err = (_expr);                                                 \
     if (_err != 0) {                                                           \
       (_cb)(_err, __VA_ARGS__);                                                \
     }                                                                          \

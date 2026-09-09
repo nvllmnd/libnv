@@ -15,7 +15,7 @@ constexpr void fun(nv::slice::Slice<byte> sl) { nv::is_zeroed(sl); }
 
 void chunk_arena_works() {
   nv::BumpArena ca = {};
-  nv::Allocator all = ca.allocator();
+  nv::AllocContext all = ca.context();
   (void)all;
 }
 

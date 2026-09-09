@@ -135,36 +135,44 @@ constexpr StaticString<N - 1> static_string(StringLiteral<N> lit) noexcept {
   return StaticString<N - 1>{lit};
 }
 
-template <class Alloc>
-  requires(IsVoid<Alloc> || IsAllocatorStruct<Alloc> || AllocatorTraits<Alloc>)
-struct String {
+namespace priv {
+
+struct StringOps {
+  constexpr isize len(this auto& self) noexcept { return self.count; }
+  constexpr char* begin(this auto& self) noexcept { return &self.data[0]; }
+  constexpr char* end(this auto& self) noexcept { return self.begin() + self.len(); }
+};
+
+}  // namespace priv
+
+template <class A>
+struct String;
+
+template <class A>
+  requires(std::is_empty_v<A> && Allocator<A>)
+struct String<A> : priv::StringOps {
+  static_assert(std::is_object_v<A>,
+                "Template parameter A for String must be object (not a pointer or reference type)");
+  using Alloc = A;
+  using Self = String<A>;
+
   char* data;
-  isize len;
-  Alloc alloc;
+  isize count;
+};
+
+template <class A>
+  requires(!std::is_empty_v<A> && Allocator<A>)
+struct String<A> : priv::StringOps {
+  char* data;
+  isize count;
+  A alloc;
 };
 
 template <>
-struct String<Allocator> {
+struct String<AllocContext> : priv::StringOps {
   char* data;
-  isize len;
-  Allocator alloc;
-};
-
-template <>
-struct String<void> {
-  using Self = String<void>;
-  char* data;
-  isize len;
-
-  // static constexpr Self cons(isize len, Allocator alloc) noexcept {
-  //   if (const auto _opt = (alloc.template alloc_array<char>(len)))
-  //     for (auto [val, _running] = std::tuple{_opt.unwrap(), true}; _running; _running = false) {
-  //     }
-  //
-  //   // if (char* ptr = alloc.alloc_array<char>(len)) {
-  //   //
-  //   // }
-  // }
+  isize count;
+  AllocContext alloc;
 };
 
 }  // namespace nv

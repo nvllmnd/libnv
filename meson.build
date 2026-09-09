@@ -25,8 +25,6 @@ if not meson.is_subproject()
 
 endif
 
-hedley_dep = dependency('hedley')
-
 cargs = []
 
 if host_machine.system() == 'windows' or host_machine.system() == 'cygwin'
@@ -53,7 +51,6 @@ cc = meson.get_compiler('cpp')
 math_dep = cc.find_library('m', required: false)
 
 dependencies = [
-  hedley_dep,
   math_dep,
 ]
 

@@ -7,32 +7,29 @@ namespace nv {
 
 // TODO: Add error logging to the error path of allocation interface impl functions (here and elsewhere!)
 
-AllocResult PageAlloc::alloc(Layout layout) noexcept {
-  if (void* ptr = vmap_memory(layout.size, false)) [[likely]] {
-    return ptr;
-  }
-  return nullptr;
-}
-
-bool PageAlloc::resize(void* ptr, Layout old_layout, Layout new_layout) noexcept {
+[[gnu::nonnull]]
+bool Vmem::resize(void* ptr, isize old_size, isize new_size) noexcept {
   assert(ptr);
-  if (vremap_memory(ptr, old_layout.size, new_layout.size, false)) {
+  if (vremap_memory(ptr, old_size, new_size, false)) {
     return true;
   }
   return false;
 }
 
-AllocResult PageAlloc::realloc(void* ptr, Layout old_layout, Layout new_layout) noexcept {
+AllocResult Vmem::alloc(isize size, isize) noexcept { return vmap_memory(size, false); }
+
+AllocResult Vmem::realloc(void* ptr, isize old_size, isize new_size) noexcept {
   assert(ptr);
-  if (void* res = vremap_memory(ptr, old_layout.size, new_layout.size, true)) [[likely]] {
+  if (void* res = vremap_memory(ptr, old_size, new_size, true)) [[likely]] {
     return res;
   }
   return nullptr;
 }
 
-void PageAlloc::free(void* ptr, Layout layout) noexcept {
+[[gnu::nonnull]]
+void free(void* ptr, isize size) noexcept {
   assert(ptr);
-  vunmap_memory(ptr, layout.size);
+  vunmap_memory(ptr, size);
 }
 
 }  // namespace nv

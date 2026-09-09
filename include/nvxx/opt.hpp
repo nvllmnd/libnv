@@ -223,49 +223,33 @@ struct Result {
 
   constexpr operator bool() const noexcept { return this->is_okay; }
 
-  constexpr Reference operator*() noexcept
-    requires(!std::is_const_v<T>)
-  {
-    return this->data;
-  }
-  constexpr ConstReference operator*() const noexcept
-    requires(std::is_const_v<T>)
-  {
-    return this->data;
-  }
+  constexpr Reference operator*() noexcept { return this->data; }
+  constexpr ConstReference operator*() const noexcept { return this->data; }
 
   constexpr Pointer operator->() noexcept { return &this->data; }
 
-  constexpr ErrorConstReference error() const noexcept
-    requires(std::is_const_v<E>)
-  {
+  constexpr ErrorConstReference error() const noexcept {
     if (this->is_ok()) {
       LOG_FATAL("Cannot return error value for a Result that contains a T value!");
     }
     return this->err.err;
   }
 
-  constexpr ErrorReference error() noexcept
-    requires(!std::is_const_v<E>)
-  {
+  constexpr ErrorReference error() noexcept {
     if (this->is_ok()) {
       LOG_FATAL("Cannot return error value for a Result that contains a T value!");
     }
     return this->err.err;
   }
 
-  constexpr ConstReference value() const noexcept
-    requires(std::is_const_v<T>)
-  {
+  constexpr ConstReference value() const noexcept {
     if (this->is_err()) {
       LOG_FATAL("Cannot return T value for a Result that contains an error value!");
     }
     return this->data;
   }
 
-  constexpr Reference value() noexcept
-    requires(!std::is_const_v<T>)
-  {
+  constexpr Reference value() noexcept {
     if (this->is_err()) {
       LOG_FATAL("Cannot return T value for a Result that contains an error value!");
     }

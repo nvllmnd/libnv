@@ -173,6 +173,10 @@ using isize = ptrdiff_t;
 
 namespace nv {
 
+/// @brief creates a valid nullptr value for type T
+template <class T>
+inline constexpr auto Nullptr = static_cast<T*>(nullptr);
+
 using Sview = std::string_view;
 using Str = Sview;
 
@@ -202,6 +206,18 @@ consteval Str static_str(StringLiteral<N> s) noexcept {
   static_assert(N >= 0, "template arguement N must be >= 0!");
   return Str{s, N};
 }
+
+template <class T, isize N>
+using Array = std::array<T, N>;
+
+/// @brief base class to be inherited from dervied types that desire Rust-like move-only semantics
+struct MoveOnly {
+  constexpr MoveOnly() noexcept = default;
+  constexpr MoveOnly(MoveOnly&&) noexcept = default;
+  constexpr MoveOnly& operator=(MoveOnly&&) noexcept = default;
+  constexpr MoveOnly(const MoveOnly&) noexcept = delete;
+  constexpr MoveOnly& operator=(const MoveOnly&) noexcept = delete;
+};
 
 #ifdef __cpp_lib_print
 
@@ -251,6 +267,15 @@ constexpr void eprint(const std::format_string<Args...> fmt, Args&&... args) noe
 
 #endif
 
+template <class T, usize N = alignof(T)>
+constexpr bool is_aligned(T* ptr) {
+  return std::bit_cast<std::uintptr_t>(ptr) % N == 0;
+}
+template <std::size_t N, class T>
+constexpr bool is_aligned(T* ptr) {
+  return is_aligned<T, N>(ptr);
+}
+
 template <class... Args>
 [[noreturn]]
 constexpr void log_fatal(const std::format_string<Args...> fmt = "Fatal Error!", Args&&... args) noexcept {
@@ -264,13 +289,13 @@ constexpr void* voidify(T* ptr) noexcept {
 }
 
 template <class T>
-constexpr std::remove_reference_t<T>* cast(void* ptr) noexcept {
+constexpr std::remove_reference_t<T>* ptr_cast(void* ptr) noexcept {
   return static_cast<std::remove_reference_t<T>*>(ptr);
 }
 
 template <class T>
   requires(std::is_standard_layout_v<T>)
-constexpr std::remove_reference_t<T>* cast(byte* ptr) noexcept {
+constexpr std::remove_reference_t<T>* ptr_cast(byte* ptr) noexcept {
   return static_cast<std::remove_reference_t<T>*>(ptr);
 }
 
@@ -508,13 +533,15 @@ inline constexpr struct {
 
 namespace nv {
 
-// template <class T>
-// using Atom = std::conditional_t < IsRef << T >>>
-//     ;
-//
-// static_assert(std::is_same_v<i32, ValType<const int*&>>);
-
 #if defined(__cpp_concepts)
+
+template <class T>
+concept Cursorlike = requires(const T& a) {
+  { a.cursor() } noexcept -> std::convertible_to<typename T::IterType>;
+  { a.begin() } noexcept -> std::convertible_to<typename T::IterType>;
+  { a.end() } noexcept -> std::convertible_to<typename T::IterType>;
+};
+
 template <class T>
 concept IsRef = std::is_reference_v<T>;
 
