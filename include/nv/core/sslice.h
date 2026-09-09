@@ -67,6 +67,21 @@ typedef struct sslice sslice;
 #define empty_string() static_string("")
 #define sstring_new static_string
 
+#else
+// #undef sslice_new
+// #undef sslice_empty
+// #undef sslice_static_new
+//
+// constexpr sslice sslice_empty() noexcept { return {}; }
+//
+// constexpr sslice sslice_new(const char* begin = nullptr, i32 len = 0) noexcept { return {.begin = begin, .len = len};
+// }
+//
+// template <isize N>
+// constexpr sslice sslice_static_new(const char (&str)[N]) noexcept {
+//   return {.begin = str, .len = N - 1};
+// }
+
 #endif
 
 BEGIN_C_DECLS

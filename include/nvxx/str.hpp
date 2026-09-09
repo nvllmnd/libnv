@@ -38,6 +38,31 @@ struct StaticString {
     this->data[len] = '\0';
   }
 
+  consteval auto operator<=>(const StaticString<N>& rhs) const noexcept = default;
+
+  template <isize O = N>
+  consteval auto operator<=>(const StaticString<O>& rhs) const noexcept {
+    if constexpr (O < N) {
+      return -1;
+    } else if constexpr (O > N) {
+      return 1;
+    } else {
+      return this->str() <=> rhs.str();
+    }
+  }
+
+  consteval auto operator<=>(Str rhs) const noexcept { return this->str() <=> rhs; }
+
+  template <isize O = N>
+  consteval auto operator<=>(StringLiteral<O> rhs) const noexcept {
+    return *this <=> StaticString{rhs};
+  }
+
+  template <isize O = N>
+  consteval auto operator<=>(StringLiteralPtr<O> rhs) const noexcept {
+    return *this <=> StaticString{rhs};
+  }
+
   static consteval usize len() noexcept { return static_cast<usize>(N); }
   static consteval isize ilen() noexcept { return N; }
 
@@ -71,6 +96,7 @@ struct StaticString {
     return res;
   }
 
+  /// @brief same as operator[], but does a static_assert to ensure given index is within string bounds
   template <isize I>
   consteval const char& index() const noexcept {
     static_assert(I >= 0 && I < N, "Index out of range!");
@@ -80,12 +106,17 @@ struct StaticString {
   consteval decltype(auto) operator[](this auto& self, std::ptrdiff_t index) noexcept { return self.data[index]; }
 };
 
-template <isize L, isize R>
+template <isize N>
+constexpr lvalue<std::ostream> operator<<(lvalue<std::ostream> out, const StaticString<N>& rhs) noexcept {
+  return out << rhs.str();
+}
+
+template <isize L, isize R = L>
 consteval StaticString<L + R> operator+(const StaticString<L>& lhs, const StaticString<R>& rhs) noexcept {
   return lhs.concat(rhs);
 }
 
-template <isize L, isize R>
+template <isize L, isize R = L>
 consteval bool operator==(const StaticString<L>& lhs, const StaticString<R>& rhs) noexcept {
   if (L != R) {
     return false;
@@ -132,7 +163,11 @@ StaticString(std::array<const char, N>) -> StaticString<N - 1>;
 
 template <isize N>
 constexpr StaticString<N - 1> static_string(StringLiteral<N> lit) noexcept {
-  return StaticString<N - 1>{lit};
+  if constexpr (N == 0) {
+    return {};
+  } else {
+    return StaticString<N - 1>{lit};
+  }
 }
 
 namespace priv {
