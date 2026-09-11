@@ -72,14 +72,13 @@ typedef struct sslice sslice;
 // #undef sslice_empty
 // #undef sslice_static_new
 //
+// namespace nv {
 // constexpr sslice sslice_empty() noexcept { return {}; }
-//
-// constexpr sslice sslice_new(const char* begin = nullptr, i32 len = 0) noexcept { return {.begin = begin, .len = len};
-// }
 //
 // template <isize N>
 // constexpr sslice sslice_static_new(const char (&str)[N]) noexcept {
 //   return {.begin = str, .len = N - 1};
+// }
 // }
 
 #endif
