@@ -47,8 +47,8 @@ FORMAT_FUNC(3, 4)
 RETURNS_ERROR
 FormatError format_with(char* dst, isize dst_len, const char* fmt, ...);
 
-#define print_fd(fd, fmt, ...) (fprintf(fd, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define println_fd(fd, fmt, ...) (print_fd(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
+#define PRINT_FD(fd, fmt, ...) (fprintf(fd, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define PRINTLN_FD(fd, fmt, ...) (PRINT_FD(fd, fmt "\n" __VA_OPT__(, ) __VA_ARGS__))
 
 #ifndef NV_LOG_FILE
 #define NV_LOG_FILE 0
@@ -59,40 +59,19 @@ FormatError format_with(char* dst, isize dst_len, const char* fmt, ...);
 extern FILE* NV_LOG_STREAM;
 extern FILE* NV_ERR_STREAM;
 
-#define eprint(fmt, ...) (fprintf(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define eprintln(fmt, ...) (println_fd(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define EPRINT(fmt, ...) (fprintf(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define EPRINTLN(fmt, ...) (PRINTLN_FD(NV_ERR_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 
-#if defined(__cplusplus) && __cplusplus >= 202207L
-
-#define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+#define PRINTLN(fmt, ...) (PRINTLN_FD(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define PRINT(fmt, ...) (PRINT_FD(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
 
 #else
 
-#define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
+#define PRINTLN(fmt, ...) (PRINTLN_FD(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define PRINT(fmt, ...) (PRINT_FD(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
 
-#endif
-
-#define println(fmt, ...) (println_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define print(fmt, ...) (print_fd(NV_LOG_STREAM, fmt __VA_OPT__(, ) __VA_ARGS__))
-
-#else
-
-#define eprint(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define eprintln(fmt, ...) (println_fd(stderr, fmt, __VA_ARGS__))
-
-#if defined(__cplusplus) && __cplusplus >= 202207L
-
-#define PRINT(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define PRINTLN(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
-
-#else
-
-#define print(fmt, ...) (fprintf(stdout, fmt __VA_OPT__(, ) __VA_ARGS__))
-#define println(fmt, ...) (println_fd(stdout, fmt, __VA_ARGS__))
-
-#endif
+#define EPRINT(fmt, ...) (fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__))
+#define EPRINTLN(fmt, ...) (PRINTLN_FD(stderr, fmt, __VA_ARGS__))
 
 #endif
 
@@ -135,7 +114,7 @@ void vprint_error(const char* fmt, va_list args);
 #define LOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 #define ELOG_CTX(CTX_NAME, _fmt, ...) (print_error(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
-#define NVERROR(_fmt, ...) (eprintln(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
+#define NVERROR(_fmt, ...) (EPRINTLN(FILE_FMT _fmt, FILE_FMT_ARGS(CTX_NAME __VA_OPT__(, ) __VA_ARGS__)))
 
 #ifdef NDEBUG
 
@@ -204,6 +183,6 @@ void vprint_error(const char* fmt, va_list args);
 
 #endif
 
-#define LOG(fmt, ...) (println(fmt __VA_OPT__(, ) __VA_ARGS__))
+#define LOG(fmt, ...) (PRINTLN(fmt __VA_OPT__(, ) __VA_ARGS__))
 
 END_C_DECLS

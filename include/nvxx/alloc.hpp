@@ -3,6 +3,7 @@
 #include <array>
 #include <concepts>
 
+#include <cstddef>
 #include <memory>
 #include <type_traits>
 
@@ -21,6 +22,8 @@
 #ifdef __cplusplus
 
 namespace nv {
+
+inline constexpr auto DEFAULT_ALIGN = alignof(std::max_align_t);
 
 template <class T>
   requires(std::is_unbounded_array_v<typename T::FlexMemberType>)

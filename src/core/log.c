@@ -37,7 +37,7 @@ void sfprint(FILE* fd, sslice str) { fprintf(fd, "%.*s", RSSPREAD(str)); }
 
 void sfprintln(FILE* fd, sslice str) { fprintf(fd, "%.*s\n", RSSPREAD(str)); }
 
-void sprint(sslice str) { print("%.*s", RSSPREAD(str)); }
+void sprint(sslice str) { PRINT("%.*s", RSSPREAD(str)); }
 
 void sprintln(sslice str) { printf("%.*s\n", RSSPREAD(str)); }
 
@@ -71,11 +71,11 @@ NvError print_stack_trace(const i32 depth) {
     return NVERROR;
   }
 
-  eprintln("##### Stack Trace ####");
+  EPRINTLN("##### Stack Trace ####");
   for (i32 i = 0; i < tsym_len; i++) {
-    eprintln("in function: %s", tsyms[i]);
+    EPRINTLN("in function: %s", tsyms[i]);
   }
-  eprintln("#### End Stack Trace ####");
+  EPRINTLN("#### End Stack Trace ####");
   free(tsyms);
 
   return NVOK;
@@ -97,7 +97,7 @@ void vlog_fatal(const char* fmt, va_list args) {
   const error err = errno;
 
   if UNLIKELY (trace_abort() != NVOK) {
-    eprintln("#### Failed to print stack trace! ####");
+    EPRINTLN("#### Failed to print stack trace! ####");
   }
 
   errno = err;
